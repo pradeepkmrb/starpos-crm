@@ -1,0 +1,8 @@
+{
+  "extends": "@digitel/config/tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["prisma/**/*.ts"]
+}

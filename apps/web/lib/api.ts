@@ -1,0 +1,413 @@
+import type { PlanCode, TenantRole } from "@digitel/shared";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getAccessToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, body.message ?? `Request failed (${res.status})`);
+  }
+  return body as T;
+}
+
+// --- token storage (client-side only; simplification documented in the
+// Phase 1 plan — moving to an httpOnly cookie behind a same-origin proxy is
+// a Phase 6 hardening item) ---
+
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("digitel_access_token");
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("digitel_refresh_token");
+}
+
+function storeTokens(tokens: { accessToken: string; refreshToken: string }) {
+  localStorage.setItem("digitel_access_token", tokens.accessToken);
+  localStorage.setItem("digitel_refresh_token", tokens.refreshToken);
+}
+
+export function clearTokens() {
+  localStorage.removeItem("digitel_access_token");
+  localStorage.removeItem("digitel_refresh_token");
+}
+
+// --- types ---
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+export interface AuthTenant {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthUser;
+  tenant: AuthTenant;
+  role: TenantRole;
+}
+
+export interface Member {
+  id: string;
+  role: TenantRole;
+  status: string;
+  user: AuthUser;
+}
+
+export interface Invite {
+  id: string;
+  email: string;
+  role: TenantRole;
+  acceptedAt: string | null;
+  expiresAt: string;
+}
+
+// --- calls ---
+
+export async function register(input: {
+  email: string;
+  password: string;
+  name: string;
+  tenantName: string;
+}) {
+  const data = await request<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  storeTokens(data);
+  return data;
+}
+
+export async function login(input: { email: string; password: string }) {
+  const data = await request<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  storeTokens(data);
+  return data;
+}
+
+export function me() {
+  return request<{ user: AuthUser; tenant: AuthTenant; role: TenantRole }>("/auth/me");
+}
+
+export function listMembers() {
+  return request<Member[]>("/tenants/members");
+}
+
+export function listInvites() {
+  return request<Invite[]>("/tenants/invites");
+}
+
+export function createInvite(input: { email: string; role: TenantRole }) {
+  return request<Invite & { acceptUrl: string }>("/tenants/invites", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function acceptInvite(input: { token: string; password?: string; name?: string }) {
+  return request<AuthResponse>("/auth/accept-invite", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).then((data) => {
+    storeTokens(data);
+    return data;
+  });
+}
+
+// --- WhatsApp channels ---
+
+export interface Channel {
+  id: string;
+  wabaId: string;
+  phoneNumberId: string;
+  displayPhoneNumber: string;
+  status: "active" | "disconnected";
+  messagingTier: string | null;
+  createdAt: string;
+}
+
+export interface MessageLogEntry {
+  id: string;
+  direction: "inbound" | "outbound";
+  status: string;
+  waMessageId: string | null;
+  createdAt: string;
+  contact: { id: string; whatsappNumber: string; name: string | null };
+}
+
+export function listChannels() {
+  return request<Channel[]>("/channels");
+}
+
+export function createChannel(input: {
+  wabaId: string;
+  phoneNumberId: string;
+  displayPhoneNumber: string;
+  accessToken: string;
+}) {
+  return request<Channel>("/channels", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function disconnectChannel(channelId: string) {
+  return request<Channel>(`/channels/${channelId}/disconnect`, { method: "POST" });
+}
+
+export function listChannelTemplates(channelId: string) {
+  return request<unknown[]>(`/channels/${channelId}/templates`);
+}
+
+export function listChannelMessages(channelId: string) {
+  return request<MessageLogEntry[]>(`/channels/${channelId}/messages`);
+}
+
+export function testSend(channelId: string, input: { to: string; templateName: string; languageCode?: string }) {
+  return request<MessageLogEntry>(`/channels/${channelId}/test-send`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+// --- Contacts ---
+
+export interface ContactListSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  _count: { members: number };
+}
+
+export interface ImportResult {
+  listId: string | null;
+  listName: string;
+  totalDataRows: number;
+  invalidRowCount: number;
+  duplicateInFileCount: number;
+  newContacts: number;
+  existingContactsLinked: number;
+}
+
+export function listContactLists() {
+  return request<ContactListSummary[]>("/contacts/lists");
+}
+
+export function importContacts(input: { listName: string; csvText: string }) {
+  return request<ImportResult>("/contacts/import", { method: "POST", body: JSON.stringify(input) });
+}
+
+// --- Campaigns ---
+
+export interface Campaign {
+  id: string;
+  status: "draft" | "scheduled" | "sending" | "completed" | "failed";
+  createdAt: string;
+  channel: { displayPhoneNumber: string };
+  targetList: { name: string };
+  recipientStats?: Record<string, number>;
+}
+
+export interface CampaignRecipient {
+  id: string;
+  status: "pending" | "queued" | "sent" | "delivered" | "read" | "failed";
+  error: string | null;
+  contact: { whatsappNumber: string; name: string | null };
+}
+
+export interface CampaignDetail extends Campaign {
+  recipients: CampaignRecipient[];
+}
+
+export function listCampaigns() {
+  return request<Campaign[]>("/campaigns");
+}
+
+export function getCampaign(id: string) {
+  return request<CampaignDetail>(`/campaigns/${id}`);
+}
+
+export function launchCampaign(input: {
+  channelId: string;
+  targetListId: string;
+  templateName: string;
+  languageCode?: string;
+}) {
+  return request<CampaignDetail>("/campaigns", { method: "POST", body: JSON.stringify(input) });
+}
+
+// --- Automations ---
+
+export interface AutomationStep {
+  id: string;
+  order: number;
+  action: "send_text" | "send_template";
+  configJson: { body?: string; templateName?: string; languageCode?: string };
+  delaySeconds: number;
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  isActive: boolean;
+  triggerType: "keyword" | "welcome" | "external";
+  triggerConfigJson: { keywords?: string[]; matchType?: "contains" | "exact" };
+  createdAt: string;
+  steps: AutomationStep[];
+  channel: { displayPhoneNumber: string };
+}
+
+export interface CreateAutomationInput {
+  name: string;
+  channelId: string;
+  triggerType: "keyword" | "welcome";
+  keywords?: string[];
+  matchType?: "contains" | "exact";
+  steps: {
+    action: "send_text" | "send_template";
+    value: string;
+    languageCode?: string;
+    delaySeconds?: number;
+  }[];
+}
+
+export function listAutomations() {
+  return request<Automation[]>("/automations");
+}
+
+export function createAutomation(input: CreateAutomationInput) {
+  return request<Automation>("/automations", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function setAutomationActive(id: string, isActive: boolean) {
+  return request<Automation>(`/automations/${id}/${isActive ? "activate" : "deactivate"}`, {
+    method: "POST",
+  });
+}
+
+export function deleteAutomation(id: string) {
+  return request<{ deleted: boolean }>(`/automations/${id}`, { method: "DELETE" });
+}
+
+// --- Billing ---
+
+export interface PlanRecord {
+  id: string;
+  code: PlanCode;
+  name: string;
+  priceInPaise: number;
+  razorpayPlanId: string | null;
+  maxContacts: number;
+  maxChannels: number;
+  maxAutomations: number;
+  maxTeamSeats: number;
+  maxApiRequestsPerMonth: number;
+  aiAutoReply: boolean;
+  advancedAnalytics: boolean;
+  prioritySupport: boolean;
+}
+
+export interface BillingOverview {
+  currentPlan: PlanRecord;
+  subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  overLimit: boolean;
+  billingConfigured: boolean;
+  usage: {
+    contacts: number;
+    channels: number;
+    automations: number;
+    teamSeats: number;
+    apiRequests: number;
+  };
+  limits: {
+    maxContacts: number;
+    maxChannels: number;
+    maxAutomations: number;
+    maxTeamSeats: number;
+    maxApiRequestsPerMonth: number;
+  };
+  availablePlans: PlanRecord[];
+}
+
+export function getBillingOverview() {
+  return request<BillingOverview>("/billing");
+}
+
+export function startCheckout(planCode: PlanCode) {
+  return request<{
+    planCode: PlanCode;
+    providerSubscriptionId: string;
+    checkoutPayload: { short_url?: string };
+  }>("/billing/checkout", { method: "POST", body: JSON.stringify({ planCode }) });
+}
+
+// --- Analytics ---
+
+export interface MessageTotals {
+  outbound: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  inbound: number;
+  deliveryRate: number;
+  readRate: number;
+  failureRate: number;
+}
+
+export interface DailyPoint {
+  date: string;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  inbound: number;
+}
+
+export interface ChannelBreakdown {
+  channelId: string;
+  displayPhoneNumber: string;
+  outbound: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  inbound: number;
+}
+
+export interface AnalyticsOverview {
+  since: string;
+  totals: MessageTotals;
+  dailySeries: DailyPoint[];
+  byChannel: ChannelBreakdown[];
+}
+
+export function getAnalyticsOverview(days = 14, channelId?: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (channelId) params.set("channelId", channelId);
+  return request<AnalyticsOverview>(`/analytics/overview?${params.toString()}`);
+}

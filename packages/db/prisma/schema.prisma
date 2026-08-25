@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity / Billing ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships TenantMembership[]
+  invitesSent TenantInvite[]     @relation("InvitedBy")
+}
+
+model Tenant {
+  id                 String   @id @default(cuid())
+  name               String
+  slug               String   @unique
+  planId              String
+  status             TenantStatus @default(active)
+  timezone           String   @default("Asia/Kolkata")
+  razorpayCustomerId String?
+  overLimit          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  plan         Plan               @relation(fields: [planId], references: [id])
+  memberships  TenantMembership[]
+  invites      TenantInvite[]
+  subscription Subscription?
+  invoices     Invoice[]
+  apiUsage     TenantApiUsage[]
+
+  channels           WhatsappChannel[]
+  contacts           Contact[]
+  contactLists       ContactList[]
+  templates          MessageTemplate[]
+  campaigns          Campaign[]
+  messageLogs        MessageLog[]
+  automationWorkflows AutomationWorkflow[]
+}
+
+enum TenantStatus {
+  active
+  suspended
+}
+
+model TenantMembership {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+  role     TenantRole @default(agent)
+  status   MembershipStatus @default(active)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+enum TenantRole {
+  owner
+  admin
+  agent
+  viewer
+}
+
+enum MembershipStatus {
+  active
+  removed
+}
+
+model TenantInvite {
+  id            String   @id @default(cuid())
+  tenantId      String
+  email         String
+  role          TenantRole @default(agent)
+  token         String   @unique
+  expiresAt     DateTime
+  invitedByUserId String
+  acceptedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedByUser User  @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Plan {
+  id                       String  @id @default(cuid())
+  code                     String  @unique // free | professional | enterprise
+  name                     String
+  priceInPaise             Int
+  razorpayPlanId           String?
+  maxChannels              Int     // -1 = unlimited
+  maxContacts              Int
+  maxAutomations           Int
+  maxApiRequestsPerMonth   Int
+  maxTeamSeats             Int
+  aiAutoReply              Boolean @default(false)
+  advancedAnalytics        Boolean @default(false)
+  prioritySupport          Boolean @default(false)
+  createdAt                DateTime @default(now())
+
+  tenants       Tenant[]
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                     String   @id @default(cuid())
+  tenantId               String   @unique
+  planId                 String
+  razorpaySubscriptionId String?
+  status                 SubscriptionStatus @default(active)
+  currentPeriodStart     DateTime @default(now())
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+  invoices Invoice[]
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  canceled
+}
+
+model Invoice {
+  id               String   @id @default(cuid())
+  tenantId         String
+  subscriptionId   String?
+  razorpayInvoiceId String?
+  amountPaise      Int
+  status           String
+  issuedAt         DateTime @default(now())
+  paidAt           DateTime?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId])
+}
+
+model TenantApiUsage {
+  tenantId     String
+  periodMonth  String // "YYYY-MM"
+  requestCount Int    @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, periodMonth])
+}
+
+// ---------- WhatsApp / Messaging ----------
+
+model WhatsappChannel {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  wabaId               String
+  phoneNumberId        String   @unique
+  displayPhoneNumber   String
+  accessTokenEncrypted String
+  status               ChannelStatus @default(active)
+  messagingTier        String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templates   MessageTemplate[]
+  campaigns   Campaign[]
+  messageLogs MessageLog[]
+  automationWorkflows AutomationWorkflow[]
+
+  @@index([tenantId])
+}
+
+enum ChannelStatus {
+  active
+  disconnected
+}
+
+model Contact {
+  id             String   @id @default(cuid())
+  tenantId       String
+  whatsappNumber String
+  name           String?
+  attributesJson Json?
+  optedIn        Boolean  @default(true)
+  source         String?
+  lastInboundAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listMemberships  ContactListMember[]
+  campaignRecipients CampaignRecipient[]
+  messageLogs      MessageLog[]
+
+  @@unique([tenantId, whatsappNumber])
+  @@index([tenantId])
+}
+
+model ContactList {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  type       ListType @default(static)
+  filterJson Json?
+  createdAt  DateTime @default(now())
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members ContactListMember[]
+  campaigns Campaign[]
+
+  @@index([tenantId])
+}
+
+enum ListType {
+  static
+  dynamic
+}
+
+model ContactListMember {
+  contactId String
+  listId    String
+
+  contact Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  list    ContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, listId])
+}
+
+model MessageTemplate {
+  id            String   @id @default(cuid())
+  tenantId      String
+  channelId     String
+  name          String
+  category      String
+  language      String
+  metaTemplateId String?
+  status        TemplateStatus @default(draft)
+  bodyJson      Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel   WhatsappChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([tenantId])
+}
+
+enum TemplateStatus {
+  draft
+  pending
+  approved
+  rejected
+}
+
+model Campaign {
+  id           String   @id @default(cuid())
+  tenantId     String
+  channelId    String
+  templateId   String
+  targetListId String
+  status       CampaignStatus @default(draft)
+  scheduledAt  DateTime?
+  statsJson    Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel    WhatsappChannel    @relation(fields: [channelId], references: [id])
+  template   MessageTemplate    @relation(fields: [templateId], references: [id])
+  targetList ContactList        @relation(fields: [targetListId], references: [id])
+  recipients CampaignRecipient[]
+
+  @@index([tenantId])
+}
+
+enum CampaignStatus {
+  draft
+  scheduled
+  sending
+  completed
+  failed
+}
+
+model CampaignRecipient {
+  id            String   @id @default(cuid())
+  campaignId    String
+  contactId     String
+  status        RecipientStatus @default(pending)
+  messageLogId  String?  @unique
+  error         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact    Contact     @relation(fields: [contactId], references: [id])
+  messageLog MessageLog? @relation(fields: [messageLogId], references: [id])
+
+  @@index([campaignId])
+}
+
+enum RecipientStatus {
+  pending
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+model MessageLog {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  channelId            String
+  contactId            String
+  direction            MessageDirection
+  waMessageId          String?  @unique
+  status               String
+  campaignId           String?
+  automationWorkflowId String?
+  payloadJson          Json?
+  createdAt            DateTime @default(now())
+  statusUpdatedAt      DateTime @default(now())
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel  WhatsappChannel    @relation(fields: [channelId], references: [id])
+  contact  Contact            @relation(fields: [contactId], references: [id])
+  recipient CampaignRecipient?
+
+  @@index([tenantId])
+  @@index([contactId])
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+model AutomationWorkflow {
+  id              String   @id @default(cuid())
+  tenantId        String
+  channelId       String
+  name            String
+  isActive        Boolean  @default(true)
+  triggerType     TriggerType
+  triggerConfigJson Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel WhatsappChannel    @relation(fields: [channelId], references: [id])
+  steps   AutomationStep[]
+
+  @@index([tenantId])
+}
+
+enum TriggerType {
+  keyword
+  welcome
+  external
+}
+
+model AutomationStep {
+  id            String   @id @default(cuid())
+  workflowId    String
+  order         Int
+  action        StepAction
+  configJson    Json
+  delaySeconds  Int      @default(0)
+
+  workflow AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+}
+
+enum StepAction {
+  send_text
+  send_template
+}
+
+model WebhookEvent {
+  id              String   @id @default(cuid())
+  provider        String   // meta | razorpay
+  externalEventId String
+  rawPayloadJson  Json
+  receivedAt      DateTime @default(now())
+  processedAt     DateTime?
+
+  @@unique([provider, externalEventId])
+}
