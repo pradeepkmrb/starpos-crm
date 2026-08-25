@@ -45,6 +45,25 @@ export class ChannelsService {
     return channel;
   }
 
+  /** Auto-provisioned via Meta Embedded Signup — same limit check and encryption as manual createChannel. */
+  async createChannelFromEmbeddedSignup(
+    tenantId: string,
+    params: { wabaId: string; phoneNumberId: string; accessToken: string; displayPhoneNumber: string },
+  ) {
+    await this.entitlements.assertCanAdd(tenantId, "channels");
+
+    return this.prisma.whatsappChannel.create({
+      data: {
+        tenantId,
+        wabaId: params.wabaId,
+        phoneNumberId: params.phoneNumberId,
+        displayPhoneNumber: params.displayPhoneNumber,
+        accessTokenEncrypted: encryptToken(params.accessToken),
+      },
+      select: SAFE_CHANNEL_SELECT,
+    });
+  }
+
   async disconnectChannel(tenantId: string, channelId: string) {
     const channel = await this.prisma.whatsappChannel.findFirst({ where: { id: channelId, tenantId } });
     if (!channel) throw new NotFoundException("Channel not found");

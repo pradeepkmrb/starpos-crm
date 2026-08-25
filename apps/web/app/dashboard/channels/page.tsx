@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { roleAtLeast, type TenantRole } from "@digitel/shared";
-import { ApiError, type Channel, getAccessToken, listChannels, me } from "../../../lib/api";
+import {
+  ApiError,
+  type Channel,
+  type PlatformPublicConfig,
+  getAccessToken,
+  getPlatformPublicConfig,
+  listChannels,
+  me,
+} from "../../../lib/api";
 import { ConnectChannelForm } from "./ConnectChannelForm";
+import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
 import { ChannelCard } from "./ChannelCard";
 
 export default function ChannelsPage() {
@@ -12,6 +21,7 @@ export default function ChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [platformConfig, setPlatformConfig] = useState<PlatformPublicConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,9 +31,14 @@ export default function ChannelsPage() {
     }
     (async () => {
       try {
-        const [meRes, channelsRes] = await Promise.all([me(), listChannels()]);
+        const [meRes, channelsRes, platformConfigRes] = await Promise.all([
+          me(),
+          listChannels(),
+          getPlatformPublicConfig(),
+        ]);
         setRole(meRes.role);
         setChannels(channelsRes);
+        setPlatformConfig(platformConfigRes);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
@@ -58,7 +73,22 @@ export default function ChannelsPage() {
         ))}
       </div>
 
-      {canManage && (
+      {canManage && platformConfig?.configured && (
+        <section className="card mt-8 p-6">
+          <h2 className="text-lg font-semibold text-slate-900">Connect a WhatsApp channel</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Connect your WhatsApp Business account through Meta — no credentials to copy.
+          </p>
+          <div className="mt-4">
+            <EmbeddedSignupButton
+              config={platformConfig}
+              onConnected={(channel) => setChannels((prev) => [...prev, channel])}
+            />
+          </div>
+        </section>
+      )}
+
+      {canManage && !platformConfig?.configured && (
         <ConnectChannelForm
           onConnected={(channel) => setChannels((prev) => [...prev, channel])}
         />

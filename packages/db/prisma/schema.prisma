@@ -11,12 +11,13 @@ datasource db {
 // ---------- Identity / Billing ----------
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  name            String?
+  isPlatformAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   memberships TenantMembership[]
   invitesSent TenantInvite[]     @relation("InvitedBy")
@@ -397,6 +398,18 @@ model AutomationStep {
 enum StepAction {
   send_text
   send_template
+}
+
+// ---------- Platform-level (agency operator) settings ----------
+
+/// Singleton row (id fixed to "singleton") — the shared Meta Tech Provider app credentials that power Embedded Signup for every tenant.
+model PlatformSettings {
+  id                         String   @id @default("singleton")
+  metaAppId                  String?
+  metaAppSecretEncrypted     String?
+  metaEmbeddedSignupConfigId String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
 model WebhookEvent {

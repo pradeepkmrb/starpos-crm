@@ -2,8 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { decryptToken } from "../../common/token-encryption";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 
-const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION ?? "v21.0";
-const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+export const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION ?? "v21.0";
+export const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 export interface ChannelCredentials {
   tenantId: string;

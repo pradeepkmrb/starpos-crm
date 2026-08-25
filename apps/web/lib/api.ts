@@ -115,7 +115,9 @@ export async function login(input: { email: string; password: string }) {
 }
 
 export function me() {
-  return request<{ user: AuthUser; tenant: AuthTenant; role: TenantRole }>("/auth/me");
+  return request<{ user: AuthUser; tenant: AuthTenant; role: TenantRole; isPlatformAdmin: boolean }>(
+    "/auth/me",
+  );
 }
 
 export function listMembers() {
@@ -410,4 +412,44 @@ export function getAnalyticsOverview(days = 14, channelId?: string) {
   const params = new URLSearchParams({ days: String(days) });
   if (channelId) params.set("channelId", channelId);
   return request<AnalyticsOverview>(`/analytics/overview?${params.toString()}`);
+}
+
+// --- Platform admin / Embedded Signup ---
+
+export interface PlatformPublicConfig {
+  metaAppId: string | null;
+  embeddedSignupConfigId: string | null;
+  configured: boolean;
+}
+
+export interface PlatformSettings {
+  metaAppId: string | null;
+  embeddedSignupConfigId: string | null;
+  hasSecret: boolean;
+}
+
+export function getPlatformPublicConfig() {
+  return request<PlatformPublicConfig>("/platform/public-config");
+}
+
+export function getPlatformSettings() {
+  return request<PlatformSettings>("/platform/settings");
+}
+
+export function updatePlatformSettings(input: {
+  metaAppId?: string;
+  metaAppSecret?: string;
+  metaEmbeddedSignupConfigId?: string;
+}) {
+  return request<PlatformSettings>("/platform/settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function completeEmbeddedSignup(input: { code: string; wabaId: string; phoneNumberId: string }) {
+  return request<Channel>("/channels/embedded-signup", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

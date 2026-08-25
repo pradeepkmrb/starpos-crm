@@ -14,6 +14,7 @@ import {
   HomeIcon,
   LogoutIcon,
   MegaphoneIcon,
+  ShieldIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -27,12 +28,19 @@ const NAV_ITEMS = [
   { href: "/dashboard/billing", label: "Billing", icon: CreditCardIcon },
 ];
 
+const PLATFORM_ADMIN_NAV_ITEM = {
+  href: "/dashboard/platform-admin",
+  label: "Platform Admin",
+  icon: ShieldIcon,
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tenant, setTenant] = useState<AuthTenant | null>(null);
   const [role, setRole] = useState<TenantRole | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   useEffect(() => {
     if (!getAccessToken()) return;
@@ -41,12 +49,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setUser(res.user);
         setTenant(res.tenant);
         setRole(res.role);
+        setIsPlatformAdmin(res.isPlatformAdmin);
       })
       .catch(() => {
         // individual pages already handle 401 redirects; the sidebar just
         // stays in its loading state if this races with a bad token
       });
   }, [pathname]);
+
+  const navItems = isPlatformAdmin ? [...NAV_ITEMS, PLATFORM_ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   function logout() {
     clearTokens();
@@ -62,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = item.href === "/dashboard" ? pathname === item.href : pathname?.startsWith(item.href);
             const Icon = item.icon;
             return (
@@ -97,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-bold text-slate-900">Digitel</span>
           </div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active =
                 item.href === "/dashboard" ? pathname === item.href : pathname?.startsWith(item.href);
               return (

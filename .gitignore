@@ -11,3 +11,4 @@ coverage/
 Thumbs.db
 apps/api/dist/
 packages/db/generated/
+*.tsbuildinfo

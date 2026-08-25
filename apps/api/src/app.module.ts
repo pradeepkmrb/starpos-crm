@@ -14,6 +14,7 @@ import { AutomationsModule } from "./modules/automations/automations.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
+import { PlatformModule } from "./modules/platform/platform.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AnalyticsModule } from "./modules/analytics/analytics.module";
     AutomationsModule,
     BillingModule,
     AnalyticsModule,
+    PlatformModule,
   ],
 })
 export class AppModule implements NestModule {

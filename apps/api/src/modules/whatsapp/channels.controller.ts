@@ -3,8 +3,10 @@ import { Request } from "express";
 import { ChannelsService } from "./channels.service";
 import { MetaApiExceptionFilter } from "./meta-api-exception.filter";
 import { MetaGraphClient } from "./meta-graph.client";
+import { MetaOAuthService } from "./meta-oauth.service";
 import { CreateChannelDto } from "./dto/create-channel.dto";
 import { TestSendDto } from "./dto/test-send.dto";
+import { EmbeddedSignupDto } from "./dto/embedded-signup.dto";
 import { ContactsService } from "../contacts/contacts.service";
 import { MessageLogService } from "../messages/message-log.service";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
@@ -19,6 +21,7 @@ export class ChannelsController {
   constructor(
     private readonly channelsService: ChannelsService,
     private readonly metaGraphClient: MetaGraphClient,
+    private readonly metaOAuthService: MetaOAuthService,
     private readonly contactsService: ContactsService,
     private readonly messageLogService: MessageLogService,
   ) {}
@@ -32,6 +35,24 @@ export class ChannelsController {
   @Roles("admin")
   create(@Req() req: Request, @Body() dto: CreateChannelDto) {
     return this.channelsService.createChannel(req.tenantContext!.tenantId, dto);
+  }
+
+  @Post("embedded-signup")
+  @Roles("admin")
+  async embeddedSignup(@Req() req: Request, @Body() dto: EmbeddedSignupDto) {
+    const tenantId = req.tenantContext!.tenantId;
+
+    const shortLivedToken = await this.metaOAuthService.exchangeCodeForToken(dto.code);
+    const accessToken = await this.metaOAuthService.getLongLivedToken(shortLivedToken);
+    const { displayPhoneNumber } = await this.metaOAuthService.getPhoneNumberDetails(dto.phoneNumberId, accessToken);
+    await this.metaOAuthService.subscribeAppToWaba(dto.wabaId, accessToken);
+
+    return this.channelsService.createChannelFromEmbeddedSignup(tenantId, {
+      wabaId: dto.wabaId,
+      phoneNumberId: dto.phoneNumberId,
+      accessToken,
+      displayPhoneNumber,
+    });
   }
 
   @Post(":id/disconnect")

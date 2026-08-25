@@ -168,6 +168,7 @@ export class AuthService {
       user: { id: user.id, email: user.email, name: user.name },
       tenant: { id: membership.tenant.id, name: membership.tenant.name, slug: membership.tenant.slug },
       role: membership.role,
+      isPlatformAdmin: user.isPlatformAdmin,
     };
   }
 
