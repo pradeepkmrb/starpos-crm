@@ -9,18 +9,35 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          50: "#eafaf3",
-          100: "#cdf2df",
-          200: "#9de5c1",
-          300: "#65d09e",
-          400: "#37b981",
-          500: "#25d366", // WhatsApp green
-          600: "#1da851",
-          700: "#158a5f", // deep teal-green
-          800: "#128c7e", // WhatsApp teal
-          900: "#0c5c52",
-          950: "#073b35",
+          50: "#eef1ff",
+          100: "#dde4ff",
+          200: "#b8c5ff",
+          300: "#8ea0ff",
+          400: "#6478ff",
+          500: "#4256f0", // primary — cobalt blue
+          600: "#3140d1",
+          700: "#2731a8",
+          800: "#1f2680", // deep indigo — buttons, active nav
+          900: "#171c5e",
+          950: "#0d1038",
         },
+        ink: {
+          // Dark neutral scale for the nav shell — deliberately near-black
+          // rather than white, so the app's structure reads differently
+          // from a typical light-sidebar SaaS dashboard.
+          50: "#f5f6f8",
+          200: "#c9cdd6",
+          300: "#9aa1b0",
+          400: "#6b7280",
+          700: "#232838",
+          800: "#181c28",
+          900: "#0f121a",
+          950: "#0a0c12",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         card: "0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06)",

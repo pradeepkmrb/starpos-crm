@@ -2,6 +2,7 @@ import { forwardRef, Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { ChannelsService } from "./channels.service";
 import { ChannelsController } from "./channels.controller";
+import { TemplatesController } from "./templates.controller";
 import { MetaGraphClient } from "./meta-graph.client";
 import { WebhooksController } from "./webhooks.controller";
 import { WebhookProcessor } from "./webhook-processor.processor";
@@ -21,7 +22,7 @@ import { PlatformModule } from "../platform/platform.module";
     PlatformModule,
     forwardRef(() => AutomationsModule),
   ],
-  controllers: [ChannelsController, WebhooksController],
+  controllers: [ChannelsController, WebhooksController, TemplatesController],
   providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService],
   exports: [ChannelsService, MetaGraphClient, TemplatesService],
 })

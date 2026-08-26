@@ -5,8 +5,14 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
 import { ContactsService } from "../contacts/contacts.service";
 import { AutomationEngineService } from "../automations/automation-engine.service";
-import { MetaInboundMessage, MetaStatusUpdate, MetaWebhookPayload } from "./webhook-payload.types";
+import {
+  MetaInboundMessage,
+  MetaStatusUpdate,
+  MetaTemplateStatusUpdate,
+  MetaWebhookPayload,
+} from "./webhook-payload.types";
 import { WEBHOOK_QUEUE } from "./whatsapp.constants";
+import { mapMetaStatus } from "./templates.service";
 
 /**
  * Runs the actual webhook side-effects: contact upserts, MessageLog writes,
@@ -31,6 +37,16 @@ export class WebhookProcessor extends WorkerHost {
     for (const entry of job.data.entry ?? []) {
       for (const change of entry.changes ?? []) {
         const { value } = change;
+
+        // Template-approval callbacks arrive at the WABA level, not nested
+        // under a phone number, so this is handled before the phoneNumberId
+        // gate below (and looked up by metaTemplateId, which is unique on
+        // Meta's side, rather than needing a WABA-to-channel lookup).
+        if (change.field === "message_template_status_update" && value.message_template_id) {
+          await this.handleTemplateStatusUpdate(value as MetaTemplateStatusUpdate);
+          continue;
+        }
+
         const phoneNumberId = value.metadata?.phone_number_id;
         if (!phoneNumberId) continue;
 
@@ -88,6 +104,20 @@ export class WebhookProcessor extends WorkerHost {
     await this.prisma.messageLog.update({
       where: { id: log.id },
       data: { status: status.status, statusUpdatedAt: new Date() },
+    });
+  }
+
+  private async handleTemplateStatusUpdate(value: MetaTemplateStatusUpdate) {
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: { metaTemplateId: value.message_template_id },
+    });
+    if (!template) {
+      this.logger.warn(`Template status update for unknown metaTemplateId ${value.message_template_id}`);
+      return;
+    }
+    await this.prisma.messageTemplate.update({
+      where: { id: template.id },
+      data: { status: mapMetaStatus(value.event ?? "pending") },
     });
   }
 }

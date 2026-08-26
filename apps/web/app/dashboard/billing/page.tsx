@@ -59,7 +59,7 @@ export default function BillingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Billing &amp; usage</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Plan &amp; Usage</h1>
       <p className="mt-1 text-sm text-slate-500">
         You are on the <span className="font-medium text-slate-900">{data.currentPlan.name}</span> plan
         {data.subscription?.currentPeriodEnd &&

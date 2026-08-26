@@ -59,7 +59,7 @@ export default function ChannelsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">WhatsApp Channels</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Connections</h1>
       <p className="mt-1 text-sm text-slate-500">
         Connect a Meta WhatsApp Business Cloud API phone number to send and receive messages.
       </p>

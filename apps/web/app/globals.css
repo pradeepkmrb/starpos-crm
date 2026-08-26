@@ -6,6 +6,9 @@
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
 }
 
 @layer components {
@@ -50,9 +53,12 @@
   }
 
   .nav-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-ink-700 hover:text-white;
   }
   .nav-link-active {
-    @apply bg-brand-50 text-brand-800;
+    @apply bg-ink-700 text-white;
+  }
+  .nav-section-label {
+    @apply px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-ink-400;
   }
 }

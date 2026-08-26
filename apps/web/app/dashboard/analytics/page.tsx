@@ -52,7 +52,7 @@ export default function AnalyticsPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Insights</h1>
           <p className="mt-1 text-sm text-slate-500">
             Delivery performance across all your WhatsApp channels.
           </p>

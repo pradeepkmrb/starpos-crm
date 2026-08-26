@@ -31,25 +31,12 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) {
-      throw new ConflictException("An account with this email already exists");
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, 10);
-
-    // Atomic: if tenant creation fails partway (e.g. plans not seeded yet),
-    // the User row rolls back too instead of being stranded — a bare
-    // create() here previously left orphaned Users that could never
-    // register again (blocked by the email-conflict check above) and had
-    // no tenant to log into either.
-    const { user, tenant } = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: { email: dto.email, passwordHash, name: dto.name },
-      });
-      const tenant = await this.tenantsService.createTenantWithOwner(user.id, dto.tenantName, tx);
-      return { user, tenant };
-    });
+    const { user, tenant } = await this.createUserAndTenant(
+      dto.email,
+      dto.password,
+      dto.name,
+      dto.tenantName,
+    );
 
     return {
       ...this.issueTokens({ userId: user.id, tenantId: tenant.id, role: "owner" }),
@@ -57,6 +44,49 @@ export class AuthService {
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
       role: "owner" as TenantRole,
     };
+  }
+
+  /**
+   * Platform-admin tenant provisioning (no self-registration involved) — the
+   * admin types the owner's initial password directly and shares it with the
+   * customer out of band, same as invite links today (no email provider is
+   * wired up yet). Returns the created rows, not tokens: the admin isn't
+   * logging in as the new owner.
+   */
+  async adminCreateTenant(dto: { tenantName: string; ownerName: string; ownerEmail: string; ownerPassword: string }) {
+    const { user, tenant } = await this.createUserAndTenant(
+      dto.ownerEmail,
+      dto.ownerPassword,
+      dto.ownerName,
+      dto.tenantName,
+    );
+    return {
+      user: { id: user.id, email: user.email, name: user.name },
+      tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
+    };
+  }
+
+  /**
+   * Atomic: if tenant creation fails partway (e.g. plans not seeded yet), the
+   * User row rolls back too instead of being stranded — a bare create() here
+   * previously left orphaned Users that could never register again (blocked
+   * by the email-conflict check below) and had no tenant to log into either.
+   */
+  private async createUserAndTenant(email: string, password: string, name: string, tenantName: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException("An account with this email already exists");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email, passwordHash, name },
+      });
+      const tenant = await this.tenantsService.createTenantWithOwner(user.id, tenantName, tx);
+      return { user, tenant };
+    });
   }
 
   async login(dto: LoginDto) {

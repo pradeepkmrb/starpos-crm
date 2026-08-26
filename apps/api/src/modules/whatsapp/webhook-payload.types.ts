@@ -8,9 +8,20 @@ export interface MetaWebhookPayload {
         metadata?: { display_phone_number: string; phone_number_id: string };
         messages?: MetaInboundMessage[];
         statuses?: MetaStatusUpdate[];
+        message_template_id?: string;
+        message_template_name?: string;
+        message_template_language?: string;
+        event?: string;
       };
     }[];
   }[];
+}
+
+export interface MetaTemplateStatusUpdate {
+  message_template_id: string;
+  message_template_name?: string;
+  message_template_language?: string;
+  event?: string;
 }
 
 export interface MetaInboundMessage {

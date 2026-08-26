@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/comm
 import { Request } from "express";
 import { ContactsService } from "./contacts.service";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
+import { CreateContactDto } from "./dto/create-contact.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
@@ -31,5 +32,11 @@ export class ContactsController {
   @Roles("admin")
   import(@Req() req: Request, @Body() dto: ImportContactsDto) {
     return this.contactsService.importCsv(req.tenantContext!.tenantId, dto);
+  }
+
+  @Post()
+  @Roles("admin")
+  create(@Req() req: Request, @Body() dto: CreateContactDto) {
+    return this.contactsService.createContact(req.tenantContext!.tenantId, dto);
   }
 }

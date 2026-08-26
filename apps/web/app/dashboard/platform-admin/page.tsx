@@ -1,57 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  ApiError,
-  getAccessToken,
-  getPlatformSettings,
-  me,
-  updatePlatformSettings,
-  type PlatformSettings,
-} from "../../../lib/api";
+import { ApiError, getPlatformSettings, updatePlatformSettings, type PlatformSettings } from "../../../lib/api";
 
-export default function PlatformAdminPage() {
-  const router = useRouter();
+export default function PlatformAdminSettingsPage() {
   const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.push("/login");
-      return;
-    }
-    (async () => {
-      try {
-        const meRes = await me();
-        if (!meRes.isPlatformAdmin) {
-          router.push("/dashboard");
-          return;
-        }
-        setAuthorized(true);
-        setSettings(await getPlatformSettings());
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          router.push("/login");
-          return;
-        }
-        setError(err instanceof ApiError ? err.message : "Failed to load platform settings");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [router]);
+    getPlatformSettings()
+      .then(setSettings)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load platform settings"))
+      .finally(() => setLoading(false));
+  }, []);
 
   if (loading) return <p className="text-slate-500">Loading…</p>;
   if (error) return <p className="text-red-600">{error}</p>;
-  if (!authorized || !settings) return null;
+  if (!settings) return null;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Platform Admin</h1>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="text-sm text-slate-500">
         Configure the shared Meta App credentials that power WhatsApp Embedded Signup for every
         customer on this platform.
       </p>

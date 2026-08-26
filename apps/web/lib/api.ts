@@ -217,8 +217,24 @@ export interface ImportResult {
   existingContactsLinked: number;
 }
 
+export interface Contact {
+  id: string;
+  whatsappNumber: string;
+  name: string | null;
+  source: string | null;
+  createdAt: string;
+}
+
 export function listContactLists() {
   return request<ContactListSummary[]>("/contacts/lists");
+}
+
+export function listContacts() {
+  return request<Contact[]>("/contacts");
+}
+
+export function createContact(input: { whatsappNumber: string; name?: string }) {
+  return request<Contact>("/contacts", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function importContacts(input: { listName: string; csvText: string }) {
@@ -452,4 +468,68 @@ export function completeEmbeddedSignup(input: { code: string; wabaId: string; ph
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+// --- Templates ---
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  category: string;
+  language: string;
+  status: "draft" | "pending" | "approved" | "rejected";
+  metaTemplateId: string | null;
+  createdAt: string;
+}
+
+export function listTemplates() {
+  return request<MessageTemplate[]>("/templates");
+}
+
+export function createTemplate(input: {
+  channelId: string;
+  name: string;
+  category: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+  language: string;
+  bodyText: string;
+  bodyVariableExamples?: string[];
+}) {
+  return request<MessageTemplate>("/templates", { method: "POST", body: JSON.stringify(input) });
+}
+
+// --- Platform admin: cross-tenant directory ---
+
+export interface PlatformTenant {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  plan: { name: string; code: string; priceInPaise: number };
+  subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  memberships: { user: { email: string; name: string | null } }[];
+  _count: { memberships: number; channels: number };
+}
+
+export interface PlatformChannel extends Channel {
+  tenant: { id: string; name: string };
+}
+
+export function getPlatformTenants() {
+  return request<PlatformTenant[]>("/platform/tenants");
+}
+
+export function createPlatformTenant(input: {
+  tenantName: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+}) {
+  return request<{ user: AuthUser; tenant: AuthTenant }>("/platform/tenants", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getPlatformChannels() {
+  return request<PlatformChannel[]>("/platform/channels");
 }

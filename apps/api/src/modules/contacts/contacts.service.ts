@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { parseContactsCsv } from "./csv-parser";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
+import { CreateContactDto } from "./dto/create-contact.dto";
 
 @Injectable()
 export class ContactsService {
@@ -48,6 +49,20 @@ export class ContactsService {
       where: { tenantId },
       orderBy: { createdAt: "desc" },
       take,
+    });
+  }
+
+  async createContact(tenantId: string, dto: CreateContactDto) {
+    const existing = await this.prisma.contact.findUnique({
+      where: { tenantId_whatsappNumber: { tenantId, whatsappNumber: dto.whatsappNumber } },
+      select: { id: true },
+    });
+    if (existing) throw new ConflictException("A contact with this number already exists");
+
+    await this.entitlements.assertCanAdd(tenantId, "contacts");
+
+    return this.prisma.contact.create({
+      data: { tenantId, whatsappNumber: dto.whatsappNumber, name: dto.name, source: "manual" },
     });
   }
 

@@ -71,6 +71,26 @@ export class MetaGraphClient {
     return (res as { data?: unknown[] }).data ?? [];
   }
 
+  async createTemplate(
+    channel: ChannelCredentials,
+    params: { name: string; category: string; language: string; components: unknown[] },
+  ): Promise<{ id: string; status: string }> {
+    const res = (await this.graphFetch(channel, `/${channel.wabaId}/message_templates`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: params.name,
+        category: params.category,
+        language: params.language,
+        components: params.components,
+      }),
+    })) as { id?: string; status?: string };
+
+    if (!res.id) {
+      throw new MetaApiError("Meta API response did not include a template id");
+    }
+    return { id: res.id, status: res.status ?? "PENDING" };
+  }
+
   private async sendMessage(channel: ChannelCredentials, payload: unknown): Promise<SendMessageResult> {
     const res = (await this.graphFetch(channel, `/${channel.phoneNumberId}/messages`, {
       method: "POST",

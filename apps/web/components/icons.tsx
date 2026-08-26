@@ -88,6 +88,18 @@ export function CreditCardIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function DocumentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6 12.75h-3m3 3h-3m-3.75 3h9a1.5 1.5 0 001.5-1.5V6.621a1.5 1.5 0 00-.44-1.06L15.44 1.94A1.5 1.5 0 0014.378 1.5H6.75a1.5 1.5 0 00-1.5 1.5v16.5a1.5 1.5 0 001.5 1.5z"
+      />
+    </Icon>
+  );
+}
+
 export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
@@ -112,14 +124,15 @@ export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Simple chat-bubble brand mark — not a reproduction of any third-party logo. */
+/** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
 export function BrandMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 32 32" fill="currentColor" {...props}>
-      <path d="M16 4C9.373 4 4 9.055 4 15.286c0 3.156 1.373 6.01 3.6 8.06L6.5 28l5.06-1.98c1.39.46 2.878.71 4.44.71 6.627 0 12-5.055 12-11.286C28 9.055 22.627 4 16 4z" />
-      <circle cx="11.5" cy="15" r="1.6" fill="white" />
-      <circle cx="16.5" cy="15" r="1.6" fill="white" />
-      <circle cx="21.5" cy="15" r="1.6" fill="white" />
+      <rect x="1" y="1" width="30" height="30" rx="9" />
+      <path
+        fill="white"
+        d="M25.2 7.4L7.4 14.3c-.78.3-.74 1.42.06 1.66l5.6 1.66 1.66 5.6c.24.8 1.36.84 1.66.06l6.9-17.8c.27-.7-.44-1.4-1.12-1.14z"
+      />
     </svg>
   );
 }

@@ -7,6 +7,7 @@ import {
   ApiError,
   type ContactListSummary,
   type ImportResult,
+  createContact,
   getAccessToken,
   importContacts,
   listContactLists,
@@ -48,7 +49,7 @@ export default function ContactsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Contacts</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Audience</h1>
       <p className="mt-1 text-sm text-slate-500">
         Import a CSV of phone numbers into a list, then target that list from a campaign.
       </p>
@@ -70,9 +71,65 @@ export default function ContactsPage() {
       </section>
 
       {roleAtLeast(role, "admin") && (
-        <ImportForm onImported={(list) => setLists((prev) => [list, ...prev])} />
+        <>
+          <AddContactForm />
+          <ImportForm onImported={(list) => setLists((prev) => [list, ...prev])} />
+        </>
       )}
     </div>
+  );
+}
+
+function AddContactForm() {
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setAdded(false);
+    setSubmitting(true);
+    try {
+      await createContact({ whatsappNumber, name: name || undefined });
+      setAdded(true);
+      setWhatsappNumber("");
+      setName("");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add contact");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="card mt-8 p-6">
+      <h2 className="text-lg font-semibold text-slate-900">Add a contact</h2>
+      <p className="mt-1 text-sm text-slate-500">Add a single contact manually, including the country code.</p>
+      <form onSubmit={onSubmit} className="mt-4 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="field-label">WhatsApp number</span>
+          <input
+            required
+            className="input"
+            placeholder="+91XXXXXXXXXX"
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="field-label">Name (optional)</span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <button type="submit" disabled={submitting} className="btn-primary">
+          {submitting ? "Adding…" : "Add contact"}
+        </button>
+      </form>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {added && <p className="mt-2 text-sm text-brand-800">Contact added.</p>}
+    </section>
   );
 }
 
