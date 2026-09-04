@@ -104,6 +104,7 @@ export function EmbeddedSignupButton({
   /** A CANCEL/ERROR reported by Meta itself — a better message than our generic one. */
   const signupErrorRef = useRef<string | null>(null);
   const callbackFiredRef = useRef(false);
+  const popupRef = useRef<Window | null>(null);
   const popupWatchRef = useRef<number | null>(null);
   const graceTimerRef = useRef<number | null>(null);
 
@@ -167,11 +168,21 @@ export function EmbeddedSignupButton({
   const finish = useCallback(
     (message: string | null) => {
       clearWatchers();
+      popupRef.current = null;
       setError(message);
       setConnecting(false);
     },
     [clearWatchers],
   );
+
+  /** The Meta window opens behind the main window on some setups — let the user surface it. */
+  function focusPopup() {
+    try {
+      popupRef.current?.focus();
+    } catch {
+      // Cross-origin focus can be refused; nothing useful to do.
+    }
+  }
 
   function connect() {
     if (!window.FB) {
@@ -229,6 +240,8 @@ export function EmbeddedSignupButton({
       finish("The Meta setup window was blocked. Allow pop-ups for this site, then try again.");
       return;
     }
+    popupRef.current = popup;
+    focusPopup();
 
     popupWatchRef.current = window.setInterval(() => {
       if (!popup.closed) return;
@@ -250,15 +263,29 @@ export function EmbeddedSignupButton({
           {loadingSdk ? "Loading…" : connecting ? "Connecting…" : "Connect WhatsApp"}
         </button>
         {connecting && (
-          <button
-            type="button"
-            onClick={() => finish(null)}
-            className="text-sm text-slate-500 underline hover:text-slate-700"
-          >
-            Cancel
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={focusPopup}
+              className="text-sm text-slate-600 underline hover:text-slate-900"
+            >
+              Show the Meta window
+            </button>
+            <button
+              type="button"
+              onClick={() => finish(null)}
+              className="text-sm text-slate-500 underline hover:text-slate-700"
+            >
+              Cancel
+            </button>
+          </>
         )}
       </div>
+      {connecting && (
+        <p className="mt-2 text-sm text-slate-500">
+          Finish the setup in the Meta window — it may have opened behind this one.
+        </p>
+      )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
