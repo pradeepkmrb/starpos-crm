@@ -200,41 +200,57 @@ export function EmbeddedSignupButton({
     callbackFiredRef.current = false;
     clearWatchers();
 
-    const popup = loginCapturingPopup(() =>
-      window.FB!.login(
-        async (response) => {
-          callbackFiredRef.current = true;
-          const code = response.authResponse?.code;
-          if (!code) {
-            finish(signupErrorRef.current ?? "WhatsApp connection was cancelled or did not complete.");
-            return;
-          }
-          // The postMessage event usually arrives before this callback fires,
-          // but isn't guaranteed to — give it a brief moment if it hasn't yet.
-          for (let i = 0; i < 20 && !signupDataRef.current.wabaId; i++) {
-            await new Promise((r) => setTimeout(r, 150));
-          }
-          const { wabaId, phoneNumberId } = signupDataRef.current;
-          if (!wabaId || !phoneNumberId) {
-            finish("Didn't receive the WhatsApp account details from Meta. Please try again.");
-            return;
-          }
-          try {
-            const channel = await completeEmbeddedSignup({ code, wabaId, phoneNumberId });
-            finish(null);
-            onConnected(channel);
-          } catch (err) {
-            finish(err instanceof ApiError ? err.message : "Failed to complete WhatsApp connection");
-          }
-        },
-        {
-          config_id: config.embeddedSignupConfigId,
-          response_type: "code",
-          override_default_response_type: true,
-          extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
-        },
-      ),
-    );
+    async function handleLoginResponse(response: { authResponse?: { code?: string } }) {
+      const code = response.authResponse?.code;
+      if (!code) {
+        finish(signupErrorRef.current ?? "WhatsApp connection was cancelled or did not complete.");
+        return;
+      }
+      // The postMessage event usually arrives before this callback fires,
+      // but isn't guaranteed to — give it a brief moment if it hasn't yet.
+      for (let i = 0; i < 20 && !signupDataRef.current.wabaId; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const { wabaId, phoneNumberId } = signupDataRef.current;
+      if (!wabaId || !phoneNumberId) {
+        finish("Didn't receive the WhatsApp account details from Meta. Please try again.");
+        return;
+      }
+      try {
+        const channel = await completeEmbeddedSignup({ code, wabaId, phoneNumberId });
+        finish(null);
+        onConnected(channel);
+      } catch (err) {
+        finish(err instanceof ApiError ? err.message : "Failed to complete WhatsApp connection");
+      }
+    }
+
+    let popup: Window | null = null;
+    try {
+      popup = loginCapturingPopup(() =>
+        window.FB!.login(
+          // The SDK type-checks this argument and rejects an async function
+          // outright ("Expression is of type asyncfunction, not function"),
+          // throwing before it ever opens the popup — so hand it a plain
+          // function that kicks the async work off.
+          (response) => {
+            callbackFiredRef.current = true;
+            void handleLoginResponse(response);
+          },
+          {
+            config_id: config.embeddedSignupConfigId,
+            response_type: "code",
+            override_default_response_type: true,
+            extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+          },
+        ),
+      );
+    } catch (err) {
+      // FB throws plain objects, not Errors.
+      const detail = (err as { message?: string })?.message;
+      finish(detail ? `The Facebook SDK rejected the login call: ${detail}` : "The Facebook SDK rejected the login call.");
+      return;
+    }
 
     if (!popup) {
       finish("The Meta setup window was blocked. Allow pop-ups for this site, then try again.");
