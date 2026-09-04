@@ -12,6 +12,7 @@ import {
   listChannels,
   listTemplates,
   me,
+  syncTemplates,
 } from "../../../lib/api";
 
 const STATUS_BADGE: Record<MessageTemplate["status"], string> = {
@@ -28,6 +29,8 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -52,21 +55,58 @@ export default function TemplatesPage() {
     })();
   }, [router]);
 
+  async function onSync() {
+    setSyncNote(null);
+    setError(null);
+    setSyncing(true);
+    try {
+      const result = await syncTemplates();
+      setTemplates(result.templates);
+      setSyncNote(
+        result.imported === 0 && result.updated === 0
+          ? "Already up to date — nothing new in Meta."
+          : `Imported ${result.imported} and refreshed ${result.updated} template${
+              result.updated === 1 ? "" : "s"
+            } from Meta.`,
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to sync templates from Meta");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (loading) return <p className="text-slate-500">Loading…</p>;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
+  const canManage = roleAtLeast(role, "admin");
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Message Library</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Create WhatsApp message templates here — they&apos;re submitted to Meta for approval and this list
-        updates automatically once Meta approves or rejects them.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Message Library</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Create WhatsApp message templates here — they&apos;re submitted to Meta for approval and this list
+            updates automatically once Meta approves or rejects them.
+          </p>
+        </div>
+        {canManage && channels.length > 0 && (
+          <button type="button" onClick={onSync} disabled={syncing} className="btn-secondary shrink-0">
+            {syncing ? "Syncing…" : "Sync from Meta"}
+          </button>
+        )}
+      </div>
+      {syncNote && <p className="mt-2 text-sm text-slate-600">{syncNote}</p>}
 
       <section className="mt-6">
         {templates.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">No templates yet — create your first one below.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            No templates yet — create your first one below, or use{" "}
+            <span className="font-medium">Sync from Meta</span> to pull in templates that already exist on
+            your WhatsApp Business account.
+          </p>
         ) : (
           <div className="card mt-2 divide-y divide-slate-100">
             {templates.map((t) => (
@@ -84,7 +124,7 @@ export default function TemplatesPage() {
         )}
       </section>
 
-      {roleAtLeast(role, "admin") && (
+      {canManage && (
         <CreateTemplateForm
           channels={channels}
           onCreated={(t) => setTemplates((prev) => [t, ...prev])}

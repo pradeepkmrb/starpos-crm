@@ -4,6 +4,16 @@ import { ChannelsService } from "./channels.service";
 import { MetaGraphClient } from "./meta-graph.client";
 import { CreateTemplateDto } from "./dto/create-template.dto";
 
+/** The subset of Meta's message_template payload we mirror locally. */
+interface MetaTemplate {
+  id?: string;
+  name?: string;
+  language?: string;
+  category?: string;
+  status?: string;
+  components?: unknown[];
+}
+
 /**
  * Local MessageTemplate rows mirror Meta's real template — created here,
  * submitted to Meta for approval, then kept in sync via the
@@ -41,6 +51,62 @@ export class TemplatesService {
       where: { tenantId },
       orderBy: { createdAt: "desc" },
     });
+  }
+
+  /**
+   * Pulls the templates that already exist on each connected WABA into local
+   * rows. Templates created directly in Meta's Business Manager (or before
+   * this tenant was onboarded) are otherwise invisible here, and unusable as
+   * campaign templates, because the rest of the app reads MessageTemplate.
+   */
+  async syncFromMeta(tenantId: string): Promise<{ imported: number; updated: number; channels: number }> {
+    const channels = await this.prisma.whatsappChannel.findMany({ where: { tenantId } });
+    let imported = 0;
+    let updated = 0;
+
+    for (const channel of channels) {
+      const metaTemplates = (await this.metaGraphClient.listTemplates(channel)) as MetaTemplate[];
+
+      for (const metaTemplate of metaTemplates) {
+        if (!metaTemplate?.name || !metaTemplate?.language) continue;
+
+        const data = {
+          category: (metaTemplate.category ?? "utility").toLowerCase(),
+          metaTemplateId: metaTemplate.id ?? null,
+          status: mapMetaStatus(metaTemplate.status ?? "PENDING"),
+          bodyJson: { components: metaTemplate.components ?? [] } as object,
+        };
+
+        // No unique index covers (tenantId, channelId, name, language), so
+        // match the existing row the same way getOrCreateRef does.
+        const existing = await this.prisma.messageTemplate.findFirst({
+          where: {
+            tenantId,
+            channelId: channel.id,
+            name: metaTemplate.name,
+            language: metaTemplate.language,
+          },
+        });
+
+        if (existing) {
+          await this.prisma.messageTemplate.update({ where: { id: existing.id }, data });
+          updated++;
+        } else {
+          await this.prisma.messageTemplate.create({
+            data: {
+              tenantId,
+              channelId: channel.id,
+              name: metaTemplate.name,
+              language: metaTemplate.language,
+              ...data,
+            },
+          });
+          imported++;
+        }
+      }
+    }
+
+    return { imported, updated, channels: channels.length };
   }
 
   async createAndSubmit(tenantId: string, dto: CreateTemplateDto) {

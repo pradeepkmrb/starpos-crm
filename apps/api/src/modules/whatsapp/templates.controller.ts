@@ -24,4 +24,13 @@ export class TemplatesController {
   create(@Req() req: Request, @Body() dto: CreateTemplateDto) {
     return this.templatesService.createAndSubmit(req.tenantContext!.tenantId, dto);
   }
+
+  /** Imports templates that already exist on the tenant's connected WABAs. */
+  @Post("sync")
+  @Roles("admin")
+  async sync(@Req() req: Request) {
+    const tenantId = req.tenantContext!.tenantId;
+    const result = await this.templatesService.syncFromMeta(tenantId);
+    return { ...result, templates: await this.templatesService.listForTenant(tenantId) };
+  }
 }

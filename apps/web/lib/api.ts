@@ -486,6 +486,18 @@ export function listTemplates() {
   return request<MessageTemplate[]>("/templates");
 }
 
+export interface TemplateSyncResult {
+  imported: number;
+  updated: number;
+  channels: number;
+  templates: MessageTemplate[];
+}
+
+/** Imports templates that already exist on the connected WABAs in Meta. */
+export function syncTemplates() {
+  return request<TemplateSyncResult>("/templates/sync", { method: "POST" });
+}
+
 export function createTemplate(input: {
   channelId: string;
   name: string;
