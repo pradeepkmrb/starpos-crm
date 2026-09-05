@@ -3,6 +3,8 @@ import { BullModule } from "@nestjs/bullmq";
 import { ChannelsService } from "./channels.service";
 import { ChannelsController } from "./channels.controller";
 import { TemplatesController } from "./templates.controller";
+import { InboxController } from "./inbox.controller";
+import { InboxService } from "./inbox.service";
 import { MetaGraphClient } from "./meta-graph.client";
 import { WebhooksController } from "./webhooks.controller";
 import { WebhookProcessor } from "./webhook-processor.processor";
@@ -22,8 +24,8 @@ import { PlatformModule } from "../platform/platform.module";
     PlatformModule,
     forwardRef(() => AutomationsModule),
   ],
-  controllers: [ChannelsController, WebhooksController, TemplatesController],
-  providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService],
+  controllers: [ChannelsController, WebhooksController, TemplatesController, InboxController],
+  providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService, InboxService],
   exports: [ChannelsService, MetaGraphClient, TemplatesService],
 })
 export class WhatsappModule {}

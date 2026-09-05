@@ -506,6 +506,57 @@ export function completeEmbeddedSignup(input: { code: string; wabaId: string; ph
   });
 }
 
+// --- Inbox (live chat) ---
+
+export interface InboxConversation {
+  contactId: string;
+  whatsappNumber: string;
+  name: string | null;
+  lastMessageAt: string | null;
+  lastMessagePreview: string;
+  lastMessageDirection: "inbound" | "outbound" | null;
+  /** Meta's 24h customer-service window — free-form replies need it open. */
+  windowOpen: boolean;
+  windowExpiresAt: string | null;
+}
+
+export interface InboxMessage {
+  id: string;
+  direction: "inbound" | "outbound";
+  text: string;
+  kind: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface InboxThread {
+  contact: {
+    id: string;
+    whatsappNumber: string;
+    name: string | null;
+    optedIn: boolean;
+    createdAt: string;
+  };
+  windowOpen: boolean;
+  windowExpiresAt: string | null;
+  messages: InboxMessage[];
+}
+
+export function listConversations() {
+  return request<InboxConversation[]>("/inbox/conversations");
+}
+
+export function getConversation(contactId: string) {
+  return request<InboxThread>(`/inbox/conversations/${contactId}`);
+}
+
+export function replyToConversation(contactId: string, body: string) {
+  return request<{ id: string }>(`/inbox/conversations/${contactId}/reply`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
 // --- Templates ---
 
 export interface MessageTemplate {
