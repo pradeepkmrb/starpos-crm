@@ -221,8 +221,12 @@ export interface Contact {
   id: string;
   whatsappNumber: string;
   name: string | null;
+  email: string | null;
+  languageCode: string | null;
   source: string | null;
   optedIn: boolean;
+  /** When false, automations stop auto-replying to this contact. */
+  botEnabled: boolean;
   createdAt: string;
 }
 
@@ -232,6 +236,19 @@ export function listContactLists() {
 
 export function listContacts(limit?: number) {
   return request<Contact[]>(limit ? `/contacts?limit=${limit}` : "/contacts");
+}
+
+export function updateContact(
+  contactId: string,
+  input: {
+    name?: string | null;
+    email?: string | null;
+    languageCode?: string | null;
+    optedIn?: boolean;
+    botEnabled?: boolean;
+  },
+) {
+  return request<Contact>(`/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(input) });
 }
 
 /** Erases the contacts along with their message history — confirm before calling. */
@@ -552,7 +569,10 @@ export interface InboxThread {
     id: string;
     whatsappNumber: string;
     name: string | null;
+    email: string | null;
+    languageCode: string | null;
     optedIn: boolean;
+    botEnabled: boolean;
     createdAt: string;
     assignedUserId: string | null;
     assignedUser: AssignedUser | null;

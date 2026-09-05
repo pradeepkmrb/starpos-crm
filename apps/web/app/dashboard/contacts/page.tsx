@@ -70,6 +70,7 @@ export default function ContactsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [newListName, setNewListName] = useState("");
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -181,6 +182,23 @@ export default function ContactsPage() {
       setLists(await listContactLists());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to delete all contacts");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** A list can be created before it has any members — contacts get added later. */
+  async function onCreateEmptyList(name: string) {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const list = await createContactList({ name });
+      setLists((prev) => [list, ...prev]);
+      setNewListName("");
+      setNotice(`Created the list “${list.name}”.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to create the list");
     } finally {
       setBusy(false);
     }
@@ -322,9 +340,16 @@ export default function ContactsPage() {
               {visible.length} of {contacts.length} shown
             </span>
           </div>
-          {canManage && selected.size > 0 && (
-            <AddToListBar lists={lists} count={selected.size} busy={busy} onAdd={onAddToList} />
-          )}
+          {canManage &&
+            (selected.size > 0 ? (
+              <AddToListBar lists={lists} count={selected.size} busy={busy} onAdd={onAddToList} />
+            ) : (
+              // Without this the control is invisible until something is ticked,
+              // which reads as "add to list doesn't work".
+              <span className="text-sm text-slate-500">
+                Tick contacts to add them to a list.
+              </span>
+            ))}
           <input
             className="input w-64"
             placeholder="Search name, number or source…"
@@ -412,11 +437,36 @@ export default function ContactsPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold text-slate-900">Lists</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          A broadcast targets a list, so contacts need to be in one before you can send to them. Select
-          contacts above to add them to a list, or upload a CSV.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Lists</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              A broadcast targets a list, so contacts need to be in one before you can send to them. Tick
+              contacts above to add them to a list, or upload a CSV.
+            </p>
+          </div>
+          {canManage && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = newListName.trim();
+                if (!name) return;
+                void onCreateEmptyList(name);
+              }}
+              className="flex items-end gap-2"
+            >
+              <input
+                className="input w-48"
+                placeholder="New list name"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+              />
+              <button type="submit" disabled={busy || !newListName.trim()} className="btn-secondary">
+                Create list
+              </button>
+            </form>
+          )}
+        </div>
         {lists.length === 0 ? (
           <p className="mt-2 text-sm text-slate-500">No lists yet.</p>
         ) : (

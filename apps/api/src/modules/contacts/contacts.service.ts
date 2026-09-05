@@ -4,6 +4,7 @@ import { EntitlementsService } from "../entitlements/entitlements.service";
 import { parseContactsCsv } from "./csv-parser";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
+import { UpdateContactDto } from "./dto/update-contact.dto";
 
 @Injectable()
 export class ContactsService {
@@ -84,6 +85,22 @@ export class ContactsService {
     const { deleted } = await this.deleteContacts(tenantId, [id]);
     if (deleted === 0) throw new NotFoundException("Contact not found");
     return { id, deleted: true };
+  }
+
+  async updateContact(tenantId: string, id: string, dto: UpdateContactDto) {
+    const contact = await this.prisma.contact.findFirst({ where: { id, tenantId } });
+    if (!contact) throw new NotFoundException("Contact not found");
+
+    // Only keys the caller actually sent are written, so a patch of one field
+    // can't blank the others.
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name || null;
+    if (dto.email !== undefined) data.email = dto.email || null;
+    if (dto.languageCode !== undefined) data.languageCode = dto.languageCode || null;
+    if (dto.optedIn !== undefined) data.optedIn = dto.optedIn;
+    if (dto.botEnabled !== undefined) data.botEnabled = dto.botEnabled;
+
+    return this.prisma.contact.update({ where: { id }, data });
   }
 
   /** Wipes the tenant's whole audience, message history included. */

@@ -21,6 +21,7 @@ import {
   me,
   replyToConversation,
   setConversationLabels,
+  updateContact,
 } from "../../../lib/api";
 
 /** Inbound messages arrive by webhook, so the list needs its own refresh. */
@@ -86,6 +87,7 @@ export default function InboxPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [editingContact, setEditingContact] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -220,6 +222,38 @@ export default function InboxPage() {
       );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to update labels");
+    }
+  }
+
+  async function onPatchContact(patch: {
+    name?: string | null;
+    email?: string | null;
+    languageCode?: string | null;
+    botEnabled?: boolean;
+  }) {
+    if (!activeId) return;
+    setError(null);
+    try {
+      const updated = await updateContact(activeId, patch);
+      setThread((prev) =>
+        prev
+          ? {
+              ...prev,
+              contact: {
+                ...prev.contact,
+                name: updated.name,
+                email: updated.email,
+                languageCode: updated.languageCode,
+                botEnabled: updated.botEnabled,
+              },
+            }
+          : prev,
+      );
+      setConversations((prev) =>
+        prev.map((c) => (c.contactId === activeId ? { ...c, name: updated.name } : c)),
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update the contact");
     }
   }
 
@@ -394,7 +428,32 @@ export default function InboxPage() {
                       onCreate={onCreateLabel}
                       canCreate={roleAtLeast(role, "admin")}
                     />
+                    <label className="flex items-center gap-2 text-sm text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={thread.contact.botEnabled}
+                        onChange={(e) => onPatchContact({ botEnabled: e.target.checked })}
+                      />
+                      Enable Reply Bot
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact((v) => !v)}
+                      className="text-sm text-slate-600 underline hover:text-slate-900"
+                    >
+                      {editingContact ? "Close" : "Edit contact"}
+                    </button>
                   </div>
+                )}
+
+                {canReply && editingContact && (
+                  <ContactInfoForm
+                    contact={thread.contact}
+                    onSave={async (patch) => {
+                      await onPatchContact(patch);
+                      setEditingContact(false);
+                    }}
+                  />
                 )}
 
                 <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
@@ -546,5 +605,62 @@ function LabelPicker({
         </div>
       )}
     </div>
+  );
+}
+
+/** Phone is the contact's identity in WhatsApp, so it is shown but never edited here. */
+function ContactInfoForm({
+  contact,
+  onSave,
+}: {
+  contact: InboxThread["contact"];
+  onSave: (patch: { name: string | null; email: string | null; languageCode: string | null }) => void;
+}) {
+  const [name, setName] = useState(contact.name ?? "");
+  const [email, setEmail] = useState(contact.email ?? "");
+  const [languageCode, setLanguageCode] = useState(contact.languageCode ?? "");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          name: name.trim() || null,
+          email: email.trim() || null,
+          languageCode: languageCode.trim() || null,
+        });
+      }}
+      className="grid gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:grid-cols-4"
+    >
+      <label className="block">
+        <span className="field-label">Name</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label className="block">
+        <span className="field-label">Email</span>
+        <input
+          type="email"
+          className="input"
+          placeholder="optional"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </label>
+      <label className="block">
+        <span className="field-label">Language</span>
+        <input
+          className="input"
+          placeholder="en"
+          value={languageCode}
+          onChange={(e) => setLanguageCode(e.target.value)}
+        />
+      </label>
+      <div className="flex items-end gap-2">
+        <button type="submit" className="btn-primary">
+          Save
+        </button>
+        <span className="pb-2 text-xs text-slate-500">{contact.whatsappNumber}</span>
+      </div>
+    </form>
   );
 }

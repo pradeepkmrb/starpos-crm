@@ -204,8 +204,13 @@ model Contact {
   tenantId       String
   whatsappNumber String
   name           String?
+  email          String?
+  /// Free text (e.g. "en", "ta") — Meta language codes aren't a closed set.
+  languageCode   String?
   attributesJson Json?
   optedIn        Boolean  @default(true)
+  /// When false, automations stop auto-replying so a human can take over.
+  botEnabled     Boolean  @default(true)
   source         String?
   lastInboundAt  DateTime?
   /// The agent who owns this conversation in the inbox; null means unassigned.

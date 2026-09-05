@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { ContactsService } from "./contacts.service";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { BulkDeleteContactsDto } from "./dto/bulk-delete-contacts.dto";
+import { UpdateContactDto } from "./dto/update-contact.dto";
 import { CreateContactListDto } from "./dto/create-contact-list.dto";
 import { AddListMembersDto } from "./dto/add-list-members.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
@@ -70,6 +71,13 @@ export class ContactsController {
   @Roles("admin")
   bulkDelete(@Req() req: Request, @Body() dto: BulkDeleteContactsDto) {
     return this.contactsService.deleteContacts(req.tenantContext!.tenantId, dto.ids);
+  }
+
+  /** Agent-level: editing contact details and the bot toggle is inbox work. */
+  @Patch(":id")
+  @Roles("agent")
+  update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateContactDto) {
+    return this.contactsService.updateContact(req.tenantContext!.tenantId, id, dto);
   }
 
   /** Wipes the tenant's entire audience — the UI confirms twice before calling this. */

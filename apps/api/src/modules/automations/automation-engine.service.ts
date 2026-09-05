@@ -28,6 +28,17 @@ export class AutomationEngineService {
   ) {}
 
   async evaluate(input: EvaluateInput) {
+    // An agent can switch the bot off for one contact from the Inbox when
+    // they want to handle the conversation themselves.
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: input.contactId },
+      select: { botEnabled: true },
+    });
+    if (contact && !contact.botEnabled) {
+      this.logger.debug(`Skipping automations for contact ${input.contactId}: reply bot disabled`);
+      return;
+    }
+
     const workflows = await this.prisma.automationWorkflow.findMany({
       where: {
         tenantId: input.tenantId,
