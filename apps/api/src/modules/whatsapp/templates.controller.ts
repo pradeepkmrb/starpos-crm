@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Req, UseFilters, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseFilters, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { TemplatesService } from "./templates.service";
 import { MetaApiExceptionFilter } from "./meta-api-exception.filter";
 import { CreateTemplateDto } from "./dto/create-template.dto";
+import { UpdateTemplateDto } from "./dto/update-template.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
@@ -32,5 +33,17 @@ export class TemplatesController {
     const tenantId = req.tenantContext!.tenantId;
     const result = await this.templatesService.syncFromMeta(tenantId);
     return { ...result, templates: await this.templatesService.listForTenant(tenantId) };
+  }
+
+  @Patch(":id")
+  @Roles("admin")
+  update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateTemplateDto) {
+    return this.templatesService.update(req.tenantContext!.tenantId, id, dto);
+  }
+
+  @Delete(":id")
+  @Roles("admin")
+  remove(@Req() req: Request, @Param("id") id: string) {
+    return this.templatesService.remove(req.tenantContext!.tenantId, id);
   }
 }

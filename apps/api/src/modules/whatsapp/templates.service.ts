@@ -1,8 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
 import { MetaGraphClient } from "./meta-graph.client";
 import { CreateTemplateDto } from "./dto/create-template.dto";
+import { UpdateTemplateDto } from "./dto/update-template.dto";
 
 /** The subset of Meta's message_template payload we mirror locally. */
 interface MetaTemplate {
@@ -139,6 +140,54 @@ export class TemplatesService {
         bodyJson: { components: [bodyComponent] },
       },
     });
+  }
+
+  async update(tenantId: string, templateId: string, dto: UpdateTemplateDto) {
+    const template = await this.getOwnedTemplate(tenantId, templateId);
+    if (!template.metaTemplateId) {
+      throw new BadRequestException(
+        "This template has no Meta id yet — sync from Meta before editing it.",
+      );
+    }
+
+    const channel = await this.channelsService.getChannelWithCredentials(tenantId, template.channelId);
+    const bodyComponent = {
+      type: "BODY",
+      text: dto.bodyText,
+      ...(dto.bodyVariableExamples?.length ? { example: { body_text: [dto.bodyVariableExamples] } } : {}),
+    };
+
+    await this.metaGraphClient.updateTemplate(channel, template.metaTemplateId, {
+      category: dto.category,
+      components: [bodyComponent],
+    });
+
+    return this.prisma.messageTemplate.update({
+      where: { id: template.id },
+      data: {
+        ...(dto.category ? { category: dto.category.toLowerCase() } : {}),
+        bodyJson: { components: [bodyComponent] },
+        // An accepted edit sends the template back through Meta's review.
+        status: "pending",
+      },
+    });
+  }
+
+  async remove(tenantId: string, templateId: string) {
+    const template = await this.getOwnedTemplate(tenantId, templateId);
+    const channel = await this.channelsService.getChannelWithCredentials(tenantId, template.channelId);
+
+    await this.metaGraphClient.deleteTemplate(channel, template.name, template.metaTemplateId);
+    await this.prisma.messageTemplate.delete({ where: { id: template.id } });
+    return { id: template.id, deleted: true };
+  }
+
+  private async getOwnedTemplate(tenantId: string, templateId: string) {
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: { id: templateId, tenantId },
+    });
+    if (!template) throw new NotFoundException("Template not found");
+    return template;
   }
 }
 

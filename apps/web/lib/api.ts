@@ -479,7 +479,10 @@ export interface MessageTemplate {
   language: string;
   status: "draft" | "pending" | "approved" | "rejected";
   metaTemplateId: string | null;
+  /** Meta's component payload, as stored — the BODY component holds the text. */
+  bodyJson?: { components?: unknown[] };
   createdAt: string;
+  updatedAt: string;
 }
 
 export function listTemplates() {
@@ -507,6 +510,25 @@ export function createTemplate(input: {
   bodyVariableExamples?: string[];
 }) {
   return request<MessageTemplate>("/templates", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Meta treats name and language as immutable, so only body/category can change. */
+export function updateTemplate(
+  templateId: string,
+  input: {
+    bodyText: string;
+    category?: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+    bodyVariableExamples?: string[];
+  },
+) {
+  return request<MessageTemplate>(`/templates/${templateId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteTemplate(templateId: string) {
+  return request<{ id: string; deleted: boolean }>(`/templates/${templateId}`, { method: "DELETE" });
 }
 
 // --- Platform admin: cross-tenant directory ---

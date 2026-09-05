@@ -91,6 +91,37 @@ export class MetaGraphClient {
     return { id: res.id, status: res.status ?? "PENDING" };
   }
 
+  /**
+   * Edits an existing template in place. Meta only accepts edits to APPROVED
+   * or REJECTED templates, and the name and language are immutable — an edit
+   * sends the template back through review.
+   */
+  async updateTemplate(
+    channel: ChannelCredentials,
+    metaTemplateId: string,
+    params: { category?: string; components: unknown[] },
+  ): Promise<void> {
+    await this.graphFetch(channel, `/${metaTemplateId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        ...(params.category ? { category: params.category } : {}),
+        components: params.components,
+      }),
+    });
+  }
+
+  /**
+   * Deletes by name. Passing hsm_id alongside removes just that one language;
+   * without it Meta deletes every language version sharing the name.
+   */
+  async deleteTemplate(channel: ChannelCredentials, name: string, metaTemplateId?: string | null): Promise<void> {
+    const query = new URLSearchParams({ name });
+    if (metaTemplateId) query.set("hsm_id", metaTemplateId);
+    await this.graphFetch(channel, `/${channel.wabaId}/message_templates?${query.toString()}`, {
+      method: "DELETE",
+    });
+  }
+
   private async sendMessage(channel: ChannelCredentials, payload: unknown): Promise<SendMessageResult> {
     const res = (await this.graphFetch(channel, `/${channel.phoneNumberId}/messages`, {
       method: "POST",
