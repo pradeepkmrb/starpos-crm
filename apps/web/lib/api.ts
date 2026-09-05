@@ -222,6 +222,7 @@ export interface Contact {
   whatsappNumber: string;
   name: string | null;
   source: string | null;
+  optedIn: boolean;
   createdAt: string;
 }
 
@@ -229,8 +230,20 @@ export function listContactLists() {
   return request<ContactListSummary[]>("/contacts/lists");
 }
 
-export function listContacts() {
-  return request<Contact[]>("/contacts");
+export function listContacts(limit?: number) {
+  return request<Contact[]>(limit ? `/contacts?limit=${limit}` : "/contacts");
+}
+
+/** Erases the contacts along with their message history — confirm before calling. */
+export function deleteContact(contactId: string) {
+  return request<{ id: string; deleted: boolean }>(`/contacts/${contactId}`, { method: "DELETE" });
+}
+
+export function bulkDeleteContacts(ids: string[]) {
+  return request<{ deleted: number }>("/contacts/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
 }
 
 export function createContact(input: { whatsappNumber: string; name?: string }) {

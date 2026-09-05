@@ -52,6 +52,40 @@ export class ContactsService {
     });
   }
 
+  /**
+   * Hard erasure: message logs and campaign recipients reference Contact with
+   * the default restrict rule, so they have to go first or Postgres rejects
+   * the delete. That means removing a contact also removes their delivery
+   * history — the erasure semantics a marketing tool needs, but destructive,
+   * so callers should confirm with the operator first.
+   */
+  async deleteContacts(tenantId: string, ids: string[]): Promise<{ deleted: number }> {
+    // Scoped to the tenant up front so an id from another tenant is a no-op
+    // rather than a cross-tenant delete.
+    const owned = await this.prisma.contact.findMany({
+      where: { tenantId, id: { in: ids } },
+      select: { id: true },
+    });
+    if (owned.length === 0) return { deleted: 0 };
+    const ownedIds = owned.map((c) => c.id);
+
+    await this.prisma.$transaction([
+      // CampaignRecipient points at MessageLog, so it unwinds first.
+      this.prisma.campaignRecipient.deleteMany({ where: { contactId: { in: ownedIds } } }),
+      this.prisma.messageLog.deleteMany({ where: { contactId: { in: ownedIds } } }),
+      this.prisma.contactListMember.deleteMany({ where: { contactId: { in: ownedIds } } }),
+      this.prisma.contact.deleteMany({ where: { tenantId, id: { in: ownedIds } } }),
+    ]);
+
+    return { deleted: ownedIds.length };
+  }
+
+  async deleteContact(tenantId: string, id: string): Promise<{ id: string; deleted: boolean }> {
+    const { deleted } = await this.deleteContacts(tenantId, [id]);
+    if (deleted === 0) throw new NotFoundException("Contact not found");
+    return { id, deleted: true };
+  }
+
   async createContact(tenantId: string, dto: CreateContactDto) {
     const existing = await this.prisma.contact.findUnique({
       where: { tenantId_whatsappNumber: { tenantId, whatsappNumber: dto.whatsappNumber } },
