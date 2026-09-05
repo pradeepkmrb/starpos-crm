@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { roleAtLeast, type TenantRole } from "@digitel/shared";
 import {
@@ -134,11 +135,29 @@ function LaunchForm({
     }
   }
 
+  // Naming the missing piece matters: "connect a channel and import a list"
+  // sent people to Connections when all they were missing was a list.
   if (channels.length === 0 || lists.length === 0) {
     return (
-      <p className="mt-8 text-sm text-slate-500">
-        Connect a WhatsApp channel and import a contact list before launching a campaign.
-      </p>
+      <section className="card mt-8 p-6">
+        <h2 className="text-lg font-semibold text-slate-900">Before you can broadcast</h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          <li className={channels.length > 0 ? "text-slate-400 line-through" : "text-slate-700"}>
+            Connect an active WhatsApp channel —{" "}
+            <Link href="/dashboard/channels" className="text-brand-800 underline">
+              Connections
+            </Link>
+          </li>
+          <li className={lists.length > 0 ? "text-slate-400 line-through" : "text-slate-700"}>
+            Put contacts into a list — select them on{" "}
+            <Link href="/dashboard/contacts" className="text-brand-800 underline">
+              Audience
+            </Link>{" "}
+            and choose &ldquo;Add to list&rdquo;, or upload a CSV. A broadcast targets a list, not
+            individual contacts.
+          </li>
+        </ul>
+      </section>
     );
   }
 

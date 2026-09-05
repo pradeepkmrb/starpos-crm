@@ -4,6 +4,8 @@ import { ContactsService } from "./contacts.service";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { BulkDeleteContactsDto } from "./dto/bulk-delete-contacts.dto";
+import { CreateContactListDto } from "./dto/create-contact-list.dto";
+import { AddListMembersDto } from "./dto/add-list-members.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
@@ -32,6 +34,25 @@ export class ContactsController {
     return this.contactsService.getListWithContacts(req.tenantContext!.tenantId, id);
   }
 
+  @Post("lists")
+  @Roles("admin")
+  createList(@Req() req: Request, @Body() dto: CreateContactListDto) {
+    return this.contactsService.createList(req.tenantContext!.tenantId, dto.name, dto.contactIds ?? []);
+  }
+
+  @Post("lists/:id/members")
+  @Roles("admin")
+  addListMembers(@Req() req: Request, @Param("id") id: string, @Body() dto: AddListMembersDto) {
+    return this.contactsService.addListMembers(req.tenantContext!.tenantId, id, dto.contactIds);
+  }
+
+  /** Removes the list only — its contacts stay in the audience. */
+  @Delete("lists/:id")
+  @Roles("admin")
+  removeList(@Req() req: Request, @Param("id") id: string) {
+    return this.contactsService.deleteList(req.tenantContext!.tenantId, id);
+  }
+
   @Post("import")
   @Roles("admin")
   import(@Req() req: Request, @Body() dto: ImportContactsDto) {
@@ -49,6 +70,13 @@ export class ContactsController {
   @Roles("admin")
   bulkDelete(@Req() req: Request, @Body() dto: BulkDeleteContactsDto) {
     return this.contactsService.deleteContacts(req.tenantContext!.tenantId, dto.ids);
+  }
+
+  /** Wipes the tenant's entire audience — the UI confirms twice before calling this. */
+  @Post("delete-all")
+  @Roles("admin")
+  deleteAll(@Req() req: Request) {
+    return this.contactsService.deleteAllContacts(req.tenantContext!.tenantId);
   }
 
   @Delete(":id")

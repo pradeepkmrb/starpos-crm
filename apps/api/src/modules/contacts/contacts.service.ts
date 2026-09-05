@@ -86,6 +86,59 @@ export class ContactsService {
     return { id, deleted: true };
   }
 
+  /** Wipes the tenant's whole audience, message history included. */
+  async deleteAllContacts(tenantId: string): Promise<{ deleted: number }> {
+    const ids = await this.prisma.contact.findMany({ where: { tenantId }, select: { id: true } });
+    return this.deleteContacts(
+      tenantId,
+      ids.map((c) => c.id),
+    );
+  }
+
+  /**
+   * Until now a list could only come into being through a CSV import, so
+   * manually added contacts had no way into one — and a broadcast has nothing
+   * to target without a list.
+   */
+  async createList(tenantId: string, name: string, contactIds: string[] = []) {
+    const list = await this.prisma.contactList.create({
+      data: { tenantId, name, type: "static" },
+    });
+    if (contactIds.length > 0) await this.addListMembers(tenantId, list.id, contactIds);
+    return this.prisma.contactList.findUniqueOrThrow({
+      where: { id: list.id },
+      include: { _count: { select: { members: true } } },
+    });
+  }
+
+  async addListMembers(tenantId: string, listId: string, contactIds: string[]) {
+    const list = await this.prisma.contactList.findFirst({ where: { id: listId, tenantId } });
+    if (!list) throw new NotFoundException("List not found");
+
+    // Scope the ids to this tenant so a foreign id can't be linked in.
+    const owned = await this.prisma.contact.findMany({
+      where: { tenantId, id: { in: contactIds } },
+      select: { id: true },
+    });
+    await this.prisma.contactListMember.createMany({
+      data: owned.map((c) => ({ contactId: c.id, listId })),
+      skipDuplicates: true,
+    });
+
+    return this.prisma.contactList.findUniqueOrThrow({
+      where: { id: listId },
+      include: { _count: { select: { members: true } } },
+    });
+  }
+
+  async deleteList(tenantId: string, listId: string) {
+    const list = await this.prisma.contactList.findFirst({ where: { id: listId, tenantId } });
+    if (!list) throw new NotFoundException("List not found");
+    // Members cascade; the contacts themselves are left alone.
+    await this.prisma.contactList.delete({ where: { id: listId } });
+    return { id: listId, deleted: true };
+  }
+
   async createContact(tenantId: string, dto: CreateContactDto) {
     const existing = await this.prisma.contact.findUnique({
       where: { tenantId_whatsappNumber: { tenantId, whatsappNumber: dto.whatsappNumber } },

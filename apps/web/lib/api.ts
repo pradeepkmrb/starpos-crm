@@ -246,6 +246,29 @@ export function bulkDeleteContacts(ids: string[]) {
   });
 }
 
+/** Wipes the entire audience, message history included. */
+export function deleteAllContacts() {
+  return request<{ deleted: number }>("/contacts/delete-all", { method: "POST" });
+}
+
+export function createContactList(input: { name: string; contactIds?: string[] }) {
+  return request<ContactListSummary>("/contacts/lists", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function addContactsToList(listId: string, contactIds: string[]) {
+  return request<ContactListSummary>(`/contacts/lists/${listId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ contactIds }),
+  });
+}
+
+export function deleteContactList(listId: string) {
+  return request<{ id: string; deleted: boolean }>(`/contacts/lists/${listId}`, { method: "DELETE" });
+}
+
 export function createContact(input: { whatsappNumber: string; name?: string }) {
   return request<Contact>("/contacts", { method: "POST", body: JSON.stringify(input) });
 }

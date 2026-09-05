@@ -8,9 +8,13 @@ import {
   type Contact,
   type ContactListSummary,
   type ImportResult,
+  addContactsToList,
   bulkDeleteContacts,
   createContact,
+  createContactList,
+  deleteAllContacts,
   deleteContact,
+  deleteContactList,
   getAccessToken,
   importContacts,
   listContactLists,
@@ -153,6 +157,68 @@ export default function ContactsPage() {
     }
   }
 
+  async function onDeleteAll() {
+    if (
+      !window.confirm(
+        `Delete all ${contacts.length} contacts? Every contact and their message history is erased. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    // A full wipe is worth a second, deliberate step.
+    if (window.prompt('Type DELETE to confirm wiping the entire audience.') !== "DELETE") {
+      setNotice("Delete all cancelled.");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { deleted } = await deleteAllContacts();
+      setContacts([]);
+      setSelected(new Set());
+      setNotice(`Deleted all ${deleted} contacts.`);
+      setLists(await listContactLists());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete all contacts");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onAddToList(listId: string | null, newListName: string) {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const list = listId
+        ? await addContactsToList(listId, ids)
+        : await createContactList({ name: newListName, contactIds: ids });
+      setLists((prev) => [list, ...prev.filter((l) => l.id !== list.id)]);
+      setSelected(new Set());
+      setNotice(`${ids.length} contact${ids.length === 1 ? "" : "s"} added to “${list.name}”.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add contacts to the list");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDeleteList(list: ContactListSummary) {
+    if (!window.confirm(`Delete the list “${list.name}”? The contacts in it are kept.`)) return;
+    setError(null);
+    setNotice(null);
+    try {
+      await deleteContactList(list.id);
+      setLists((prev) => prev.filter((l) => l.id !== list.id));
+      setNotice(`Deleted the list “${list.name}”.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete the list");
+    }
+  }
+
   async function onDeleteSelected() {
     const ids = [...selected];
     if (ids.length === 0) return;
@@ -224,6 +290,14 @@ export default function ContactsPage() {
             >
               Upload CSV
             </button>
+            <button
+              type="button"
+              onClick={onDeleteAll}
+              disabled={contacts.length === 0 || busy}
+              className="btn-danger"
+            >
+              Delete all contacts
+            </button>
           </div>
         )}
       </div>
@@ -248,6 +322,9 @@ export default function ContactsPage() {
               {visible.length} of {contacts.length} shown
             </span>
           </div>
+          {canManage && selected.size > 0 && (
+            <AddToListBar lists={lists} count={selected.size} busy={busy} onAdd={onAddToList} />
+          )}
           <input
             className="input w-64"
             placeholder="Search name, number or source…"
@@ -336,14 +413,29 @@ export default function ContactsPage() {
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold text-slate-900">Lists</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          A broadcast targets a list, so contacts need to be in one before you can send to them. Select
+          contacts above to add them to a list, or upload a CSV.
+        </p>
         {lists.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">No lists yet — a CSV upload creates one.</p>
+          <p className="mt-2 text-sm text-slate-500">No lists yet.</p>
         ) : (
           <div className="card mt-2 divide-y divide-slate-100">
             {lists.map((list) => (
-              <div key={list.id} className="flex justify-between px-4 py-3 text-sm">
+              <div key={list.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span className="text-slate-700">{list.name}</span>
-                <span className="text-slate-500">{list._count.members} contacts</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500">{list._count.members} contacts</span>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteList(list)}
+                      className="text-sm text-red-600 underline hover:text-red-700"
+                    >
+                      Delete list
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -374,6 +466,56 @@ export default function ContactsPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The bridge between a manually built audience and a broadcast: without a list
+ * membership, contacts added by hand can never be targeted.
+ */
+function AddToListBar({
+  lists,
+  count,
+  busy,
+  onAdd,
+}: {
+  lists: ContactListSummary[];
+  count: number;
+  busy: boolean;
+  onAdd: (listId: string | null, newListName: string) => void;
+}) {
+  const [target, setTarget] = useState<string>("__new__");
+  const [newListName, setNewListName] = useState("");
+  const creatingNew = target === "__new__";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-slate-600">Add {count} to</span>
+      <select className="input w-auto" value={target} onChange={(e) => setTarget(e.target.value)}>
+        <option value="__new__">a new list…</option>
+        {lists.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name}
+          </option>
+        ))}
+      </select>
+      {creatingNew && (
+        <input
+          className="input w-48"
+          placeholder="List name"
+          value={newListName}
+          onChange={(e) => setNewListName(e.target.value)}
+        />
+      )}
+      <button
+        type="button"
+        onClick={() => onAdd(creatingNew ? null : target, newListName.trim())}
+        disabled={busy || (creatingNew && newListName.trim().length === 0)}
+        className="btn-secondary"
+      >
+        Add to list
+      </button>
     </div>
   );
 }
