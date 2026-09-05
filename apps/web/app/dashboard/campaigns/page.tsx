@@ -25,11 +25,26 @@ export default function CampaignsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [lists, setLists] = useState<ContactListSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Set by "Create Campaign" on a template row. Read from the URL directly
+  // rather than useSearchParams, which would force a Suspense boundary around
+  // this statically-prerendered page.
+  const [prefill, setPrefill] = useState<{ templateName: string; languageCode: string; channelId: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!getAccessToken()) {
       router.push("/login");
       return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const templateName = params.get("template");
+    if (templateName) {
+      setPrefill({
+        templateName,
+        languageCode: params.get("language") ?? "en_US",
+        channelId: params.get("channelId") ?? "",
+      });
     }
     (async () => {
       try {
@@ -77,6 +92,7 @@ export default function CampaignsPage() {
         <LaunchForm
           channels={channels}
           lists={lists}
+          prefill={prefill}
           onLaunched={(c) => setCampaigns((prev) => [c, ...prev])}
         />
       )}
@@ -87,17 +103,19 @@ export default function CampaignsPage() {
 function LaunchForm({
   channels,
   lists,
+  prefill,
   onLaunched,
 }: {
   channels: Channel[];
   lists: ContactListSummary[];
+  prefill: { templateName: string; languageCode: string; channelId: string } | null;
   onLaunched: (campaign: Campaign) => void;
 }) {
   const [form, setForm] = useState({
-    channelId: "",
+    channelId: prefill?.channelId ?? "",
     targetListId: "",
-    templateName: "hello_world",
-    languageCode: "en_US",
+    templateName: prefill?.templateName ?? "hello_world",
+    languageCode: prefill?.languageCode ?? "en_US",
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -127,6 +145,12 @@ function LaunchForm({
   return (
     <section className="card mt-8 p-6">
       <h2 className="text-lg font-semibold text-slate-900">Launch a campaign</h2>
+      {prefill && (
+        <p className="mt-1 text-sm text-slate-500">
+          Prefilled from the <span className="font-medium">{prefill.templateName}</span> template — pick a
+          target list to send it.
+        </p>
+      )}
       <form onSubmit={onSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="field-label">Channel</span>

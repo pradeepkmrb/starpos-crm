@@ -474,6 +474,7 @@ export function completeEmbeddedSignup(input: { code: string; wabaId: string; ph
 
 export interface MessageTemplate {
   id: string;
+  channelId: string;
   name: string;
   category: string;
   language: string;

@@ -28,11 +28,25 @@ type Category = "MARKETING" | "UTILITY" | "AUTHENTICATION";
 
 const CATEGORIES: Category[] = ["MARKETING", "UTILITY", "AUTHENTICATION"];
 
+/** One entry of Meta's template component array, as far as the preview cares. */
+interface TemplateComponent {
+  type?: string;
+  format?: string;
+  text?: string;
+  buttons?: { text?: string; type?: string }[];
+}
+
+function componentsOf(template: MessageTemplate): TemplateComponent[] {
+  return (template.bodyJson?.components ?? []) as TemplateComponent[];
+}
+
+function componentOfType(template: MessageTemplate, type: string): TemplateComponent | undefined {
+  return componentsOf(template).find((c) => c.type?.toUpperCase() === type);
+}
+
 /** The body text lives inside the stored Meta component payload. */
 function bodyTextOf(template: MessageTemplate): string {
-  const components = template.bodyJson?.components ?? [];
-  const body = components.find((c) => (c as { type?: string })?.type?.toUpperCase() === "BODY");
-  return (body as { text?: string })?.text ?? "";
+  return componentOfType(template, "BODY")?.text ?? "";
 }
 
 /** Synced templates can carry a category we don't offer — fall back rather than mis-select. */
@@ -58,6 +72,7 @@ export default function TemplatesPage() {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<MessageTemplate | null>(null);
+  const [previewing, setPreviewing] = useState<MessageTemplate | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,6 +127,16 @@ export default function TemplatesPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  /** Hands the broadcast form everything it needs so the user isn't retyping the template. */
+  function startCampaign(template: MessageTemplate) {
+    const params = new URLSearchParams({
+      template: template.name,
+      language: template.language,
+      channelId: template.channelId,
+    });
+    router.push(`/dashboard/campaigns?${params.toString()}`);
   }
 
   async function onDelete(template: MessageTemplate) {
@@ -225,6 +250,22 @@ export default function TemplatesPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
+                            onClick={() => startCampaign(t)}
+                            disabled={t.status !== "approved"}
+                            title={
+                              t.status === "approved"
+                                ? "Launch a broadcast with this template"
+                                : "Meta only delivers approved templates"
+                            }
+                            className="btn-primary"
+                          >
+                            Create Campaign
+                          </button>
+                          <button type="button" onClick={() => setPreviewing(t)} className="btn-secondary">
+                            Preview
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               setCreating(false);
                               setEditing(t);
@@ -258,6 +299,10 @@ export default function TemplatesPage() {
         </p>
       )}
 
+      {previewing && (
+        <TemplatePreview template={previewing} onClose={() => setPreviewing(null)} />
+      )}
+
       {canManage && editing && (
         <EditTemplateForm
           key={editing.id}
@@ -281,6 +326,94 @@ export default function TemplatesPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Renders the stored Meta components as the message would land on a handset.
+ * Variable placeholders stay literal — there are no sample values to fill in
+ * until a campaign supplies them.
+ */
+function TemplatePreview({ template, onClose }: { template: MessageTemplate; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const header = componentOfType(template, "HEADER");
+  const body = componentOfType(template, "BODY");
+  const footer = componentOfType(template, "FOOTER");
+  const buttons = componentOfType(template, "BUTTONS")?.buttons ?? [];
+  const headerFormat = header?.format?.toUpperCase() ?? "TEXT";
+
+  return (
+    <div
+      className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="card w-full max-w-sm p-5"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Preview of ${template.name}`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">{template.name}</h2>
+            <p className="text-xs text-slate-500">
+              {template.category} · {template.language}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="text-sm text-slate-500 hover:text-slate-900">
+            Close
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-lg bg-slate-100 p-4">
+          <div className="rounded-lg bg-white p-3 shadow-card">
+            {header && (
+              <div className="mb-2">
+                {headerFormat === "TEXT" ? (
+                  <p className="font-semibold text-slate-900">{header.text}</p>
+                ) : (
+                  <div className="flex h-24 items-center justify-center rounded bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                    {headerFormat} header
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="whitespace-pre-wrap text-sm text-slate-800">
+              {body?.text || <span className="text-slate-400">No body text</span>}
+            </p>
+
+            {footer?.text && <p className="mt-2 text-xs text-slate-400">{footer.text}</p>}
+          </div>
+
+          {buttons.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {buttons.map((b, i) => (
+                <div
+                  key={`${b.text}-${i}`}
+                  className="rounded-lg bg-white py-2 text-center text-sm font-medium text-brand-800 shadow-card"
+                >
+                  {b.text}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="mt-3 text-xs text-slate-500">
+          Placeholders like <code>{"{{1}}"}</code> are filled in when a campaign sends the message.
+        </p>
+      </div>
     </div>
   );
 }
