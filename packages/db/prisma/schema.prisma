@@ -21,6 +21,7 @@ model User {
 
   memberships TenantMembership[]
   invitesSent TenantInvite[]     @relation("InvitedBy")
+  assignedContacts Contact[]     @relation("AssignedAgent")
 }
 
 model Tenant {
@@ -45,6 +46,7 @@ model Tenant {
   channels           WhatsappChannel[]
   contacts           Contact[]
   contactLists       ContactList[]
+  labels             Label[]
   templates          MessageTemplate[]
   campaigns          Campaign[]
   messageLogs        MessageLog[]
@@ -206,16 +208,49 @@ model Contact {
   optedIn        Boolean  @default(true)
   source         String?
   lastInboundAt  DateTime?
+  /// The agent who owns this conversation in the inbox; null means unassigned.
+  assignedUserId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // SetNull rather than Cascade: removing a teammate must not delete the
+  // contacts they happened to be working.
+  assignedUser     User?              @relation("AssignedAgent", fields: [assignedUserId], references: [id], onDelete: SetNull)
   listMemberships  ContactListMember[]
   campaignRecipients CampaignRecipient[]
   messageLogs      MessageLog[]
+  labels           ContactLabel[]
 
   @@unique([tenantId, whatsappNumber])
   @@index([tenantId])
+  @@index([assignedUserId])
+}
+
+model Label {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  /// A palette key the UI maps to classes, not a raw colour value.
+  color     String   @default("slate")
+  createdAt DateTime @default(now())
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts ContactLabel[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model ContactLabel {
+  contactId String
+  labelId   String
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  label   Label   @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, labelId])
+  @@index([labelId])
 }
 
 model ContactList {

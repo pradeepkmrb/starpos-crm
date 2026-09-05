@@ -85,7 +85,15 @@ export class InboxService {
     const [contacts, lastMessages] = await Promise.all([
       this.prisma.contact.findMany({
         where: { tenantId, id: { in: contactIds } },
-        select: { id: true, whatsappNumber: true, name: true, lastInboundAt: true },
+        select: {
+          id: true,
+          whatsappNumber: true,
+          name: true,
+          lastInboundAt: true,
+          assignedUserId: true,
+          assignedUser: { select: { id: true, name: true, email: true } },
+          labels: { select: { label: true } },
+        },
       }),
       this.prisma.messageLog.findMany({
         where: { tenantId, contactId: { in: contactIds } },
@@ -120,13 +128,48 @@ export class InboxService {
           lastMessageDirection: last?.direction ?? null,
           windowOpen: windowIsOpen(contact.lastInboundAt),
           windowExpiresAt: windowExpiresAt(contact.lastInboundAt),
+          assignedUserId: contact.assignedUserId,
+          assignedUser: contact.assignedUser,
+          labels: contact.labels.map((cl) => cl.label),
         },
       ];
     });
   }
 
-  async getConversation(tenantId: string, contactId: string, take = 200) {
+  /**
+   * Assignment is by tenant member, so an id that isn't on this tenant is
+   * rejected rather than silently stored.
+   */
+  async assign(tenantId: string, contactId: string, userId: string | null) {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+    if (!contact) throw new NotFoundException("Contact not found");
+
+    if (userId) {
+      const membership = await this.prisma.tenantMembership.findFirst({
+        where: { tenantId, userId, status: "active" },
+      });
+      if (!membership) throw new BadRequestException("That user is not an active member of this workspace");
+    }
+
+    return this.prisma.contact.update({
+      where: { id: contactId },
+      data: { assignedUserId: userId },
+      select: {
+        id: true,
+        assignedUserId: true,
+        assignedUser: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async getConversation(tenantId: string, contactId: string, take = 200) {
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId },
+      include: {
+        assignedUser: { select: { id: true, name: true, email: true } },
+        labels: { select: { label: true } },
+      },
+    });
     if (!contact) throw new NotFoundException("Contact not found");
 
     const logs = await this.prisma.messageLog.findMany({
@@ -155,6 +198,9 @@ export class InboxService {
         name: contact.name,
         optedIn: contact.optedIn,
         createdAt: contact.createdAt,
+        assignedUserId: contact.assignedUserId,
+        assignedUser: contact.assignedUser,
+        labels: contact.labels.map((cl) => cl.label),
       },
       windowOpen: windowIsOpen(contact.lastInboundAt),
       windowExpiresAt: windowExpiresAt(contact.lastInboundAt),

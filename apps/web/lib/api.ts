@@ -508,6 +508,21 @@ export function completeEmbeddedSignup(input: { code: string; wabaId: string; ph
 
 // --- Inbox (live chat) ---
 
+export type LabelColor = "slate" | "brand" | "green" | "amber" | "red" | "purple";
+
+export interface Label {
+  id: string;
+  name: string;
+  color: LabelColor;
+  _count?: { contacts: number };
+}
+
+export interface AssignedUser {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
 export interface InboxConversation {
   contactId: string;
   whatsappNumber: string;
@@ -518,6 +533,9 @@ export interface InboxConversation {
   /** Meta's 24h customer-service window — free-form replies need it open. */
   windowOpen: boolean;
   windowExpiresAt: string | null;
+  assignedUserId: string | null;
+  assignedUser: AssignedUser | null;
+  labels: Label[];
 }
 
 export interface InboxMessage {
@@ -536,6 +554,9 @@ export interface InboxThread {
     name: string | null;
     optedIn: boolean;
     createdAt: string;
+    assignedUserId: string | null;
+    assignedUser: AssignedUser | null;
+    labels: Label[];
   };
   windowOpen: boolean;
   windowExpiresAt: string | null;
@@ -555,6 +576,34 @@ export function replyToConversation(contactId: string, body: string) {
     method: "POST",
     body: JSON.stringify({ body }),
   });
+}
+
+/** Pass null to unassign. */
+export function assignConversation(contactId: string, userId: string | null) {
+  return request<{ id: string; assignedUserId: string | null; assignedUser: AssignedUser | null }>(
+    `/inbox/conversations/${contactId}/assign`,
+    { method: "PATCH", body: JSON.stringify({ userId }) },
+  );
+}
+
+/** Replaces the contact's labels with exactly this set. */
+export function setConversationLabels(contactId: string, labelIds: string[]) {
+  return request<Label[]>(`/inbox/conversations/${contactId}/labels`, {
+    method: "PUT",
+    body: JSON.stringify({ labelIds }),
+  });
+}
+
+export function listLabels() {
+  return request<Label[]>("/inbox/labels");
+}
+
+export function createLabel(input: { name: string; color?: LabelColor }) {
+  return request<Label>("/inbox/labels", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function deleteLabel(labelId: string) {
+  return request<{ id: string; deleted: boolean }>(`/inbox/labels/${labelId}`, { method: "DELETE" });
 }
 
 // --- Templates ---

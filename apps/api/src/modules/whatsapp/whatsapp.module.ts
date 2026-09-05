@@ -5,6 +5,7 @@ import { ChannelsController } from "./channels.controller";
 import { TemplatesController } from "./templates.controller";
 import { InboxController } from "./inbox.controller";
 import { InboxService } from "./inbox.service";
+import { LabelsService } from "./labels.service";
 import { MetaGraphClient } from "./meta-graph.client";
 import { WebhooksController } from "./webhooks.controller";
 import { WebhookProcessor } from "./webhook-processor.processor";
@@ -25,7 +26,7 @@ import { PlatformModule } from "../platform/platform.module";
     forwardRef(() => AutomationsModule),
   ],
   controllers: [ChannelsController, WebhooksController, TemplatesController, InboxController],
-  providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService, InboxService],
+  providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService, InboxService, LabelsService],
   exports: [ChannelsService, MetaGraphClient, TemplatesService],
 })
 export class WhatsappModule {}
