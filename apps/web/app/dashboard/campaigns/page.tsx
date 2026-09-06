@@ -87,13 +87,6 @@ export default function CampaignsPage() {
         Send a template message to every contact in a list.
       </p>
 
-      <div className="mt-6 space-y-4">
-        {campaigns.length === 0 && <p className="text-sm text-slate-500">No campaigns yet.</p>}
-        {campaigns.map((c) => (
-          <CampaignCard key={c.id} campaign={c} />
-        ))}
-      </div>
-
       {roleAtLeast(role, "admin") && (
         <LaunchForm
           channels={channels}
@@ -103,6 +96,16 @@ export default function CampaignsPage() {
           onLaunched={(c) => setCampaigns((prev) => [c, ...prev])}
         />
       )}
+
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold text-slate-900">History</h2>
+        <div className="mt-3 space-y-4">
+          {campaigns.length === 0 && <p className="text-sm text-slate-500">No campaigns yet.</p>}
+          {campaigns.map((c) => (
+            <CampaignCard key={c.id} campaign={c} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -153,7 +156,7 @@ function LaunchForm({
   // sent people to Connections when all they were missing was a list.
   if (channels.length === 0 || lists.length === 0) {
     return (
-      <section className="card mt-8 p-6">
+      <section className="card mt-6 p-6">
         <h2 className="text-lg font-semibold text-slate-900">Before you can broadcast</h2>
         <ul className="mt-3 space-y-2 text-sm">
           <li className={channels.length > 0 ? "text-slate-400 line-through" : "text-slate-700"}>
@@ -176,7 +179,7 @@ function LaunchForm({
   }
 
   return (
-    <section className="card mt-8 p-6">
+    <section className="card mt-6 p-6">
       <h2 className="text-lg font-semibold text-slate-900">Launch a campaign</h2>
       {prefill && (
         <p className="mt-1 text-sm text-slate-500">
