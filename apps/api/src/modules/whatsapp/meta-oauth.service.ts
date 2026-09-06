@@ -1,6 +1,6 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { PlatformSettingsService } from "../platform/platform-settings.service";
-import { GRAPH_API_BASE, MetaApiError } from "./meta-graph.client";
+import { GRAPH_API_BASE, MetaApiError, describeMetaError } from "./meta-graph.client";
 
 /**
  * Handles the Meta Embedded Signup OAuth exchange — distinct from
@@ -74,8 +74,23 @@ export class MetaOAuthService {
   private async parseGraphResponse(res: Response): Promise<unknown> {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = (body as { error?: { message?: string; code?: number; error_subcode?: number } }).error;
-      throw new MetaApiError(err?.message ?? `Meta API request failed (${res.status})`, err?.code, err?.error_subcode);
+      const err = (
+        body as {
+          error?: {
+            message?: string;
+            code?: number;
+            error_subcode?: number;
+            error_user_title?: string;
+            error_user_msg?: string;
+            error_data?: { details?: string };
+          };
+        }
+      ).error;
+      throw new MetaApiError(
+        describeMetaError(err) ?? `Meta API request failed (${res.status})`,
+        err?.code,
+        err?.error_subcode,
+      );
     }
     return body;
   }

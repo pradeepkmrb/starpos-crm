@@ -28,6 +28,18 @@ type Category = "MARKETING" | "UTILITY" | "AUTHENTICATION";
 
 const CATEGORIES: Category[] = ["MARKETING", "UTILITY", "AUTHENTICATION"];
 
+/**
+ * Meta accepts only lowercase letters, digits and underscores in a template
+ * name, and answers anything else with a bare "Invalid parameter" that names
+ * no field. Normalising as the operator types means they cannot hit it.
+ */
+function normalizeTemplateName(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
 /** One entry of Meta's template component array, as far as the preview cares. */
 interface TemplateComponent {
   type?: string;
@@ -469,8 +481,11 @@ function CreateTemplateForm({
             className="input"
             placeholder="order_update"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(normalizeTemplateName(e.target.value))}
           />
+          <span className="mt-1 block text-xs text-slate-500">
+            Lowercase letters, numbers and underscores only — Meta&apos;s rule. Spaces become underscores.
+          </span>
         </label>
         <div className="flex flex-wrap gap-4">
           <label className="block">

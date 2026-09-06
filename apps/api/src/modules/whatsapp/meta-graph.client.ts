@@ -155,13 +155,43 @@ export class MetaGraphClient {
 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = (body as { error?: { message?: string; code?: number; error_subcode?: number } }).error;
+      const err = (
+        body as {
+          error?: {
+            message?: string;
+            code?: number;
+            error_subcode?: number;
+            error_user_title?: string;
+            error_user_msg?: string;
+            error_data?: { details?: string };
+          };
+        }
+      ).error;
       throw new MetaApiError(
-        err?.message ?? `Meta API request failed (${res.status})`,
+        describeMetaError(err) ?? `Meta API request failed (${res.status})`,
         err?.code,
         err?.error_subcode,
       );
     }
     return body;
   }
+}
+
+/**
+ * `error.message` is often just "Invalid parameter", with the sentence that
+ * actually names the offending field tucked into error_data.details or
+ * error_user_msg. Prefer whichever of those is present.
+ */
+export function describeMetaError(err?: {
+  message?: string;
+  error_user_title?: string;
+  error_user_msg?: string;
+  error_data?: { details?: string };
+}): string | undefined {
+  if (!err) return undefined;
+  const detail = err.error_data?.details ?? err.error_user_msg ?? err.error_user_title;
+  if (!detail) return err.message;
+  if (!err.message) return detail;
+  // Avoid "Invalid parameter: Invalid parameter" when they agree.
+  return detail.includes(err.message) ? detail : `${err.message}: ${detail}`;
 }
