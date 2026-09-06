@@ -33,12 +33,23 @@ export class CampaignsService {
     }
 
     const languageCode = dto.languageCode ?? "en_US";
-    const template = await this.templatesService.getOrCreateRef(
-      tenantId,
-      channel.id,
-      dto.templateName,
-      languageCode,
-    );
+    // Meta rejects an unknown name/language pair per recipient with a bare
+    // "(#132001) Template name does not exist in the translation", after the
+    // campaign has already been created and every send has failed. Checking
+    // the synced library first turns that into one actionable error.
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: { tenantId, channelId: channel.id, name: dto.templateName, language: languageCode },
+    });
+    if (!template) {
+      throw new BadRequestException(
+        `No template named "${dto.templateName}" in ${languageCode} on this channel. Check the name and language in the Message Library, or use "Sync from Meta" if it was created in Meta directly.`,
+      );
+    }
+    if (template.status !== "approved") {
+      throw new BadRequestException(
+        `The template "${dto.templateName}" is ${template.status}. Meta only delivers approved templates.`,
+      );
+    }
 
     const campaign = await this.prisma.campaign.create({
       data: {
