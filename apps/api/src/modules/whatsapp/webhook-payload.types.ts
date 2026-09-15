@@ -12,9 +12,24 @@ export interface MetaWebhookPayload {
         message_template_name?: string;
         message_template_language?: string;
         event?: string;
+        // Meta lead ads (field: "leadgen") — a Page-level change, so it
+        // carries no phone number metadata.
+        leadgen_id?: string;
+        form_id?: string;
+        page_id?: string;
+        ad_id?: string;
+        created_time?: number;
       };
     }[];
   }[];
+}
+
+export interface MetaLeadgenNotification {
+  leadgen_id: string;
+  form_id?: string;
+  page_id?: string;
+  ad_id?: string;
+  created_time?: number;
 }
 
 export interface MetaTemplateStatusUpdate {

@@ -1,4 +1,4 @@
-import type { PlanCode, TenantRole } from "@digitel/shared";
+import type { LeadFieldType, LeadStatus, PlanCode, TenantRole } from "@digitel/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -723,4 +723,219 @@ export function createPlatformTenant(input: {
 
 export function getPlatformChannels() {
   return request<PlatformChannel[]>("/platform/channels");
+}
+
+// --- CRM: leads ---
+
+export interface LeadOwner {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+export interface LeadCustomFieldValue {
+  [key: string]: string | number | boolean;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  source: string;
+  status: LeadStatus;
+  valuePaise: number | null;
+  notes: string | null;
+  ownerUserId: string | null;
+  owner: LeadOwner | null;
+  /** Answers to the tenant's custom fields, keyed by field key. */
+  customFieldsJson: LeadCustomFieldValue | null;
+  metaLeadId: string | null;
+  metaAdId: string | null;
+  metaFormLink: { id: string; formId: string; formName: string | null; pageName: string | null } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeadSummary {
+  total: number;
+  byStatus: Record<LeadStatus, number>;
+}
+
+export interface LeadFieldDefinition {
+  id: string;
+  key: string;
+  label: string;
+  type: LeadFieldType;
+  /** Choices for dropdown and radio fields; null for the free-entry types. */
+  optionsJson: string[] | null;
+  required: boolean;
+  isActive: boolean;
+  placeholder: string | null;
+  helpText: string | null;
+  order: number;
+  createdAt: string;
+}
+
+export interface LeadInput {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  company?: string | null;
+  status?: LeadStatus;
+  source?: string | null;
+  valuePaise?: number | null;
+  notes?: string | null;
+  ownerUserId?: string | null;
+  customFields?: Record<string, string | number | boolean>;
+}
+
+export function listLeads(params: { status?: string; q?: string; limit?: number } = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.q) query.set("q", params.q);
+  if (params.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString();
+  return request<Lead[]>(`/leads${suffix ? `?${suffix}` : ""}`);
+}
+
+export function getLeadSummary() {
+  return request<LeadSummary>("/leads/summary");
+}
+
+export function createLead(input: LeadInput) {
+  return request<Lead>("/leads", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateLead(leadId: string, input: Partial<LeadInput>) {
+  return request<Lead>(`/leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteLead(leadId: string) {
+  return request<{ id: string; deleted: boolean }>(`/leads/${leadId}`, { method: "DELETE" });
+}
+
+// --- CRM: custom fields on the lead entry form ---
+
+export function listLeadFields() {
+  return request<LeadFieldDefinition[]>("/lead-fields");
+}
+
+export function createLeadField(input: {
+  label: string;
+  type: LeadFieldType;
+  options?: string[];
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+}) {
+  return request<LeadFieldDefinition>("/lead-fields", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** The key and type are fixed once created, so answers already on file stay valid. */
+export function updateLeadField(
+  fieldId: string,
+  input: {
+    label?: string;
+    options?: string[];
+    required?: boolean;
+    isActive?: boolean;
+    placeholder?: string;
+    helpText?: string;
+  },
+) {
+  return request<LeadFieldDefinition>(`/lead-fields/${fieldId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteLeadField(fieldId: string) {
+  return request<{ id: string; deleted: boolean }>(`/lead-fields/${fieldId}`, { method: "DELETE" });
+}
+
+export function reorderLeadFields(ids: string[]) {
+  return request<LeadFieldDefinition[]>("/lead-fields/reorder", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// --- CRM: Meta lead-ads forms ---
+
+export interface MetaLeadFormLink {
+  id: string;
+  pageId: string;
+  pageName: string | null;
+  formId: string;
+  formName: string | null;
+  isActive: boolean;
+  /** Meta question name -> "name" | "phone" | "email" | "company" | "notes" | "custom:<key>" | "ignore". */
+  fieldMapping: Record<string, string>;
+  defaultStatus: LeadStatus;
+  leadCount: number;
+  lastLeadAt: string | null;
+  lastSyncAt: string | null;
+  createdAt: string;
+}
+
+export interface MetaFormQuestion {
+  key: string;
+  label: string;
+  type?: string;
+}
+
+export function listMetaLeadForms() {
+  return request<MetaLeadFormLink[]>("/lead-sources/meta");
+}
+
+export function linkMetaLeadForm(input: {
+  pageId: string;
+  formId: string;
+  pageAccessToken: string;
+  pageName?: string;
+  formName?: string;
+  defaultStatus?: LeadStatus;
+  fieldMapping?: Record<string, string>;
+}) {
+  return request<{ form: MetaLeadFormLink; questions: MetaFormQuestion[]; warning?: string }>(
+    "/lead-sources/meta",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updateMetaLeadForm(
+  linkId: string,
+  input: {
+    isActive?: boolean;
+    fieldMapping?: Record<string, string>;
+    defaultStatus?: LeadStatus;
+    pageAccessToken?: string;
+    formName?: string;
+    pageName?: string;
+  },
+) {
+  return request<MetaLeadFormLink>(`/lead-sources/meta/${linkId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteMetaLeadForm(linkId: string) {
+  return request<{ id: string; deleted: boolean }>(`/lead-sources/meta/${linkId}`, { method: "DELETE" });
+}
+
+export function getMetaFormQuestions(linkId: string) {
+  return request<{ questions: MetaFormQuestion[]; warning?: string }>(
+    `/lead-sources/meta/${linkId}/questions`,
+  );
+}
+
+/** Pulls submissions Meta already holds — the catch-up for leads that predate the webhook. */
+export function syncMetaLeadForm(linkId: string, limit?: number) {
+  return request<{ created: number; skipped: number; form: MetaLeadFormLink }>(
+    `/lead-sources/meta/${linkId}/sync${limit ? `?limit=${limit}` : ""}`,
+    { method: "POST" },
+  );
 }

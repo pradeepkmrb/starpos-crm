@@ -26,6 +26,9 @@ const TENANT_SCOPED_MODELS = new Set([
   "Campaign",
   "MessageLog",
   "AutomationWorkflow",
+  "Lead",
+  "LeadCustomField",
+  "MetaLeadForm",
   "Subscription",
   "Invoice",
 ]);

@@ -112,6 +112,30 @@ export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function FunnelIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.75 4.5h16.5l-6.375 7.5v6.75l-3.75 1.875V12L3.75 4.5z"
+      />
+    </Icon>
+  );
+}
+
+export function SlidersIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 4.5v4.5m0 3v7.5m6-15v9m0 3v3m6-15v1.5m0 4.5v9M3.75 9h4.5m1.5 3h4.5m1.5-4.5h4.5"
+      />
+    </Icon>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

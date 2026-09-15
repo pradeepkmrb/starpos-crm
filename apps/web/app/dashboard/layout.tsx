@@ -12,10 +12,12 @@ import {
   ChatIcon,
   CreditCardIcon,
   DocumentIcon,
+  FunnelIcon,
   HomeIcon,
   LogoutIcon,
   MegaphoneIcon,
   ShieldIcon,
+  SlidersIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -41,6 +43,14 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/templates", label: "Message Library", icon: DocumentIcon },
       { href: "/dashboard/campaigns", label: "Broadcasts", icon: MegaphoneIcon },
       { href: "/dashboard/automations", label: "Flows", icon: BoltIcon },
+    ],
+  },
+  {
+    label: "CRM",
+    items: [
+      { href: "/dashboard/leads", label: "Leads", icon: FunnelIcon },
+      { href: "/dashboard/lead-fields", label: "Lead Fields", icon: SlidersIcon },
+      { href: "/dashboard/lead-sources", label: "Meta Ads", icon: MegaphoneIcon },
     ],
   },
   { label: "Insights", items: [{ href: "/dashboard/analytics", label: "Insights", icon: ChartIcon }] },
