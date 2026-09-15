@@ -8,16 +8,16 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
-import { LEAD_FIELD_TYPES, type LeadFieldType } from "@digitel/shared";
+import { CUSTOM_FIELD_TYPES, type CustomFieldType } from "@digitel/shared";
 
-export class CreateLeadFieldDto {
+export class CreateCustomFieldDto {
   @IsString()
   @MinLength(1)
   @MaxLength(80)
   label!: string;
 
-  @IsIn(LEAD_FIELD_TYPES as unknown as string[])
-  type!: LeadFieldType;
+  @IsIn(CUSTOM_FIELD_TYPES as unknown as string[])
+  type!: CustomFieldType;
 
   /** Required for dropdown and radio fields; ignored for the others. */
   @IsOptional()

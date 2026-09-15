@@ -7,7 +7,7 @@ import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@d
 import {
   ApiError,
   type Lead,
-  type LeadFieldDefinition,
+  type CustomFieldDefinition,
   type LeadInput,
   type LeadSummary,
   type Member,
@@ -15,7 +15,7 @@ import {
   deleteLead,
   getAccessToken,
   getLeadSummary,
-  listLeadFields,
+  listCustomFields,
   listLeads,
   listMembers,
   me,
@@ -46,7 +46,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [fields, setFields] = useState<LeadFieldDefinition[]>([]);
+  const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [summary, setSummary] = useState<LeadSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function LeadsPage() {
         const [meRes, leadsRes, fieldsRes, summaryRes, membersRes] = await Promise.all([
           me(),
           listLeads({ limit: 500 }),
-          listLeadFields(),
+          listCustomFields("lead"),
           getLeadSummary(),
           // A viewer can still read the roster, so this never blocks the page.
           listMembers().catch(() => [] as Member[]),

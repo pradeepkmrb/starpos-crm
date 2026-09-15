@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from "class-validator";
+import { IsObject, IsOptional, IsString, MinLength } from "class-validator";
 
 export class CreateContactDto {
   @IsString()
@@ -8,4 +8,9 @@ export class CreateContactDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  /** Answers to the tenant's custom contact fields, keyed by CustomField.key. */
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, unknown>;
 }

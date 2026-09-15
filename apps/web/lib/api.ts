@@ -1,7 +1,8 @@
 import type {
+  CustomFieldEntity,
+  CustomFieldType,
   IntegrationFieldSpec,
   IntegrationStatus,
-  LeadFieldType,
   LeadStatus,
   PlanCode,
   TenantRole,
@@ -234,6 +235,8 @@ export interface Contact {
   optedIn: boolean;
   /** When false, automations stop auto-replying to this contact. */
   botEnabled: boolean;
+  /** Answers to the tenant's custom contact fields, keyed by field key. */
+  attributesJson: CustomFieldValues | null;
   createdAt: string;
 }
 
@@ -253,6 +256,8 @@ export function updateContact(
     languageCode?: string | null;
     optedIn?: boolean;
     botEnabled?: boolean;
+    /** Omitted keys keep their stored answer. */
+    customFields?: CustomFieldValues;
   },
 ) {
   return request<Contact>(`/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(input) });
@@ -293,7 +298,11 @@ export function deleteContactList(listId: string) {
   return request<{ id: string; deleted: boolean }>(`/contacts/lists/${listId}`, { method: "DELETE" });
 }
 
-export function createContact(input: { whatsappNumber: string; name?: string }) {
+export function createContact(input: {
+  whatsappNumber: string;
+  name?: string;
+  customFields?: CustomFieldValues;
+}) {
   return request<Contact>("/contacts", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -740,7 +749,8 @@ export interface LeadOwner {
   email: string;
 }
 
-export interface LeadCustomFieldValue {
+/** An answer map for a tenant's custom fields, keyed by field key. */
+export interface CustomFieldValues {
   [key: string]: string | number | boolean;
 }
 
@@ -757,7 +767,7 @@ export interface Lead {
   ownerUserId: string | null;
   owner: LeadOwner | null;
   /** Answers to the tenant's custom fields, keyed by field key. */
-  customFieldsJson: LeadCustomFieldValue | null;
+  customFieldsJson: CustomFieldValues | null;
   metaLeadId: string | null;
   metaAdId: string | null;
   metaFormLink: { id: string; formId: string; formName: string | null; pageName: string | null } | null;
@@ -768,21 +778,6 @@ export interface Lead {
 export interface LeadSummary {
   total: number;
   byStatus: Record<LeadStatus, number>;
-}
-
-export interface LeadFieldDefinition {
-  id: string;
-  key: string;
-  label: string;
-  type: LeadFieldType;
-  /** Choices for dropdown and radio fields; null for the free-entry types. */
-  optionsJson: string[] | null;
-  required: boolean;
-  isActive: boolean;
-  placeholder: string | null;
-  helpText: string | null;
-  order: number;
-  createdAt: string;
 }
 
 export interface LeadInput {
@@ -823,25 +818,52 @@ export function deleteLead(leadId: string) {
   return request<{ id: string; deleted: boolean }>(`/leads/${leadId}`, { method: "DELETE" });
 }
 
-// --- CRM: custom fields on the lead entry form ---
+// --- Custom fields (the same builder behind the lead and contact forms) ---
 
-export function listLeadFields() {
-  return request<LeadFieldDefinition[]>("/lead-fields");
+export interface CustomFieldDefinition {
+  id: string;
+  entity: CustomFieldEntity;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  /** Choices for dropdown and radio fields; null for the free-entry types. */
+  optionsJson: string[] | null;
+  required: boolean;
+  isActive: boolean;
+  placeholder: string | null;
+  helpText: string | null;
+  order: number;
+  createdAt: string;
 }
 
-export function createLeadField(input: {
+export interface CustomFieldInputValues {
   label: string;
-  type: LeadFieldType;
+  type: CustomFieldType;
   options?: string[];
   required?: boolean;
   placeholder?: string;
   helpText?: string;
-}) {
-  return request<LeadFieldDefinition>("/lead-fields", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Each entity has its own route, so a request can only ever touch its own fields. */
+function fieldsPath(entity: CustomFieldEntity): string {
+  return entity === "lead" ? "/lead-fields" : "/contact-fields";
+}
+
+export function listCustomFields(entity: CustomFieldEntity) {
+  return request<CustomFieldDefinition[]>(fieldsPath(entity));
+}
+
+export function createCustomField(entity: CustomFieldEntity, input: CustomFieldInputValues) {
+  return request<CustomFieldDefinition>(fieldsPath(entity), {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 /** The key and type are fixed once created, so answers already on file stay valid. */
-export function updateLeadField(
+export function updateCustomField(
+  entity: CustomFieldEntity,
   fieldId: string,
   input: {
     label?: string;
@@ -852,18 +874,20 @@ export function updateLeadField(
     helpText?: string;
   },
 ) {
-  return request<LeadFieldDefinition>(`/lead-fields/${fieldId}`, {
+  return request<CustomFieldDefinition>(`${fieldsPath(entity)}/${fieldId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
 }
 
-export function deleteLeadField(fieldId: string) {
-  return request<{ id: string; deleted: boolean }>(`/lead-fields/${fieldId}`, { method: "DELETE" });
+export function deleteCustomField(entity: CustomFieldEntity, fieldId: string) {
+  return request<{ id: string; deleted: boolean }>(`${fieldsPath(entity)}/${fieldId}`, {
+    method: "DELETE",
+  });
 }
 
-export function reorderLeadFields(ids: string[]) {
-  return request<LeadFieldDefinition[]>("/lead-fields/reorder", {
+export function reorderCustomFields(entity: CustomFieldEntity, ids: string[]) {
+  return request<CustomFieldDefinition[]>(`${fieldsPath(entity)}/reorder`, {
     method: "POST",
     body: JSON.stringify({ ids }),
   });

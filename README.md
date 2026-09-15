@@ -63,7 +63,7 @@ pnpm --filter @digitel/api test
 ```
 
 Covers integration credential handling (masking, rotation, unknown-field
-rejection), custom lead-field validation, Meta lead-ad field mapping,
+rejection), custom-field validation, Meta lead-ad field mapping,
 keyword-matching for automations (including non-space-delimited
 scripts like Chinese/Japanese/Thai), the entitlements/plan-limit boundary
 math, and the tenant-scoping Prisma safety net.
@@ -75,17 +75,37 @@ The **CRM** nav group holds three screens:
 - **Leads** — the entry screen and pipeline. Fixed fields (name, mobile
   number, email, company, stage, owner, deal value, source, notes) plus every
   custom field the workspace has defined.
-- **Lead Fields** — the field builder. Add a text box, paragraph, number,
-  date, dropdown, radio group or tick box; the lead entry screen picks it up
-  immediately. A field's key is derived from its label once and never changes,
-  so renaming a label keeps the answers already on file. Hiding a field takes
-  it off the form without erasing anything.
+- **Lead Fields** — the field builder for the lead entry screen. See
+  [Custom fields](#custom-fields) below.
 - **Meta Ads** — links a Meta lead-ads instant form to this workspace.
 
-Answers live in `Lead.customFieldsJson`, keyed by field key, and are validated
-against their definition on every write (`lead-custom-values.ts`): a dropdown
-or radio answer has to be one of its choices, a number has to parse, a date
-has to be real.
+## Custom fields
+
+Both leads and contacts take tenant-defined fields, built from one place:
+
+| Menu | Builds the form for | Answers stored in |
+|---|---|---|
+| CRM → Lead Fields | Lead entry screen | `Lead.customFieldsJson` |
+| Engage → Contact Fields | Create and edit contact | `Contact.attributesJson` |
+
+Add a text box, paragraph, number, date, dropdown, radio group or tick box,
+and the matching entry screen picks it up immediately. Fields can be reordered,
+marked required, and hidden without erasing anything.
+
+- The definitions are rows in `CustomField`, discriminated by `entity`; the
+  answers are one JSON column on the record, keyed by field key. A workspace
+  reshaping its forms never means a migration.
+- Keys are unique per entity, so leads and contacts can each have their own
+  "city" without colliding, and neither entity's routes can reach the other's
+  fields.
+- A field's key is derived from its label once and never changes, so renaming a
+  label keeps the answers already on file.
+- Every write passes through `custom-field-values.ts`: a dropdown or radio
+  answer has to be one of its choices, a number has to parse, a date has to be
+  real, and a key with no definition is dropped rather than stored.
+- Required is enforced on manual entry only. A lead arriving from a Meta ad, or
+  a contact created by an inbound WhatsApp message or a CSV import, is never
+  rejected for a missing answer — those can be filled in afterwards.
 
 ### Linking a Meta lead ad
 
@@ -158,11 +178,12 @@ disconnecting require admin or owner.
   monthly API requests goes through it.
 - **WhatsApp sends**: all go through `MetaGraphClient`, the single choke
   point where API-usage metering happens, so no call site can bypass quota.
-- **Lead custom fields**: the definitions are rows (`LeadCustomField`), the
-  answers are one JSON column on `Lead`. That keeps a tenant's form changes
-  out of DDL, and validation in `lead-custom-values.ts` is the single gate
-  every write passes through, so the JSON column can never hold a key the
-  tenant never defined.
+- **Custom fields**: one builder serves every entry screen that has one. The
+  definitions are rows (`CustomField`, discriminated by `entity`), the answers
+  are one JSON column on the record. That keeps a tenant's form changes out of
+  DDL, and validation in `custom-field-values.ts` is the single gate every
+  write passes through, so the JSON column can never hold a key the tenant
+  never defined.
 - **Billing**: `PaymentProvider` interface with a Razorpay implementation;
   checkout redirects to Razorpay's hosted page (no card data touches this
   app). A tenant's plan only changes via a verified `subscription.activated`

@@ -2,10 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { Prisma } from "@digitel/db";
 import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { LeadFieldsService } from "./lead-fields.service";
+import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
-import { normalizeCustomFieldValues } from "./lead-custom-values";
+import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
 
 export interface ListLeadsOptions {
   status?: string;
@@ -23,7 +23,7 @@ const LEAD_INCLUDE = {
 export class LeadsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly leadFields: LeadFieldsService,
+    private readonly customFields: CustomFieldsService,
   ) {}
 
   list(tenantId: string, options: ListLeadsOptions = {}) {
@@ -71,7 +71,7 @@ export class LeadsService {
   }
 
   async create(tenantId: string, dto: CreateLeadDto) {
-    const definitions = await this.leadFields.listDefinitions(tenantId);
+    const definitions = await this.customFields.listDefinitions(tenantId, "lead");
     const customFields = normalizeCustomFieldValues(definitions, dto.customFields);
     const ownerUserId = await this.resolveOwner(tenantId, dto.ownerUserId);
 
@@ -113,7 +113,7 @@ export class LeadsService {
       data.owner = ownerUserId ? { connect: { id: ownerUserId } } : { disconnect: true };
     }
     if (dto.customFields !== undefined) {
-      const definitions = await this.leadFields.listDefinitions(tenantId);
+      const definitions = await this.customFields.listDefinitions(tenantId, "lead");
       data.customFieldsJson = normalizeCustomFieldValues(definitions, dto.customFields, {
         existing: asRecord(lead.customFieldsJson),
       });

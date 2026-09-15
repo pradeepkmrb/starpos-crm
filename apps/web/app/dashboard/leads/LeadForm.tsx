@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
-import type { Lead, LeadFieldDefinition, LeadInput, Member } from "../../../lib/api";
-import { CustomFieldInput, type CustomValue } from "./CustomFieldInput";
+import type { CustomFieldDefinition, Lead, LeadInput, Member } from "../../../lib/api";
+import { CustomFieldInput, type CustomValue } from "../../../components/CustomFieldInput";
 
 export interface LeadFormValues {
   name: string;
@@ -18,7 +18,7 @@ export interface LeadFormValues {
   custom: Record<string, CustomValue>;
 }
 
-export function emptyFormValues(fields: LeadFieldDefinition[]): LeadFormValues {
+export function emptyFormValues(fields: CustomFieldDefinition[]): LeadFormValues {
   return {
     name: "",
     phone: "",
@@ -34,7 +34,7 @@ export function emptyFormValues(fields: LeadFieldDefinition[]): LeadFormValues {
 }
 
 /** Tick-boxes need an explicit false so an untouched one submits as "not ticked". */
-function defaultCustomValues(fields: LeadFieldDefinition[]): Record<string, CustomValue> {
+function defaultCustomValues(fields: CustomFieldDefinition[]): Record<string, CustomValue> {
   const values: Record<string, CustomValue> = {};
   for (const field of fields) {
     if (field.isActive) values[field.key] = field.type === "checkbox" ? false : "";
@@ -42,7 +42,7 @@ function defaultCustomValues(fields: LeadFieldDefinition[]): Record<string, Cust
   return values;
 }
 
-export function formValuesFromLead(lead: Lead, fields: LeadFieldDefinition[]): LeadFormValues {
+export function formValuesFromLead(lead: Lead, fields: CustomFieldDefinition[]): LeadFormValues {
   const custom = defaultCustomValues(fields);
   for (const [key, value] of Object.entries(lead.customFieldsJson ?? {})) {
     custom[key] = typeof value === "boolean" ? value : String(value);
@@ -96,7 +96,7 @@ export function LeadForm({
   onSubmit,
   onCancel,
 }: {
-  fields: LeadFieldDefinition[];
+  fields: CustomFieldDefinition[];
   members: Member[];
   editing: Lead | null;
   busy: boolean;

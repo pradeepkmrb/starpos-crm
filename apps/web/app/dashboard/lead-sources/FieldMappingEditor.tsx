@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CUSTOM_TARGET_PREFIX, IGNORE_TARGET, LEAD_STANDARD_TARGETS } from "@digitel/shared";
-import type { LeadFieldDefinition, MetaFormQuestion } from "../../../lib/api";
+import type { CustomFieldDefinition, MetaFormQuestion } from "../../../lib/api";
 
 const AUTO = "";
 
@@ -20,7 +20,7 @@ export function FieldMappingEditor({
   onSave,
 }: {
   questions: MetaFormQuestion[];
-  fields: LeadFieldDefinition[];
+  fields: CustomFieldDefinition[];
   mapping: Record<string, string>;
   busy: boolean;
   onSave: (mapping: Record<string, string>) => void;

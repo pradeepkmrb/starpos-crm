@@ -1,6 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
+import { CustomFieldsService } from "../custom-fields/custom-fields.service";
+import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
 import { parseContactsCsv } from "./csv-parser";
 import { ImportContactsDto } from "./dto/import-contacts.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
@@ -11,6 +13,7 @@ export class ContactsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly entitlements: EntitlementsService,
+    private readonly customFields: CustomFieldsService,
   ) {}
 
   /**
@@ -99,6 +102,13 @@ export class ContactsService {
     if (dto.languageCode !== undefined) data.languageCode = dto.languageCode || null;
     if (dto.optedIn !== undefined) data.optedIn = dto.optedIn;
     if (dto.botEnabled !== undefined) data.botEnabled = dto.botEnabled;
+    if (dto.customFields !== undefined) {
+      const definitions = await this.customFields.listDefinitions(tenantId, "contact");
+      // Merged over what is stored, so patching one answer can't blank the rest.
+      data.attributesJson = normalizeCustomFieldValues(definitions, dto.customFields, {
+        existing: asRecord(contact.attributesJson),
+      });
+    }
 
     return this.prisma.contact.update({ where: { id }, data });
   }
@@ -165,8 +175,17 @@ export class ContactsService {
 
     await this.entitlements.assertCanAdd(tenantId, "contacts");
 
+    const definitions = await this.customFields.listDefinitions(tenantId, "contact");
+    const attributes = normalizeCustomFieldValues(definitions, dto.customFields);
+
     return this.prisma.contact.create({
-      data: { tenantId, whatsappNumber: dto.whatsappNumber, name: dto.name, source: "manual" },
+      data: {
+        tenantId,
+        whatsappNumber: dto.whatsappNumber,
+        name: dto.name,
+        source: "manual",
+        attributesJson: attributes,
+      },
     });
   }
 
@@ -243,4 +262,11 @@ export class ContactsService {
     if (!list) throw new NotFoundException("List not found");
     return list;
   }
+}
+
+/** Prisma hands back JsonValue; only an object shape is usable as an answer map. */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }

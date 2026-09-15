@@ -54,7 +54,7 @@ model Tenant {
   messageLogs        MessageLog[]
   automationWorkflows AutomationWorkflow[]
   leads              Lead[]
-  leadCustomFields   LeadCustomField[]
+  customFields       CustomField[]
   metaLeadForms      MetaLeadForm[]
   integrations       TenantIntegration[]
 }
@@ -213,6 +213,7 @@ model Contact {
   email          String?
   /// Free text (e.g. "en", "ta") — Meta language codes aren't a closed set.
   languageCode   String?
+  /// Answers to the tenant's custom contact fields, keyed by CustomField.key.
   attributesJson Json?
   optedIn        Boolean  @default(true)
   /// When false, automations stop auto-replying so a human can take over.
@@ -472,7 +473,7 @@ model WebhookEvent {
 // ---------- CRM (leads) ----------
 
 /// A sales lead. The columns here are the fixed fields every tenant gets;
-/// anything a tenant adds through LeadCustomField lands in customFieldsJson.
+/// anything a tenant adds through the custom lead fields lands in customFieldsJson.
 model Lead {
   id       String @id @default(cuid())
   tenantId String
@@ -490,7 +491,7 @@ model Lead {
   /// The teammate working this lead; null means unclaimed.
   ownerUserId String?
 
-  /// Answers to the tenant's custom fields, keyed by LeadCustomField.key.
+  /// Answers to the tenant's custom lead fields, keyed by CustomField.key.
   customFieldsJson Json?
 
   /// Set only for leads that arrived from a Meta lead ad.
@@ -522,34 +523,47 @@ enum LeadStatus {
   lost
 }
 
-/// A tenant-defined extra question on the lead entry screen.
-model LeadCustomField {
+/// A tenant-defined extra question on an entry screen. One builder serves
+/// both leads and contacts — `entity` says which form the field belongs to,
+/// and the answers live in a JSON column on that entity (Lead.customFieldsJson,
+/// Contact.attributesJson), keyed by `key`.
+model CustomField {
   id       String @id @default(cuid())
   tenantId String
 
-  /// Stable machine key used inside Lead.customFieldsJson. Never changes once created.
-  key         String
-  label       String
-  type        LeadFieldType @default(text)
+  /// Which entry screen this field belongs to.
+  entity CustomFieldEntity
+
+  /// Stable machine key used inside the answers column. Never changes once created.
+  key   String
+  label String
+  type  CustomFieldType @default(text)
   /// Choices for dropdown and radio fields; null for the free-entry types.
   optionsJson Json?
-  required    Boolean       @default(false)
+  required    Boolean @default(false)
   /// Retired fields are hidden from the entry screen but keep their stored answers.
-  isActive    Boolean       @default(true)
+  isActive    Boolean @default(true)
   placeholder String?
   helpText    String?
-  order       Int           @default(0)
+  order       Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, key])
-  @@index([tenantId])
+  // Keys only have to be unique within one entity, so leads and contacts can
+  // each have their own "city" without colliding.
+  @@unique([tenantId, entity, key])
+  @@index([tenantId, entity])
 }
 
-enum LeadFieldType {
+enum CustomFieldEntity {
+  lead
+  contact
+}
+
+enum CustomFieldType {
   text
   textarea
   number

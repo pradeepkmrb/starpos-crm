@@ -2,6 +2,6 @@
 
 import { CustomFieldsManager } from "../../../components/CustomFieldsManager";
 
-export default function LeadFieldsPage() {
-  return <CustomFieldsManager entity="lead" />;
+export default function ContactFieldsPage() {
+  return <CustomFieldsManager entity="contact" />;
 }

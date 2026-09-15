@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { roleAtLeast, type TenantRole } from "@digitel/shared";
 import {
   ApiError,
   type Contact,
   type ContactListSummary,
+  type CustomFieldDefinition,
+  type CustomFieldValues,
   type ImportResult,
   addContactsToList,
   bulkDeleteContacts,
@@ -19,8 +21,17 @@ import {
   importContacts,
   listContactLists,
   listContacts,
+  listCustomFields,
   me,
+  updateContact,
 } from "../../../lib/api";
+import {
+  ContactDetailPanel,
+  CustomFieldsFieldset,
+  blankValues,
+  toCustomFieldValues,
+  type CustomValues,
+} from "./ContactCustomFields";
 
 /** Matches the server's own ceiling on ?limit=. */
 const CONTACT_FETCH_LIMIT = 5000;
@@ -66,6 +77,8 @@ export default function ContactsPage() {
   const [role, setRole] = useState<TenantRole | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [lists, setLists] = useState<ContactListSummary[]>([]);
+  const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -82,14 +95,16 @@ export default function ContactsPage() {
     }
     (async () => {
       try {
-        const [meRes, contactsRes, listsRes] = await Promise.all([
+        const [meRes, contactsRes, listsRes, fieldsRes] = await Promise.all([
           me(),
           listContacts(CONTACT_FETCH_LIMIT),
           listContactLists(),
+          listCustomFields("contact"),
         ]);
         setRole(meRes.role);
         setContacts(contactsRes);
         setLists(listsRes);
+        setFields(fieldsRes);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
@@ -132,6 +147,18 @@ export default function ContactsPage() {
       else visible.forEach((c) => next.add(c.id));
       return next;
     });
+  }
+
+  async function onSaveDetails(contact: Contact, values: CustomFieldValues) {
+    setError(null);
+    setNotice(null);
+    try {
+      const updated = await updateContact(contact.id, { customFields: values });
+      setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      setNotice(`Saved details for ${updated.name ?? updated.whatsappNumber}.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save these details");
+    }
   }
 
   async function onDeleteOne(contact: Contact) {
@@ -392,7 +419,8 @@ export default function ContactsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visible.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
+                  <Fragment key={c.id}>
+                  <tr className="hover:bg-slate-50">
                     {canManage && (
                       <td className="px-4 py-3">
                         <input
@@ -404,7 +432,14 @@ export default function ContactsPage() {
                       </td>
                     )}
                     <td className="px-4 py-3 font-medium text-slate-900">
-                      {c.name || <span className="text-slate-400">—</span>}
+                      <button
+                        type="button"
+                        className="text-left hover:underline"
+                        onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                        aria-expanded={expanded === c.id}
+                      >
+                        {c.name || <span className="text-slate-400">—</span>}
+                      </button>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-slate-700">{c.whatsappNumber}</td>
                     <td className="px-4 py-3 text-slate-600">{c.source || "—"}</td>
@@ -429,6 +464,19 @@ export default function ContactsPage() {
                       </td>
                     )}
                   </tr>
+                  {expanded === c.id && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={canManage ? 7 : 5} className="px-4 py-4">
+                        <ContactDetailPanel
+                          contact={c}
+                          fields={fields}
+                          canEdit={canManage}
+                          onSave={(values) => onSaveDetails(c, values)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -494,6 +542,7 @@ export default function ContactsPage() {
 
       {canManage && creating && (
         <AddContactForm
+          fields={fields}
           onCancel={() => setCreating(false)}
           onAdded={(contact) => {
             setContacts((prev) => [contact, ...prev]);
@@ -571,23 +620,35 @@ function AddToListBar({
 }
 
 function AddContactForm({
+  fields,
   onAdded,
   onCancel,
 }: {
+  fields: CustomFieldDefinition[];
   onAdded: (contact: Contact) => void;
   onCancel: () => void;
 }) {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [name, setName] = useState("");
+  const [custom, setCustom] = useState<CustomValues>(() => blankValues(fields));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // A field added while this form is open should still appear on it.
+  useEffect(() => setCustom(blankValues(fields)), [fields]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      onAdded(await createContact({ whatsappNumber, name: name || undefined }));
+      onAdded(
+        await createContact({
+          whatsappNumber,
+          name: name || undefined,
+          customFields: toCustomFieldValues(custom),
+        }),
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to add contact");
     } finally {
@@ -595,31 +656,52 @@ function AddContactForm({
     }
   }
 
+  const hasCustomFields = fields.some((field) => field.isActive);
+
   return (
     <section className="card mt-8 p-6">
       <h2 className="text-lg font-semibold text-slate-900">Create contact</h2>
       <p className="mt-1 text-sm text-slate-500">Add a single contact manually, including the country code.</p>
-      <form onSubmit={onSubmit} className="mt-4 flex flex-wrap items-end gap-3">
-        <label className="block">
-          <span className="field-label">WhatsApp number</span>
-          <input
-            required
-            className="input"
-            placeholder="+91XXXXXXXXXX"
-            value={whatsappNumber}
-            onChange={(e) => setWhatsappNumber(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          <span className="field-label">Name (optional)</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <button type="submit" disabled={submitting} className="btn-primary">
-          {submitting ? "Adding…" : "Add contact"}
-        </button>
-        <button type="button" onClick={onCancel} className="btn-secondary">
-          Cancel
-        </button>
+      <form onSubmit={onSubmit} className="mt-4 space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="field-label">WhatsApp number</span>
+            <input
+              required
+              className="input"
+              placeholder="+91XXXXXXXXXX"
+              value={whatsappNumber}
+              onChange={(e) => setWhatsappNumber(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="field-label">Name (optional)</span>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+        </div>
+
+        {hasCustomFields && (
+          <div className="border-t border-slate-200 pt-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Your contact fields
+            </p>
+            <CustomFieldsFieldset
+              fields={fields}
+              values={custom}
+              busy={submitting}
+              onChange={setCustom}
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button type="submit" disabled={submitting} className="btn-primary">
+            {submitting ? "Adding…" : "Add contact"}
+          </button>
+          <button type="button" onClick={onCancel} className="btn-secondary">
+            Cancel
+          </button>
+        </div>
       </form>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </section>

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, ValidateIf } from "class-validator";
+import { IsBoolean, IsEmail, IsObject, IsOptional, IsString, MaxLength, ValidateIf } from "class-validator";
 
 /** Every field is optional — the UI patches whichever one the operator edited. */
 export class UpdateContactDto {
@@ -27,4 +27,9 @@ export class UpdateContactDto {
   @IsOptional()
   @IsBoolean()
   botEnabled?: boolean;
+
+  /** Answers to the tenant's custom contact fields; omitted keys keep their stored value. */
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, unknown>;
 }

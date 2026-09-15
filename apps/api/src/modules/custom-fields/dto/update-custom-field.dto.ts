@@ -12,7 +12,7 @@ import {
  * The key and the type are deliberately immutable: answers are already
  * stored under the key, and changing the type would invalidate them.
  */
-export class UpdateLeadFieldDto {
+export class UpdateCustomFieldDto {
   @IsOptional()
   @IsString()
   @MinLength(1)

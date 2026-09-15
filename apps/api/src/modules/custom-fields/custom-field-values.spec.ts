@@ -4,7 +4,7 @@ import {
   slugifyFieldKey,
   uniqueFieldKey,
   type CustomFieldDefinition,
-} from "./lead-custom-values";
+} from "./custom-field-values";
 
 function def(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDefinition {
   return {
@@ -83,7 +83,7 @@ describe("normalizeCustomFieldValues", () => {
     expect(normalizeCustomFieldValues([field], { budget: "2 lakh" })).toEqual({ budget: "2 lakh" });
   });
 
-  it("does not enforce required fields on an ad lead, so no lead is dropped", () => {
+  it("does not enforce required fields when the answers arrive from outside", () => {
     const field = def({ required: true });
     expect(normalizeCustomFieldValues([field], {}, { enforceRequired: false })).toEqual({});
   });

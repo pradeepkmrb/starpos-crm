@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@digitel/shared";
 import {
   ApiError,
-  type LeadFieldDefinition,
+  type CustomFieldDefinition,
   type MetaFormQuestion,
   type MetaLeadFormLink,
   deleteMetaLeadForm,
   getAccessToken,
   getMetaFormQuestions,
   linkMetaLeadForm,
-  listLeadFields,
+  listCustomFields,
   listMetaLeadForms,
   me,
   syncMetaLeadForm,
@@ -32,7 +32,7 @@ export default function LeadSourcesPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
   const [links, setLinks] = useState<MetaLeadFormLink[]>([]);
-  const [fields, setFields] = useState<LeadFieldDefinition[]>([]);
+  const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [questionsByLink, setQuestionsByLink] = useState<Record<string, MetaFormQuestion[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export default function LeadSourcesPage() {
         const meRes = await me();
         setRole(meRes.role);
         if (!roleAtLeast(meRes.role, "admin")) return;
-        const [linksRes, fieldsRes] = await Promise.all([listMetaLeadForms(), listLeadFields()]);
+        const [linksRes, fieldsRes] = await Promise.all([listMetaLeadForms(), listCustomFields("lead")]);
         setLinks(linksRes);
         setFields(fieldsRes);
       } catch (err) {

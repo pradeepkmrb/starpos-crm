@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@digitel/db";
 import { PrismaService } from "../../prisma/prisma.service";
-import { LeadFieldsService } from "./lead-fields.service";
+import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { MetaLeadsClient } from "./meta-leads.client";
-import { normalizeCustomFieldValues } from "./lead-custom-values";
+import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
 import { leadDisplayName, mapMetaLead, type MetaLeadRecord } from "./meta-lead-mapping";
 
 /** The slice of the leadgen webhook payload this service acts on. */
@@ -31,7 +31,7 @@ export class MetaLeadsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly leadFields: LeadFieldsService,
+    private readonly customFields: CustomFieldsService,
     private readonly client: MetaLeadsClient,
   ) {}
 
@@ -126,7 +126,7 @@ export class MetaLeadsService {
     });
     if (existing) return { created: 0, skipped: 1 };
 
-    const definitions = await this.leadFields.listDefinitions(link.tenantId);
+    const definitions = await this.customFields.listDefinitions(link.tenantId, "lead");
     const mapping = readMapping(link.fieldMappingJson);
     const mapped = mapMetaLead(
       record,

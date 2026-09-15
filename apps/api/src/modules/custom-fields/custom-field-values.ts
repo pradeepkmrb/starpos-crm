@@ -1,11 +1,11 @@
 import { BadRequestException } from "@nestjs/common";
-import { isChoiceFieldType, type LeadFieldType } from "@digitel/shared";
+import { isChoiceFieldType, type CustomFieldType } from "@digitel/shared";
 
-/** The slice of a LeadCustomField row this module needs. */
+/** The slice of a CustomField row this module needs. */
 export interface CustomFieldDefinition {
   key: string;
   label: string;
-  type: LeadFieldType;
+  type: CustomFieldType;
   required: boolean;
   isActive: boolean;
   optionsJson: unknown;
@@ -30,9 +30,9 @@ export function readOptions(optionsJson: unknown): string[] {
 }
 
 /**
- * Turns a human label into the stable machine key stored inside
- * Lead.customFieldsJson. The key never changes afterwards, so renaming a
- * field's label keeps every answer already on file.
+ * Turns a human label into the stable machine key the answers are stored
+ * under. The key never changes afterwards, so renaming a field's label keeps
+ * every answer already on file.
  */
 export function slugifyFieldKey(label: string): string {
   const slug = label

@@ -41,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/channels", label: "Connections", icon: ChatIcon },
       { href: "/dashboard/inbox", label: "Inbox", icon: ChatIcon },
       { href: "/dashboard/contacts", label: "Audience", icon: UsersIcon },
+      { href: "/dashboard/contact-fields", label: "Contact Fields", icon: SlidersIcon },
       { href: "/dashboard/templates", label: "Message Library", icon: DocumentIcon },
       { href: "/dashboard/campaigns", label: "Broadcasts", icon: MegaphoneIcon },
       { href: "/dashboard/automations", label: "Flows", icon: BoltIcon },

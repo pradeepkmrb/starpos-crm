@@ -1,11 +1,11 @@
 "use client";
 
-import type { LeadFieldDefinition } from "../../../lib/api";
+import type { CustomFieldDefinition } from "../lib/api";
 
 export type CustomValue = string | boolean;
 
 /**
- * Renders one tenant-defined field on the lead entry screen. Everything is
+ * Renders one tenant-defined field on an entry screen. Everything is
  * held as a string except tick-boxes; the API coerces numbers and dates and
  * is the one place that decides whether an answer is acceptable.
  */
@@ -15,7 +15,7 @@ export function CustomFieldInput({
   onChange,
   disabled,
 }: {
-  field: LeadFieldDefinition;
+  field: CustomFieldDefinition;
   value: CustomValue | undefined;
   onChange: (value: CustomValue) => void;
   disabled?: boolean;
