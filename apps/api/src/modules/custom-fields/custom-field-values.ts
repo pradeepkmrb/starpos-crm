@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { isChoiceFieldType, type CustomFieldType } from "@digitel/shared";
+import type { CustomFieldType } from "@digitel/shared";
 
 /** The slice of a CustomField row this module needs. */
 export interface CustomFieldDefinition {
