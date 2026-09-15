@@ -29,6 +29,7 @@ const TENANT_SCOPED_MODELS = new Set([
   "Lead",
   "LeadCustomField",
   "MetaLeadForm",
+  "TenantIntegration",
   "Subscription",
   "Invoice",
 ]);

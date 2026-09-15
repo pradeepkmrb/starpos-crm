@@ -136,6 +136,18 @@ export function SlidersIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function PlugIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 2.25v5.25m6-5.25v5.25M6.75 7.5h10.5v3.75a5.25 5.25 0 01-5.25 5.25 5.25 5.25 0 01-5.25-5.25V7.5zM12 16.5v5.25"
+      />
+    </Icon>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

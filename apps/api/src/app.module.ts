@@ -16,6 +16,7 @@ import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PlatformModule } from "./modules/platform/platform.module";
 import { CrmModule } from "./modules/crm/crm.module";
+import { IntegrationsModule } from "./modules/integrations/integrations.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CrmModule } from "./modules/crm/crm.module";
     AnalyticsModule,
     PlatformModule,
     CrmModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -16,6 +16,7 @@ import {
   HomeIcon,
   LogoutIcon,
   MegaphoneIcon,
+  PlugIcon,
   ShieldIcon,
   SlidersIcon,
   UsersIcon,
@@ -58,6 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard/team", label: "Workspace", icon: UsersIcon },
+      { href: "/dashboard/integrations", label: "Integrations", icon: PlugIcon },
       { href: "/dashboard/billing", label: "Plan & Usage", icon: CreditCardIcon },
     ],
   },

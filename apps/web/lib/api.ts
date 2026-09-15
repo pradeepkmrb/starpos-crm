@@ -1,4 +1,11 @@
-import type { LeadFieldType, LeadStatus, PlanCode, TenantRole } from "@digitel/shared";
+import type {
+  IntegrationFieldSpec,
+  IntegrationStatus,
+  LeadFieldType,
+  LeadStatus,
+  PlanCode,
+  TenantRole,
+} from "@digitel/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -938,4 +945,62 @@ export function syncMetaLeadForm(linkId: string, limit?: number) {
     `/lead-sources/meta/${linkId}/sync${limit ? `?limit=${limit}` : ""}`,
     { method: "POST" },
   );
+}
+
+// --- Integrations (per-tenant connections to third-party services) ---
+
+export interface IntegrationConnection {
+  status: IntegrationStatus;
+  /** "test" or "live", read from the key prefix. */
+  mode: string | null;
+  accountLabel: string | null;
+  /** Non-secret fields as entered; secrets only as a masked tail. */
+  values: Record<string, string>;
+  connectedBy: { id: string; name: string | null; email: string } | null;
+  connectedAt: string;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+}
+
+export interface Integration {
+  provider: string;
+  name: string;
+  category: string;
+  description: string;
+  initials: string;
+  docsUrl: string;
+  fields: IntegrationFieldSpec[];
+  /** Null until this workspace connects it. */
+  connection: IntegrationConnection | null;
+}
+
+export function listIntegrations() {
+  return request<Integration[]>("/integrations");
+}
+
+/** Sends the provider's own fields; a blank secret keeps the stored one. */
+export function connectIntegration(provider: string, credentials: Record<string, string>) {
+  return request<Integration>(`/integrations/${provider}/connect`, {
+    method: "POST",
+    body: JSON.stringify({ credentials }),
+  });
+}
+
+/** Re-checks the stored keys against the provider. */
+export function testIntegration(provider: string) {
+  return request<Integration>(`/integrations/${provider}/test`, { method: "POST" });
+}
+
+/** Pauses or resumes a connection without discarding its credentials. */
+export function setIntegrationActive(provider: string, isActive: boolean) {
+  return request<Integration>(`/integrations/${provider}`, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function disconnectIntegration(provider: string) {
+  return request<{ provider: string; disconnected: boolean }>(`/integrations/${provider}`, {
+    method: "DELETE",
+  });
 }

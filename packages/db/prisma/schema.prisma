@@ -23,6 +23,7 @@ model User {
   invitesSent TenantInvite[]     @relation("InvitedBy")
   assignedContacts Contact[]     @relation("AssignedAgent")
   ownedLeads       Lead[]         @relation("LeadOwner")
+  connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
 }
 
 model Tenant {
@@ -55,6 +56,7 @@ model Tenant {
   leads              Lead[]
   leadCustomFields   LeadCustomField[]
   metaLeadForms      MetaLeadForm[]
+  integrations       TenantIntegration[]
 }
 
 enum TenantStatus {
@@ -592,4 +594,55 @@ model MetaLeadForm {
   @@index([tenantId])
   // The leadgen webhook arrives with no tenant context, so the form id is the lookup key.
   @@index([formId])
+}
+
+// ---------- Tenant integrations (third-party services a tenant connects) ----------
+
+/// A third-party service this tenant has connected under Integrations — today
+/// their own payment gateway. Credentials are encrypted with
+/// TOKEN_ENCRYPTION_KEY, exactly like WABA and Meta Page tokens, and are never
+/// returned to the browser.
+///
+/// Note this is the tenant's OWN gateway, used to charge their customers. It
+/// is unrelated to the platform-level Razorpay keys in env, which are how this
+/// SaaS charges its tenants for their subscription.
+model TenantIntegration {
+  id       String @id @default(cuid())
+  tenantId String
+
+  /// Catalog key, e.g. "razorpay" or "stripe". Free text rather than an enum
+  /// so adding a provider is a catalog entry, not a migration.
+  provider String
+  category String            @default("payments")
+  status   IntegrationStatus @default(connected)
+
+  credentialsEncrypted String
+  /// Non-secret details worth showing back: masked keys, and the non-secret
+  /// fields as entered.
+  publicJson Json?
+  /// "test" or "live", read from the key prefix the provider uses.
+  mode         String?
+  /// What the provider calls this account, for confirming the right one is wired up.
+  accountLabel String?
+
+  lastCheckedAt     DateTime?
+  lastError         String?
+  connectedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // SetNull rather than Cascade: removing a teammate must not disconnect the
+  // workspace's payment gateway.
+  connectedBy User? @relation("IntegrationConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+}
+
+enum IntegrationStatus {
+  connected
+  disabled
+  error
 }

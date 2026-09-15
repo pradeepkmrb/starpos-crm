@@ -50,7 +50,7 @@ token) happens per-tenant through the `/dashboard/channels` UI, not via env vars
 
 ## Workspace layout
 
-- `apps/web` — Next.js dashboard (auth, channels, contacts, campaigns, automations, CRM leads, billing, analytics) + marketing/pricing pages
+- `apps/web` — Next.js dashboard (auth, channels, contacts, campaigns, automations, CRM leads, integrations, billing, analytics) + marketing/pricing pages
 - `apps/api` — NestJS API; `src/worker.main.ts` is the BullMQ worker entrypoint (webhook processing, campaign sends, automation steps)
 - `packages/db` — Prisma schema, migrations, seed script (3 pricing tiers)
 - `packages/shared` — plan/limit constants, role hierarchy, and types shared by web + api
@@ -62,7 +62,8 @@ token) happens per-tenant through the `/dashboard/channels` UI, not via env vars
 pnpm --filter @digitel/api test
 ```
 
-Covers custom lead-field validation, Meta lead-ad field mapping,
+Covers integration credential handling (masking, rotation, unknown-field
+rejection), custom lead-field validation, Meta lead-ad field mapping,
 keyword-matching for automations (including non-space-delimited
 scripts like Chinese/Japanese/Thai), the entitlements/plan-limit boundary
 math, and the tenant-scoping Prisma safety net.
@@ -107,6 +108,40 @@ has to be real.
 Ingestion is idempotent on Meta's lead id, and a required custom field is
 never enforced on an ad lead — a real enquiry is worth more than a complete
 form.
+
+## Integrations (per-tenant)
+
+**Workspace → Integrations** is where a tenant connects their own third-party
+accounts. Today the catalog holds one category:
+
+| Category | Provider | Needs |
+|---|---|---|
+| Payments | Razorpay | Key ID, key secret, optional webhook secret |
+| Payments | Stripe | Secret key, optional publishable key and signing secret |
+
+These are the **tenant's own** gateway keys, used to charge their customers.
+They are unrelated to the platform-level `RAZORPAY_*` env values, which are how
+this SaaS charges tenants for their own subscription.
+
+- The catalog lives in `packages/shared/src/integrations.ts`. The dashboard
+  renders each connect form from it and the API validates against the same
+  entry, so adding a provider is one entry plus a verification branch in
+  `payment-gateway.client.ts` — no migration, since `provider` is a string.
+- Keys are checked against the provider before they are stored (a read-only
+  call: one order for Razorpay, the account for Stripe), so a typo surfaces on
+  this screen rather than on a customer's first payment.
+- Keys are encrypted with `TOKEN_ENCRYPTION_KEY` and never returned to the
+  browser. The screen shows a masked tail, and leaving a secret blank when
+  updating keeps the stored one, so rotating one key does not mean retyping
+  the rest.
+- Test connection re-checks stored keys and records why a gateway stopped
+  working. Pause keeps the keys but takes the gateway out of service.
+- Anything needing a tenant's gateway calls
+  `IntegrationsService.getActivePaymentGateway(tenantId)` rather than reading
+  the table, so every caller is tenant-scoped by construction.
+
+Reading the catalog is open to any member; connecting, pausing and
+disconnecting require admin or owner.
 
 ## Key architectural notes
 
