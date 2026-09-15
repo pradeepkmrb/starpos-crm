@@ -62,8 +62,9 @@ token) happens per-tenant through the `/dashboard/channels` UI, not via env vars
 pnpm --filter @digitel/api test
 ```
 
-Covers integration credential handling (masking, rotation, unknown-field
-rejection), custom-field validation, Meta lead-ad field mapping,
+Covers CSV parsing (quoted cells, extra columns) and import column matching,
+integration credential handling (masking, rotation, unknown-field rejection),
+custom-field validation, Meta lead-ad field mapping,
 keyword-matching for automations (including non-space-delimited
 scripts like Chinese/Japanese/Thai), the entitlements/plan-limit boundary
 math, and the tenant-scoping Prisma safety net.
@@ -106,6 +107,30 @@ marked required, and hidden without erasing anything.
 - Required is enforced on manual entry only. A lead arriving from a Meta ad, or
   a contact created by an inbound WhatsApp message or a CSV import, is never
   rejected for a missing answer — those can be filled in afterwards.
+
+### Custom fields in a CSV import
+
+Contact import carries custom fields as well as phone and name. Any column
+whose header matches a contact field, by key or by label and ignoring case and
+punctuation, is imported as that field's answer:
+
+```
+phone,name,preferred_city,marketing_consent
+919876543210,"Rao, Textiles",Chennai,yes
+```
+
+Download CSV writes exactly this layout, so an export can be edited in a
+spreadsheet and brought back without losing what it holds. The reader is
+RFC 4180, so a quoted comma or quote inside a cell survives the round trip.
+
+Nothing about a custom field can fail an import:
+
+- A header matching no field is reported back, not silently dropped — a
+  misspelt column is the likeliest reason an import appears to lose data.
+- A value a field cannot hold (a choice that is not on the list, a number that
+  will not parse) is left out and counted, and the row is still imported.
+- A contact already on file keeps every answer the file does not carry, so a
+  partial spreadsheet tops a record up instead of hollowing it out.
 
 ### Linking a Meta lead ad
 

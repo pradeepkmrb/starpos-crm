@@ -104,6 +104,32 @@ describe("normalizeCustomFieldValues", () => {
     expect(normalizeCustomFieldValues(fields, { city: "" }, { existing })).toEqual({ budget: "5 lakh" });
   });
 
+  it("reports a bad value instead of throwing when an importer is collecting", () => {
+    const city = def({ key: "city", label: "City", type: "dropdown", optionsJson: ["Chennai"] });
+    const size = def({ key: "size", label: "Team size", type: "number" });
+    const issues: string[] = [];
+
+    const result = normalizeCustomFieldValues(
+      [city, size],
+      { city: "Mumbai", size: "12" },
+      { enforceRequired: false, onInvalid: (message) => issues.push(message) },
+    );
+
+    // The row still lands, minus the cell that could not be read.
+    expect(result).toEqual({ size: 12 });
+    expect(issues).toEqual(["City must be one of: Chennai"]);
+  });
+
+  it("leaves a stored answer alone when the incoming value is rejected", () => {
+    const city = def({ key: "city", label: "City", type: "dropdown", optionsJson: ["Chennai"] });
+    const result = normalizeCustomFieldValues([city], { city: "Mumbai" }, {
+      existing: { city: "Chennai" },
+      enforceRequired: false,
+      onInvalid: () => undefined,
+    });
+    expect(result).toEqual({ city: "Chennai" });
+  });
+
   it("keeps answers to a retired field instead of erasing history", () => {
     const fields = [def(), def({ key: "old_note", label: "Old note", isActive: false })];
     const result = normalizeCustomFieldValues(fields, { budget: "1 lakh" }, {

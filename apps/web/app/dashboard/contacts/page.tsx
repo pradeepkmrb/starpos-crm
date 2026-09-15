@@ -47,15 +47,25 @@ function csvCell(value: string | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function downloadCsv(contacts: Contact[]) {
+/** Tick boxes read as yes/no both ways, so an exported file can be re-imported. */
+function answerCell(value: string | number | boolean | undefined): string {
+  if (value === undefined) return "";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  return csvCell(String(value));
+}
+
+function downloadCsv(contacts: Contact[], fields: CustomFieldDefinition[]) {
+  // Custom columns are named by key, which is what the importer matches on.
+  const custom = fields.filter((field) => field.isActive);
   const rows = [
-    ["phone", "name", "source", "opted_in", "created_at"],
+    ["phone", "name", "source", "opted_in", "created_at", ...custom.map((f) => csvCell(f.key))],
     ...contacts.map((c) => [
       csvCell(c.whatsappNumber),
       csvCell(c.name),
       csvCell(c.source),
       c.optedIn ? "yes" : "no",
       csvCell(c.createdAt),
+      ...custom.map((f) => answerCell(c.attributesJson?.[f.key])),
     ]),
   ];
   const blob = new Blob([rows.map((r) => r.join(",")).join("\n")], {
@@ -318,7 +328,7 @@ export default function ContactsPage() {
             </button>
             <button
               type="button"
-              onClick={() => downloadCsv(visible)}
+              onClick={() => downloadCsv(visible, fields)}
               disabled={visible.length === 0}
               className="btn-secondary"
               title={search ? "Downloads the contacts matching your search" : "Downloads every contact"}
@@ -554,6 +564,7 @@ export default function ContactsPage() {
 
       {canManage && importing && (
         <ImportForm
+          fields={fields}
           onCancel={() => setImporting(false)}
           onImported={(list, added) => {
             setLists((prev) => [list, ...prev]);
@@ -709,9 +720,11 @@ function AddContactForm({
 }
 
 function ImportForm({
+  fields,
   onImported,
   onCancel,
 }: {
+  fields: CustomFieldDefinition[];
   onImported: (list: ContactListSummary, addedCount: number) => void;
   onCancel: () => void;
 }) {
@@ -722,6 +735,7 @@ function ImportForm({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const activeFields = fields.filter((field) => field.isActive);
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -769,6 +783,23 @@ function ImportForm({
         CSV with a header row, e.g. <code className="rounded bg-slate-100 px-1">phone,name</code>. Phone
         numbers should include the country code.
       </p>
+      {activeFields.length > 0 ? (
+        <p className="mt-2 text-sm text-slate-500">
+          Add a column for any of your contact fields and it is imported too:{" "}
+          {activeFields.map((field, index) => (
+            <span key={field.id}>
+              {index > 0 && ", "}
+              <code className="rounded bg-slate-100 px-1">{field.key}</code>
+            </span>
+          ))}
+          . A contact already on file keeps every answer the file does not carry. Download CSV gives you
+          this exact layout.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">
+          Add your own questions under Contact Fields and their columns will be imported here too.
+        </p>
+      )}
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
         <label className="block">
           <span className="field-label">List name</span>
@@ -782,10 +813,31 @@ function ImportForm({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         {result && (
-          <p className="text-sm text-brand-800">
-            Imported {result.newContacts} new contact(s), linked {result.existingContactsLinked} existing.
-            Skipped {result.invalidRowCount} invalid and {result.duplicateInFileCount} duplicate row(s).
-          </p>
+          <div className="space-y-1 text-sm">
+            <p className="text-brand-800">
+              Imported {result.newContacts} new contact(s), linked {result.existingContactsLinked}{" "}
+              existing, topped up {result.updatedContacts}. Skipped {result.invalidRowCount} invalid and{" "}
+              {result.duplicateInFileCount} duplicate row(s).
+            </p>
+            {result.customFieldColumns.length > 0 && (
+              <p className="text-slate-600">
+                Imported into: {result.customFieldColumns.map((c) => c.field).join(", ")}.
+              </p>
+            )}
+            {result.ignoredColumns.length > 0 && (
+              <p className="text-amber-700">
+                No contact field matches {result.ignoredColumns.join(", ")}, so those columns were
+                skipped.
+              </p>
+            )}
+            {result.invalidValueCount > 0 && (
+              <p className="text-amber-700">
+                {result.invalidValueCount} value(s) a field could not hold were left out; the rows
+                themselves were kept.
+                {result.sampleIssues.length > 0 && ` For example — ${result.sampleIssues[0]}`}
+              </p>
+            )}
+          </div>
         )}
 
         <div className="flex gap-2">

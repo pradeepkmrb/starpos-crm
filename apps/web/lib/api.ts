@@ -223,6 +223,15 @@ export interface ImportResult {
   duplicateInFileCount: number;
   newContacts: number;
   existingContactsLinked: number;
+  /** Existing contacts whose custom answers the file topped up. */
+  updatedContacts: number;
+  /** Columns that landed on a contact field. */
+  customFieldColumns: { column: string; field: string }[];
+  /** Headers that matched no contact field, so nothing was imported from them. */
+  ignoredColumns: string[];
+  /** Cells a field could not hold; the row was kept, the cell dropped. */
+  invalidValueCount: number;
+  sampleIssues: string[];
 }
 
 export interface Contact {

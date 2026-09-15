@@ -110,11 +110,18 @@ export interface NormalizeOptions {
   /** Answers already on file — a patch that omits a field must not blank it. */
   existing?: Record<string, unknown> | null;
   /**
-   * Whether a required field with no answer is an error. Manual lead entry
-   * says yes; a lead arriving from a Meta ad says no, because rejecting it
-   * would drop a real lead the tenant paid for.
+   * Whether a required field with no answer is an error. Manual entry says
+   * yes; answers arriving from outside — a Meta ad lead, a CSV import — say
+   * no, because rejecting the record would lose something real over a form
+   * rule.
    */
   enforceRequired?: boolean;
+  /**
+   * When set, a value the field cannot hold is reported here and dropped
+   * instead of throwing. A CSV import needs this: one bad cell on row 400
+   * must not reject the other 399 rows.
+   */
+  onInvalid?: (message: string) => void;
 }
 
 /**
@@ -147,9 +154,14 @@ export function normalizeCustomFieldValues(
       submitted != null && Object.prototype.hasOwnProperty.call(submitted, definition.key);
 
     if (wasSubmitted) {
-      const value = coerceValue(definition, submitted![definition.key]);
-      if (value === null) delete resolved[definition.key];
-      else resolved[definition.key] = value;
+      try {
+        const value = coerceValue(definition, submitted![definition.key]);
+        if (value === null) delete resolved[definition.key];
+        else resolved[definition.key] = value;
+      } catch (error) {
+        if (!options.onInvalid) throw error;
+        options.onInvalid(error instanceof Error ? error.message : String(error));
+      }
     }
 
     if (enforceRequired && definition.required) {
