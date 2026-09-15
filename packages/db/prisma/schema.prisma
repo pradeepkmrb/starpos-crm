@@ -51,6 +51,7 @@ model Tenant {
   campaigns          Campaign[]
   messageLogs        MessageLog[]
   automationWorkflows AutomationWorkflow[]
+  products           Product[]
 }
 
 enum TenantStatus {
@@ -461,4 +462,38 @@ model WebhookEvent {
   processedAt     DateTime?
 
   @@unique([provider, externalEventId])
+}
+
+// ---------- Catalogue ----------
+
+model Product {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  sku         String?
+  description String?
+  /// Major units (rupees, dollars) rather than the paise convention used for
+  /// billing: a catalogue price is typed and displayed exactly as the shopper
+  /// sees it, and Decimal keeps it exact through tax maths.
+  price       Decimal  @db.Decimal(12, 2)
+  /// ISO-4217 code. Each product carries its own so a tenant selling across
+  /// borders isn't forced onto one currency.
+  currency    String   @default("INR")
+  /// null = stock isn't tracked for this product.
+  stock       Int?
+  /// 0 = no tax. Fractional rates (2.5% CGST) are why this isn't an Int.
+  taxPercent  Decimal  @default(0) @db.Decimal(5, 2)
+  /// Label shown beside the tax line on the catalogue, e.g. "GST".
+  taxName     String?
+  category    String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Postgres counts NULLs as distinct, so products without a SKU don't
+  // collide with each other while real SKUs stay unique per tenant.
+  @@unique([tenantId, sku])
+  @@index([tenantId])
 }

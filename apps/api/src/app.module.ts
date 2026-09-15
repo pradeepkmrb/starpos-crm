@@ -15,6 +15,7 @@ import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { ProductsModule } from "./modules/products/products.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PlatformModule } from "./modules/platform/platform.module";
     BillingModule,
     AnalyticsModule,
     PlatformModule,
+    ProductsModule,
   ],
 })
 export class AppModule implements NestModule {
