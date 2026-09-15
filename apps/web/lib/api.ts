@@ -319,6 +319,65 @@ export function importContacts(input: { listName: string; csvText: string }) {
   return request<ImportResult>("/contacts/import", { method: "POST", body: JSON.stringify(input) });
 }
 
+// --- Catalogue ---
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string | null;
+  description: string | null;
+  /** Major units (rupees, dollars), not paise. */
+  price: number;
+  currency: string;
+  /** null = stock isn't tracked for this product. */
+  stock: number | null;
+  taxPercent: number;
+  taxName: string | null;
+  category: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductInput {
+  name: string;
+  sku?: string;
+  description?: string;
+  price: number;
+  currency?: string;
+  stock?: number | null;
+  taxPercent?: number;
+  taxName?: string;
+  category?: string;
+  imageUrl?: string;
+}
+
+export interface PublicCatalogue {
+  tenant: { name: string; slug: string };
+  products: Product[];
+}
+
+export function listProducts() {
+  return request<Product[]>("/products");
+}
+
+export function createProduct(input: ProductInput) {
+  return request<Product>("/products", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateProduct(productId: string, input: Partial<ProductInput>) {
+  return request<Product>(`/products/${productId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteProduct(productId: string) {
+  return request<{ id: string; deleted: boolean }>(`/products/${productId}`, { method: "DELETE" });
+}
+
+/** The shopper-facing catalogue behind a shared link — no token required. */
+export function getPublicCatalogue(slug: string) {
+  return request<PublicCatalogue>(`/public/catalogue/${encodeURIComponent(slug)}`);
+}
+
 // --- Campaigns ---
 
 export interface Campaign {

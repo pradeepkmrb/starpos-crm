@@ -7,6 +7,7 @@ import { clearTokens, getAccessToken, me, type AuthTenant, type AuthUser } from 
 import type { TenantRole } from "@digitel/shared";
 import {
   BoltIcon,
+  BoxIcon,
   BrandMark,
   ChartIcon,
   ChatIcon,
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/contact-fields", label: "Contact Fields", icon: SlidersIcon },
       { href: "/dashboard/templates", label: "Message Library", icon: DocumentIcon },
       { href: "/dashboard/campaigns", label: "Broadcasts", icon: MegaphoneIcon },
+      { href: "/dashboard/catalogue", label: "Catalogue", icon: BoxIcon },
       { href: "/dashboard/automations", label: "Flows", icon: BoltIcon },
     ],
   },
