@@ -15,6 +15,8 @@ import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
+import { PublicApiModule } from "./modules/public-api/public-api.module";
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { PlatformModule } from "./modules/platform/platform.module";
     BillingModule,
     AnalyticsModule,
     PlatformModule,
+    ApiKeysModule,
+    PublicApiModule,
   ],
 })
 export class AppModule implements NestModule {

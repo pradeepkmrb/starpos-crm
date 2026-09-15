@@ -10,6 +10,7 @@ import {
   BrandMark,
   ChartIcon,
   ChatIcon,
+  CodeIcon,
   CreditCardIcon,
   DocumentIcon,
   HomeIcon,
@@ -49,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/team", label: "Workspace", icon: UsersIcon },
       { href: "/dashboard/billing", label: "Plan & Usage", icon: CreditCardIcon },
+      { href: "/dashboard/api", label: "API & Developers", icon: CodeIcon },
     ],
   },
 ];

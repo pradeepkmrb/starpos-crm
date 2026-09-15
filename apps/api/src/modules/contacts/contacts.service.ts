@@ -20,7 +20,7 @@ export class ContactsService {
   async upsertByNumber(
     tenantId: string,
     whatsappNumber: string,
-    opts: { name?: string; markInbound?: boolean } = {},
+    opts: { name?: string; markInbound?: boolean; source?: string } = {},
   ) {
     // Existence is checked first so callers can tell a brand-new contact from
     // a returning one — the inbound webhook path needs this to fire "welcome"
@@ -37,7 +37,7 @@ export class ContactsService {
         tenantId,
         whatsappNumber,
         name: opts.name,
-        source: "manual",
+        source: opts.source ?? "manual",
         ...(opts.markInbound ? { lastInboundAt: new Date() } : {}),
       },
     });
