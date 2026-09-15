@@ -40,7 +40,9 @@ export function ChannelCard({ channel, canManage }: { channel: Channel; canManag
     <div className="card">
       <div className="flex items-center justify-between px-4 py-3">
         <div>
-          <p className="font-medium text-slate-900">{channel.displayPhoneNumber}</p>
+          <p className="font-medium text-slate-900">
+            {channel.displayPhoneNumber ?? channel.displayName ?? channel.externalId}
+          </p>
           <p className="text-xs text-slate-500">
             WABA {channel.wabaId} · phone number id {channel.phoneNumberId}
           </p>
@@ -72,7 +74,7 @@ export function ChannelCard({ channel, canManage }: { channel: Channel; canManag
               {messages.map((m) => (
                 <li key={m.id} className="flex justify-between py-2">
                   <span className="text-slate-700">
-                    {m.direction === "inbound" ? "←" : "→"} {m.contact.whatsappNumber}
+                    {m.direction === "inbound" ? "←" : "→"} {m.contact.whatsappNumber ?? m.contact.name ?? "contact"}
                   </span>
                   <span className="text-slate-500">
                     {m.status} · {new Date(m.createdAt).toLocaleString()}

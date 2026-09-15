@@ -11,12 +11,16 @@ import {
   BrandMark,
   ChartIcon,
   ChatIcon,
+  CodeIcon,
   CreditCardIcon,
   DocumentIcon,
+  FunnelIcon,
   HomeIcon,
   LogoutIcon,
   MegaphoneIcon,
+  PlugIcon,
   ShieldIcon,
+  SlidersIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -39,10 +43,19 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/channels", label: "Connections", icon: ChatIcon },
       { href: "/dashboard/inbox", label: "Inbox", icon: ChatIcon },
       { href: "/dashboard/contacts", label: "Audience", icon: UsersIcon },
+      { href: "/dashboard/contact-fields", label: "Contact Fields", icon: SlidersIcon },
       { href: "/dashboard/templates", label: "Message Library", icon: DocumentIcon },
       { href: "/dashboard/campaigns", label: "Broadcasts", icon: MegaphoneIcon },
       { href: "/dashboard/catalogue", label: "Catalogue", icon: BoxIcon },
       { href: "/dashboard/automations", label: "Flows", icon: BoltIcon },
+    ],
+  },
+  {
+    label: "CRM",
+    items: [
+      { href: "/dashboard/leads", label: "Leads", icon: FunnelIcon },
+      { href: "/dashboard/lead-fields", label: "Lead Fields", icon: SlidersIcon },
+      { href: "/dashboard/lead-sources", label: "Meta Ads", icon: MegaphoneIcon },
     ],
   },
   { label: "Insights", items: [{ href: "/dashboard/analytics", label: "Insights", icon: ChartIcon }] },
@@ -50,7 +63,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard/team", label: "Workspace", icon: UsersIcon },
+      { href: "/dashboard/integrations", label: "Integrations", icon: PlugIcon },
       { href: "/dashboard/billing", label: "Plan & Usage", icon: CreditCardIcon },
+      { href: "/dashboard/api", label: "API & Developers", icon: CodeIcon },
     ],
   },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { describeChannel } from "@digitel/shared";
 import {
   ApiError,
   type Automation,
@@ -67,7 +68,7 @@ export function AutomationCard({
         <div>
           <p className="font-medium text-slate-900">{automation.name}</p>
           <p className="mt-0.5 text-xs text-slate-500">
-            {automation.channel.displayPhoneNumber} · {trigger}
+            {describeChannel(automation.channel)} · {trigger}
           </p>
         </div>
         <div className="flex items-center gap-3">

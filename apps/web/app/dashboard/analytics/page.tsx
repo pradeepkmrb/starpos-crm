@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CHANNEL_SHORT_LABELS } from "@digitel/shared";
 import {
   ApiError,
   type AnalyticsOverview,
@@ -104,7 +105,12 @@ export default function AnalyticsPage() {
               <tbody className="divide-y divide-slate-100">
                 {data.byChannel.map((c) => (
                   <tr key={c.channelId}>
-                    <td className="px-4 py-2 font-medium text-slate-900">{c.displayPhoneNumber}</td>
+                    <td className="px-4 py-2 font-medium text-slate-900">
+                      {c.label}
+                      <span className="ml-2 text-xs font-normal text-slate-400">
+                        {CHANNEL_SHORT_LABELS[c.channelType]}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-slate-700">{c.outbound.toLocaleString()}</td>
                     <td className="px-4 py-2 text-slate-700">{c.delivered.toLocaleString()}</td>
                     <td className="px-4 py-2 text-slate-700">{c.read.toLocaleString()}</td>

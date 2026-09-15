@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import {
+  CHANNEL_LABELS,
+  CHANNEL_SHORT_LABELS,
+  CHANNEL_TYPES,
+  channelHasReplyWindow,
+  roleAtLeast,
+  type ChannelType,
+  type TenantRole,
+} from "@digitel/shared";
 import {
   ApiError,
   type AuthUser,
@@ -28,6 +36,17 @@ import {
 const POLL_INTERVAL_MS = 15_000;
 
 type Tab = "all" | "mine" | "unassigned";
+
+/** "all" plus one entry per channel — the filter above the conversation list. */
+type ChannelFilter = ChannelType | "all";
+
+/** A muted chip per channel, so a glance at the list says where a message came from. */
+const CHANNEL_CLASSES: Record<ChannelType, string> = {
+  whatsapp: "bg-brand-50 text-brand-800",
+  facebook: "bg-slate-100 text-slate-600",
+  instagram: "bg-amber-50 text-amber-800",
+  email: "bg-slate-200 text-slate-700",
+};
 
 const LABEL_CLASSES: Record<LabelColor, string> = {
   slate: "bg-slate-100 text-slate-600",
@@ -67,8 +86,16 @@ function windowHint(expiresAt: string | null): string {
   return `${Math.round(mins / 60)}h left to reply`;
 }
 
-function displayName(c: { name: string | null; whatsappNumber: string }): string {
-  return c.name ? `${c.name} · ${c.whatsappNumber}` : c.whatsappNumber;
+function displayName(c: { name: string | null; handle: string }): string {
+  return c.name ? `${c.name} · ${c.handle}` : c.handle;
+}
+
+function ChannelChip({ type }: { type: ChannelType }) {
+  return (
+    <span className={`rounded px-1 text-[10px] font-medium ${CHANNEL_CLASSES[type]}`}>
+      {CHANNEL_SHORT_LABELS[type]}
+    </span>
+  );
 }
 
 export default function InboxPage() {
@@ -84,6 +111,7 @@ export default function InboxPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [members, setMembers] = useState<Member[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -152,17 +180,26 @@ export default function InboxPage() {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [thread]);
 
-  const counts = useMemo(
-    () => ({
-      all: conversations.length,
-      mine: conversations.filter((c) => c.assignedUserId === currentUser?.id).length,
-      unassigned: conversations.filter((c) => !c.assignedUserId).length,
-    }),
-    [conversations, currentUser],
-  );
+  const counts = useMemo(() => {
+    const inChannel = conversations.filter(
+      (c) => channelFilter === "all" || c.channelType === channelFilter,
+    );
+    return {
+      all: inChannel.length,
+      mine: inChannel.filter((c) => c.assignedUserId === currentUser?.id).length,
+      unassigned: inChannel.filter((c) => !c.assignedUserId).length,
+    };
+  }, [conversations, channelFilter, currentUser]);
+
+  /** Only the channels that actually have conversations get a filter button. */
+  const activeChannels = useMemo(() => {
+    const present = new Set(conversations.map((c) => c.channelType));
+    return CHANNEL_TYPES.filter((type) => present.has(type));
+  }, [conversations]);
 
   const visible = useMemo(() => {
     const byTab = conversations.filter((c) => {
+      if (channelFilter !== "all" && c.channelType !== channelFilter) return false;
       if (tab === "mine") return c.assignedUserId === currentUser?.id;
       if (tab === "unassigned") return !c.assignedUserId;
       return true;
@@ -171,12 +208,12 @@ export default function InboxPage() {
     if (!q) return byTab;
     return byTab.filter(
       (c) =>
-        c.whatsappNumber.toLowerCase().includes(q) ||
+        c.handle.toLowerCase().includes(q) ||
         (c.name ?? "").toLowerCase().includes(q) ||
         c.lastMessagePreview.toLowerCase().includes(q) ||
         c.labels.some((l) => l.name.toLowerCase().includes(q)),
     );
-  }, [conversations, search, tab, currentUser]);
+  }, [conversations, search, tab, channelFilter, currentUser]);
 
   async function onAssign(userId: string | null) {
     if (!activeId) return;
@@ -295,16 +332,17 @@ export default function InboxPage() {
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Inbox</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Conversations with your contacts. Free-form replies are only possible within 24 hours of their last
-        message — Meta&apos;s rule, not ours.
+        Every channel in one place — WhatsApp, Facebook Messenger, Instagram DMs and email. On the three Meta
+        channels, free-form replies are only possible within 24 hours of the contact&apos;s last message;
+        email threads never close.
       </p>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       {conversations.length === 0 ? (
         <p className="mt-6 text-sm text-slate-500">
-          No conversations yet. They appear here once a contact messages your WhatsApp number, or once you
-          send them a broadcast.
+          No conversations yet. They appear here once someone messages a channel you have connected, or once
+          you send them a broadcast. Connect Messenger, Instagram or a mailbox on the Connections page.
         </p>
       ) : (
         <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]">
@@ -325,6 +363,24 @@ export default function InboxPage() {
                 </button>
               ))}
             </div>
+            {activeChannels.length > 1 && (
+              <div className="flex flex-wrap gap-1 border-b border-slate-100 px-3 py-2">
+                {(["all", ...activeChannels] as ChannelFilter[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setChannelFilter(type)}
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      channelFilter === type
+                        ? "bg-brand-800 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {type === "all" ? "All channels" : CHANNEL_SHORT_LABELS[type]}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="border-b border-slate-100 p-3">
               <input
                 className="input"
@@ -348,7 +404,7 @@ export default function InboxPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium text-slate-900">
-                      {c.name || c.whatsappNumber}
+                      {c.name || c.handle}
                     </span>
                     <span className="shrink-0 text-xs text-slate-400">{relativeTime(c.lastMessageAt)}</span>
                   </div>
@@ -357,6 +413,7 @@ export default function InboxPage() {
                     {c.lastMessagePreview}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <ChannelChip type={c.channelType} />
                     {c.labels.map((l) => (
                       <span
                         key={l.id}
@@ -368,7 +425,7 @@ export default function InboxPage() {
                     {c.assignedUser && (
                       <span className="text-[10px] text-slate-500">@{memberLabel(c.assignedUser)}</span>
                     )}
-                    {!c.windowOpen && (
+                    {channelHasReplyWindow(c.channelType) && !c.windowOpen && (
                       <span className="text-[10px] uppercase tracking-wide text-slate-400">
                         Window closed
                       </span>
@@ -388,11 +445,14 @@ export default function InboxPage() {
                   <div>
                     <p className="font-medium text-slate-900">{displayName(thread.contact)}</p>
                     <p className="text-xs text-slate-500">
+                      {CHANNEL_LABELS[thread.contact.channelType]} ·{" "}
                       {thread.contact.optedIn ? "Opted in" : "Opted out"} · contact since{" "}
                       {new Date(thread.contact.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  {thread.windowOpen ? (
+                  {!channelHasReplyWindow(thread.contact.channelType) ? (
+                    <span className="badge badge-neutral">No reply window</span>
+                  ) : thread.windowOpen ? (
                     <span className="badge badge-success">{windowHint(thread.windowExpiresAt)}</span>
                   ) : (
                     <span className="badge badge-warning">Reply window closed</span>
@@ -487,7 +547,7 @@ export default function InboxPage() {
                       <textarea
                         className="input flex-1"
                         rows={2}
-                        placeholder="Type a message…"
+                        placeholder={`Reply on ${CHANNEL_LABELS[thread.contact.channelType]}…`}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -504,7 +564,8 @@ export default function InboxPage() {
                   ) : (
                     <p className="border-t border-slate-100 p-4 text-sm text-slate-500">
                       You can&apos;t reply — they need to message you first to reopen the 24-hour window.
-                      Send an approved template from Broadcasts to start the conversation again.
+                      {thread.contact.channelType === "whatsapp" &&
+                        " Send an approved template from Broadcasts to start the conversation again."}
                     </p>
                   )
                 ) : (
@@ -608,7 +669,7 @@ function LabelPicker({
   );
 }
 
-/** Phone is the contact's identity in WhatsApp, so it is shown but never edited here. */
+/** Their channel address is their identity, so it is shown but never edited here. */
 function ContactInfoForm({
   contact,
   onSave,
@@ -643,6 +704,8 @@ function ContactInfoForm({
           className="input"
           placeholder="optional"
           value={email}
+          // On the email channel this is the contact's identity, not a spare field.
+          disabled={contact.channelType === "email"}
           onChange={(e) => setEmail(e.target.value)}
         />
       </label>
@@ -659,7 +722,7 @@ function ContactInfoForm({
         <button type="submit" className="btn-primary">
           Save
         </button>
-        <span className="pb-2 text-xs text-slate-500">{contact.whatsappNumber}</span>
+        <span className="pb-2 text-xs text-slate-500">{contact.handle}</span>
       </div>
     </form>
   );

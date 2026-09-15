@@ -1,0 +1,75 @@
+import { Type } from "class-transformer";
+import {
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
+import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+
+/**
+ * Every field is optional — the UI patches whichever ones the operator
+ * edited, and an omitted field keeps its stored value.
+ */
+export class UpdateLeadDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  name?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== "")
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== "")
+  @IsEmail()
+  email?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(160)
+  company?: string | null;
+
+  @IsOptional()
+  @IsIn(LEAD_STATUSES as unknown as string[])
+  status?: LeadStatus;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(80)
+  source?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  valuePaise?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(4000)
+  notes?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  ownerUserId?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, unknown>;
+}

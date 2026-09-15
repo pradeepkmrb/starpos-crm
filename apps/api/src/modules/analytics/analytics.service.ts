@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@digitel/db";
+import { describeChannel, type ChannelType } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export interface MessageTotals {
@@ -24,7 +25,10 @@ export interface DailyPoint {
 
 export interface ChannelBreakdown {
   channelId: string;
-  displayPhoneNumber: string;
+  channelType: ChannelType;
+  /** Number, page title or mailbox — whatever names this channel to a human. */
+  label: string;
+  displayPhoneNumber: string | null;
   outbound: number;
   delivered: number;
   read: number;
@@ -81,9 +85,9 @@ export class AnalyticsService {
 
   private async getByChannel(tenantId: string, since: Date): Promise<ChannelBreakdown[]> {
     const [channels, groups] = await Promise.all([
-      this.prisma.whatsappChannel.findMany({
+      this.prisma.channel.findMany({
         where: { tenantId },
-        select: { id: true, displayPhoneNumber: true },
+        select: { id: true, type: true, displayPhoneNumber: true, displayName: true, externalId: true },
       }),
       this.prisma.messageLog.groupBy({
         by: ["channelId", "direction", "status"],
@@ -97,6 +101,8 @@ export class AnalyticsService {
       const totals = summarizeStatusGroups(channelGroups);
       return {
         channelId: channel.id,
+        channelType: channel.type,
+        label: describeChannel(channel),
         displayPhoneNumber: channel.displayPhoneNumber,
         outbound: totals.outbound,
         delivered: totals.delivered,

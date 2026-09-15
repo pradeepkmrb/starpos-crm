@@ -22,6 +22,8 @@ model User {
   memberships TenantMembership[]
   invitesSent TenantInvite[]     @relation("InvitedBy")
   assignedContacts Contact[]     @relation("AssignedAgent")
+  ownedLeads       Lead[]         @relation("LeadOwner")
+  connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
 }
 
 model Tenant {
@@ -42,8 +44,9 @@ model Tenant {
   subscription Subscription?
   invoices     Invoice[]
   apiUsage     TenantApiUsage[]
+  apiKeys      ApiKey[]
 
-  channels           WhatsappChannel[]
+  channels           Channel[]
   contacts           Contact[]
   contactLists       ContactList[]
   labels             Label[]
@@ -51,6 +54,10 @@ model Tenant {
   campaigns          Campaign[]
   messageLogs        MessageLog[]
   automationWorkflows AutomationWorkflow[]
+  leads              Lead[]
+  customFields       CustomField[]
+  metaLeadForms      MetaLeadForm[]
+  integrations       TenantIntegration[]
   products           Product[]
 }
 
@@ -172,17 +179,66 @@ model TenantApiUsage {
   @@id([tenantId, periodMonth])
 }
 
+/// A tenant-scoped credential for the public REST API (/api/v1). Authenticates
+/// as the workspace rather than as a person, so it carries no userId.
+model ApiKey {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String @default("Default key")
+  /// SHA-256 of the raw key, hex encoded. The lookup column — indexed and
+  /// unique so authenticating a request is a single point read.
+  keyHash  String @unique
+  /// AES-GCM ciphertext of the raw key. Stored (rather than hash-only) because
+  /// the dashboard lets the owner reveal and copy a key they already created;
+  /// the plaintext never leaves an authenticated owner/admin session.
+  keyEncrypted String
+  /// Leading characters of the raw key, safe to show in lists and logs.
+  prefix       String
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
 // ---------- WhatsApp / Messaging ----------
 
-model WhatsappChannel {
+/// One connected messaging account. WhatsApp was the only kind until multi-channel
+/// landed, so the WhatsApp-specific columns stay nullable rather than being forced
+/// onto a Facebook Page, an Instagram account, or a mailbox.
+model Channel {
   id                   String   @id @default(cuid())
   tenantId             String
-  wabaId               String
-  phoneNumberId        String   @unique
-  displayPhoneNumber   String
+  type                 ChannelType @default(whatsapp)
+
+  // --- WhatsApp Cloud API only ---
+  wabaId               String?
+  phoneNumberId        String?  @unique
+  displayPhoneNumber   String?
+
+  /// The account's native id on its own platform: Facebook Page id, Instagram
+  /// business account id, or the mailbox address. Mirrors phoneNumberId for
+  /// WhatsApp so inbound routing can look a channel up the same way for every type.
+  externalId           String?
+  /// What to show in the UI when there is no phone number to show.
+  displayName          String?
+
+  /// The channel's secret: WhatsApp/Page access token, or the mailbox password.
   accessTokenEncrypted String
+  /// Non-secret per-type settings — IMAP/SMTP host and port, From name, the Page
+  /// an Instagram account is linked to.
+  configJson           Json?
+
   status               ChannelStatus @default(active)
   messagingTier        String?
+  /// Email only: when the mailbox was last polled, and the IMAP UID high-water
+  /// mark so a poll fetches only what arrived since.
+  lastSyncedAt         DateTime?
+  syncCursor           String?
+  /// Last connection failure, surfaced on the Connections page.
+  lastError            String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -192,7 +248,15 @@ model WhatsappChannel {
   messageLogs MessageLog[]
   automationWorkflows AutomationWorkflow[]
 
+  @@unique([tenantId, type, externalId])
   @@index([tenantId])
+}
+
+enum ChannelType {
+  whatsapp
+  facebook
+  instagram
+  email
 }
 
 enum ChannelStatus {
@@ -203,11 +267,21 @@ enum ChannelStatus {
 model Contact {
   id             String   @id @default(cuid())
   tenantId       String
-  whatsappNumber String
+  /// Which channel this person reached you on. A single human writing from both
+  /// WhatsApp and Instagram is two Contact rows — the platforms hand out
+  /// unrelated ids and give us no way to prove they are the same person.
+  channelType    ChannelType @default(whatsapp)
+  /// Their id on that channel: phone number, Messenger PSID, Instagram IGSID,
+  /// or email address. Mirrors whatsappNumber for WhatsApp contacts.
+  externalId     String?
+  /// Kept as its own column because broadcasts, CSV import and export are all
+  /// phone-number shaped; null for contacts who arrived on another channel.
+  whatsappNumber String?
   name           String?
   email          String?
   /// Free text (e.g. "en", "ta") — Meta language codes aren't a closed set.
   languageCode   String?
+  /// Answers to the tenant's custom contact fields, keyed by CustomField.key.
   attributesJson Json?
   optedIn        Boolean  @default(true)
   /// When false, automations stop auto-replying so a human can take over.
@@ -229,6 +303,7 @@ model Contact {
   labels           ContactLabel[]
 
   @@unique([tenantId, whatsappNumber])
+  @@unique([tenantId, channelType, externalId])
   @@index([tenantId])
   @@index([assignedUserId])
 }
@@ -303,7 +378,7 @@ model MessageTemplate {
   updatedAt     DateTime @updatedAt
 
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel   WhatsappChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   campaigns Campaign[]
 
   @@index([tenantId])
@@ -329,7 +404,7 @@ model Campaign {
   updatedAt    DateTime @updatedAt
 
   tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel    WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel    Channel    @relation(fields: [channelId], references: [id])
   template   MessageTemplate    @relation(fields: [templateId], references: [id])
   targetList ContactList        @relation(fields: [targetListId], references: [id])
   recipients CampaignRecipient[]
@@ -386,7 +461,7 @@ model MessageLog {
   statusUpdatedAt      DateTime @default(now())
 
   tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel  WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel  Channel    @relation(fields: [channelId], references: [id])
   contact  Contact            @relation(fields: [contactId], references: [id])
   recipient CampaignRecipient?
 
@@ -411,7 +486,7 @@ model AutomationWorkflow {
   updatedAt       DateTime @updatedAt
 
   tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel Channel    @relation(fields: [channelId], references: [id])
   steps   AutomationStep[]
 
   @@index([tenantId])
@@ -464,6 +539,197 @@ model WebhookEvent {
   @@unique([provider, externalEventId])
 }
 
+// ---------- CRM (leads) ----------
+
+/// A sales lead. The columns here are the fixed fields every tenant gets;
+/// anything a tenant adds through the custom lead fields lands in customFieldsJson.
+model Lead {
+  id       String @id @default(cuid())
+  tenantId String
+
+  name        String
+  phone       String?
+  email       String?
+  company     String?
+  /// Where the lead came from: "manual", "meta_ads", or free text.
+  source      String     @default("manual")
+  status      LeadStatus @default(new)
+  /// Deal value in paise — the same money unit Plan and Invoice use.
+  valuePaise  Int?
+  notes       String?
+  /// The teammate working this lead; null means unclaimed.
+  ownerUserId String?
+
+  /// Answers to the tenant's custom lead fields, keyed by CustomField.key.
+  customFieldsJson Json?
+
+  /// Set only for leads that arrived from a Meta lead ad.
+  metaLeadId        String? @unique
+  metaFormLinkId    String?
+  metaAdId          String?
+  /// The untouched Meta payload, so nothing is lost when a form question has no mapping yet.
+  sourcePayloadJson Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // SetNull rather than Cascade: removing a teammate must not delete the
+  // leads they happened to be working.
+  owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  metaFormLink MetaLeadForm? @relation(fields: [metaFormLinkId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([ownerUserId])
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  won
+  lost
+}
+
+/// A tenant-defined extra question on an entry screen. One builder serves
+/// both leads and contacts — `entity` says which form the field belongs to,
+/// and the answers live in a JSON column on that entity (Lead.customFieldsJson,
+/// Contact.attributesJson), keyed by `key`.
+model CustomField {
+  id       String @id @default(cuid())
+  tenantId String
+
+  /// Which entry screen this field belongs to.
+  entity CustomFieldEntity
+
+  /// Stable machine key used inside the answers column. Never changes once created.
+  key   String
+  label String
+  type  CustomFieldType @default(text)
+  /// Choices for dropdown and radio fields; null for the free-entry types.
+  optionsJson Json?
+  required    Boolean @default(false)
+  /// Retired fields are hidden from the entry screen but keep their stored answers.
+  isActive    Boolean @default(true)
+  placeholder String?
+  helpText    String?
+  order       Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Keys only have to be unique within one entity, so leads and contacts can
+  // each have their own "city" without colliding.
+  @@unique([tenantId, entity, key])
+  @@index([tenantId, entity])
+}
+
+enum CustomFieldEntity {
+  lead
+  contact
+}
+
+enum CustomFieldType {
+  text
+  textarea
+  number
+  date
+  dropdown
+  radio
+  checkbox
+}
+
+/// A Meta lead-ads form wired into this tenant's leads. The page access token
+/// is what Meta's lead-retrieval endpoint needs, so it is stored encrypted
+/// exactly like a WABA token.
+model MetaLeadForm {
+  id       String @id @default(cuid())
+  tenantId String
+
+  pageId                   String
+  pageName                 String?
+  formId                   String
+  formName                 String?
+  pageAccessTokenEncrypted String
+  isActive                 Boolean @default(true)
+
+  /// Meta question name -> "name" | "phone" | "email" | "company" | "notes" |
+  /// "custom:<key>" | "ignore". Unmapped questions fall back to the defaults
+  /// in meta-lead-mapping.ts.
+  fieldMappingJson Json?
+  /// Status applied to leads landing from this form.
+  defaultStatus    LeadStatus @default(new)
+
+  leadCount  Int       @default(0)
+  lastLeadAt DateTime?
+  lastSyncAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leads  Lead[]
+
+  @@unique([tenantId, formId])
+  @@index([tenantId])
+  // The leadgen webhook arrives with no tenant context, so the form id is the lookup key.
+  @@index([formId])
+}
+
+// ---------- Tenant integrations (third-party services a tenant connects) ----------
+
+/// A third-party service this tenant has connected under Integrations — today
+/// their own payment gateway. Credentials are encrypted with
+/// TOKEN_ENCRYPTION_KEY, exactly like WABA and Meta Page tokens, and are never
+/// returned to the browser.
+///
+/// Note this is the tenant's OWN gateway, used to charge their customers. It
+/// is unrelated to the platform-level Razorpay keys in env, which are how this
+/// SaaS charges its tenants for their subscription.
+model TenantIntegration {
+  id       String @id @default(cuid())
+  tenantId String
+
+  /// Catalog key, e.g. "razorpay" or "stripe". Free text rather than an enum
+  /// so adding a provider is a catalog entry, not a migration.
+  provider String
+  category String            @default("payments")
+  status   IntegrationStatus @default(connected)
+
+  credentialsEncrypted String
+  /// Non-secret details worth showing back: masked keys, and the non-secret
+  /// fields as entered.
+  publicJson Json?
+  /// "test" or "live", read from the key prefix the provider uses.
+  mode         String?
+  /// What the provider calls this account, for confirming the right one is wired up.
+  accountLabel String?
+
+  lastCheckedAt     DateTime?
+  lastError         String?
+  connectedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // SetNull rather than Cascade: removing a teammate must not disconnect the
+  // workspace's payment gateway.
+  connectedBy User? @relation("IntegrationConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+}
+
+enum IntegrationStatus {
+  connected
+  disabled
+  error
+}
+
 // ---------- Catalogue ----------
 
 model Product {
@@ -497,3 +763,4 @@ model Product {
   @@unique([tenantId, sku])
   @@index([tenantId])
 }
+

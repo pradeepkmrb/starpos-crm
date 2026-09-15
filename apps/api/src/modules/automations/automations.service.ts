@@ -17,7 +17,7 @@ export class AutomationsService {
       where: { tenantId },
       include: {
         steps: { orderBy: { order: "asc" } },
-        channel: { select: { displayPhoneNumber: true } },
+        channel: { select: { type: true, displayPhoneNumber: true, displayName: true, externalId: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -57,7 +57,7 @@ export class AutomationsService {
           })),
         },
       },
-      include: { steps: { orderBy: { order: "asc" } }, channel: { select: { displayPhoneNumber: true } } },
+      include: { steps: { orderBy: { order: "asc" } }, channel: { select: { type: true, displayPhoneNumber: true, displayName: true, externalId: true } } },
     });
   }
 
@@ -67,7 +67,7 @@ export class AutomationsService {
     return this.prisma.automationWorkflow.update({
       where: { id },
       data: { isActive },
-      include: { steps: { orderBy: { order: "asc" } }, channel: { select: { displayPhoneNumber: true } } },
+      include: { steps: { orderBy: { order: "asc" } }, channel: { select: { type: true, displayPhoneNumber: true, displayName: true, externalId: true } } },
     });
   }
 
