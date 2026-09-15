@@ -1,4 +1,5 @@
 import type {
+  ChannelType,
   CustomFieldEntity,
   CustomFieldType,
   IntegrationFieldSpec,
@@ -160,11 +161,16 @@ export function acceptInvite(input: { token: string; password?: string; name?: s
 
 export interface Channel {
   id: string;
-  wabaId: string;
-  phoneNumberId: string;
-  displayPhoneNumber: string;
+  type: ChannelType;
+  wabaId: string | null;
+  phoneNumberId: string | null;
+  displayPhoneNumber: string | null;
+  externalId: string | null;
+  displayName: string | null;
   status: "active" | "disconnected";
   messagingTier: string | null;
+  lastSyncedAt: string | null;
+  lastError: string | null;
   createdAt: string;
 }
 
@@ -174,7 +180,7 @@ export interface MessageLogEntry {
   status: string;
   waMessageId: string | null;
   createdAt: string;
-  contact: { id: string; whatsappNumber: string; name: string | null };
+  contact: { id: string; whatsappNumber: string | null; name: string | null };
 }
 
 export function listChannels() {
@@ -209,6 +215,100 @@ export function testSend(channelId: string, input: { to: string; templateName: s
   });
 }
 
+// --- Connections (Facebook Messenger, Instagram DM, Email) ---
+
+export interface EmailChannelSettings {
+  imapHost: string;
+  imapPort: number;
+  smtpHost: string;
+  smtpPort: number;
+  emailAddress: string;
+  fromName: string | null;
+}
+
+export interface ChannelConnection {
+  id: string;
+  type: ChannelType;
+  /** Number, Page title, @handle or mailbox — whatever names this connection to a human. */
+  label: string;
+  externalId: string | null;
+  displayName: string | null;
+  displayPhoneNumber: string | null;
+  wabaId: string | null;
+  phoneNumberId: string | null;
+  status: "active" | "disconnected";
+  hasCredentials: boolean;
+  email: EmailChannelSettings | null;
+  pageId: string | null;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface EmailSyncResult {
+  channelId: string;
+  fetched: number;
+  imported: number;
+  lastSyncedAt: string;
+}
+
+/** Every connected channel, WhatsApp included. */
+export function listConnections() {
+  return request<ChannelConnection[]>("/connections");
+}
+
+export function connectMessenger(input: { pageId: string; accessToken: string; enabled?: boolean }) {
+  return request<ChannelConnection>("/connections/facebook", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** The Page access token is reused when Messenger is already connected. */
+export function connectInstagram(input: {
+  instagramAccountId: string;
+  accessToken?: string;
+  pageId?: string;
+  enabled?: boolean;
+}) {
+  return request<ChannelConnection>("/connections/instagram", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Leave `password` out to keep the stored one. */
+export function connectEmail(input: {
+  imapHost: string;
+  imapPort: number;
+  smtpHost: string;
+  smtpPort: number;
+  emailAddress: string;
+  password?: string;
+  fromName?: string;
+  enabled?: boolean;
+}) {
+  return request<ChannelConnection>("/connections/email", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function syncEmailChannel(channelId: string) {
+  return request<EmailSyncResult>(`/connections/${channelId}/sync`, { method: "POST" });
+}
+
+export function setConnectionEnabled(channelId: string, enabled: boolean) {
+  return request<ChannelConnection>(`/connections/${channelId}/${enabled ? "enable" : "disable"}`, {
+    method: "POST",
+  });
+}
+
+/** Disconnects rather than deleting once the channel has message history. */
+export function removeConnection(channelId: string) {
+  return request<{ id: string; deleted: boolean }>(`/connections/${channelId}`, { method: "DELETE" });
+}
+
 // --- Contacts ---
 
 export interface ContactListSummary {
@@ -239,7 +339,10 @@ export interface ImportResult {
 
 export interface Contact {
   id: string;
-  whatsappNumber: string;
+  channelType: ChannelType;
+  /** Their id on that channel — phone number, Messenger PSID, Instagram IGSID or email. */
+  externalId: string | null;
+  whatsappNumber: string | null;
   name: string | null;
   email: string | null;
   languageCode: string | null;
@@ -387,7 +490,7 @@ export interface Campaign {
   id: string;
   status: "draft" | "scheduled" | "sending" | "completed" | "failed";
   createdAt: string;
-  channel: { displayPhoneNumber: string };
+  channel: { displayPhoneNumber: string | null };
   targetList: { name: string };
   recipientStats?: Record<string, number>;
 }
@@ -396,7 +499,7 @@ export interface CampaignRecipient {
   id: string;
   status: "pending" | "queued" | "sent" | "delivered" | "read" | "failed";
   error: string | null;
-  contact: { whatsappNumber: string; name: string | null };
+  contact: { whatsappNumber: string | null; name: string | null };
 }
 
 export interface CampaignDetail extends Campaign {
@@ -438,7 +541,12 @@ export interface Automation {
   triggerConfigJson: { keywords?: string[]; matchType?: "contains" | "exact" };
   createdAt: string;
   steps: AutomationStep[];
-  channel: { displayPhoneNumber: string };
+  channel: {
+    type: ChannelType;
+    displayPhoneNumber: string | null;
+    displayName: string | null;
+    externalId: string | null;
+  };
 }
 
 export interface CreateAutomationInput {
@@ -549,7 +657,9 @@ export interface DailyPoint {
 
 export interface ChannelBreakdown {
   channelId: string;
-  displayPhoneNumber: string;
+  channelType: ChannelType;
+  label: string;
+  displayPhoneNumber: string | null;
   outbound: number;
   delivered: number;
   read: number;
@@ -629,7 +739,10 @@ export interface AssignedUser {
 
 export interface InboxConversation {
   contactId: string;
-  whatsappNumber: string;
+  channelType: ChannelType;
+  /** Their address on that channel — phone number, @handle or email. */
+  handle: string;
+  whatsappNumber: string | null;
   name: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string;
@@ -654,7 +767,9 @@ export interface InboxMessage {
 export interface InboxThread {
   contact: {
     id: string;
-    whatsappNumber: string;
+    channelType: ChannelType;
+    handle: string;
+    whatsappNumber: string | null;
     name: string | null;
     email: string | null;
     languageCode: string | null;

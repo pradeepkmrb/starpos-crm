@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Channel, Contact } from "@digitel/db";
+import { CHANNEL_LABELS, type ChannelType } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "../whatsapp/channels.service";
 import { MetaGraphClient } from "../whatsapp/meta-graph.client";
@@ -6,6 +8,7 @@ import { MessageLogService } from "../messages/message-log.service";
 import { ContactsService } from "../contacts/contacts.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { windowExpiresAt, windowIsOpen } from "../whatsapp/inbox.service";
+import { OutboundDispatcher } from "../channels/outbound-dispatcher.service";
 import { normalizeWhatsappNumber } from "../../common/phone";
 import { SendTextDto } from "./dto/send-text.dto";
 import { SendTemplateDto } from "./dto/send-template.dto";
@@ -41,37 +44,46 @@ export class PublicMessagesService {
     private readonly messageLogService: MessageLogService,
     private readonly contactsService: ContactsService,
     private readonly entitlements: EntitlementsService,
+    private readonly dispatcher: OutboundDispatcher,
   ) {}
 
   async sendText(tenantId: string, dto: SendTextDto): Promise<SentMessage> {
     const { channel, contact } = await this.prepare(tenantId, dto.to, dto.channelId);
-    this.assertSessionWindowOpen(contact.lastInboundAt);
+    this.assertSessionWindowOpen(contact);
 
-    const { waMessageId } = await this.metaGraphClient.sendTextMessage(
-      channel,
-      contact.whatsappNumber,
-      dto.text,
-      dto.previewUrl ?? false,
-    );
+    // preview_url is a WhatsApp text option the dispatcher does not expose, so
+    // a caller asking for it takes the direct path; everything else goes
+    // through the dispatcher like the rest of the app.
+    if (dto.previewUrl) {
+      const { waMessageId } = await this.metaGraphClient.sendTextMessage(
+        channel,
+        recipientAddress(contact),
+        dto.text,
+        true,
+      );
+      return this.record(tenantId, channel.id, contact, waMessageId, "text", { body: dto.text });
+    }
 
-    return this.record(tenantId, channel.id, contact.id, waMessageId, "text", { body: dto.text });
+    const { externalMessageId, payload } = await this.dispatcher.sendText(channel, contact, dto.text);
+    return this.record(tenantId, channel.id, contact, externalMessageId, "text", payload);
   }
 
   /** The only send that works outside the 24-hour window, by design. */
   async sendTemplate(tenantId: string, dto: SendTemplateDto): Promise<SentMessage> {
     const { channel, contact } = await this.prepare(tenantId, dto.to, dto.channelId);
+    assertWhatsapp(channel, "Templates");
     const languageCode = dto.languageCode ?? DEFAULT_TEMPLATE_LANGUAGE;
     const components = dto.components ?? buildTemplateComponents(dto);
 
     const { waMessageId } = await this.metaGraphClient.sendTemplateMessage(
       channel,
-      contact.whatsappNumber,
+      recipientAddress(contact),
       dto.templateName,
       languageCode,
       components.length > 0 ? components : undefined,
     );
 
-    return this.record(tenantId, channel.id, contact.id, waMessageId, "template", {
+    return this.record(tenantId, channel.id, contact, waMessageId, "template", {
       templateName: dto.templateName,
       languageCode,
       components,
@@ -90,16 +102,17 @@ export class PublicMessagesService {
     }
 
     const { channel, contact } = await this.prepare(tenantId, dto.to, dto.channelId);
-    this.assertSessionWindowOpen(contact.lastInboundAt);
+    assertWhatsapp(channel, "Media messages");
+    this.assertSessionWindowOpen(contact);
 
     const { waMessageId } = await this.metaGraphClient.sendMediaMessage(
       channel,
-      contact.whatsappNumber,
+      recipientAddress(contact),
       dto.type,
       { link: dto.link, id: dto.mediaId, caption: dto.caption, filename: dto.filename },
     );
 
-    return this.record(tenantId, channel.id, contact.id, waMessageId, dto.type, {
+    return this.record(tenantId, channel.id, contact, waMessageId, dto.type, {
       body: dto.caption ?? `[${dto.type}]`,
       mediaType: dto.type,
       link: dto.link,
@@ -112,15 +125,16 @@ export class PublicMessagesService {
     const interactive = buildInteractive(dto);
 
     const { channel, contact } = await this.prepare(tenantId, dto.to, dto.channelId);
-    this.assertSessionWindowOpen(contact.lastInboundAt);
+    assertWhatsapp(channel, "Interactive messages");
+    this.assertSessionWindowOpen(contact);
 
     const { waMessageId } = await this.metaGraphClient.sendInteractiveMessage(
       channel,
-      contact.whatsappNumber,
+      recipientAddress(contact),
       interactive,
     );
 
-    return this.record(tenantId, channel.id, contact.id, waMessageId, "interactive", {
+    return this.record(tenantId, channel.id, contact, waMessageId, "interactive", {
       body: dto.bodyText,
       interactive,
     });
@@ -169,17 +183,23 @@ export class PublicMessagesService {
     return { channel, contact };
   }
 
+  /**
+   * The workspace's WhatsApp channel. This surface addresses recipients by
+   * phone number, so it sends over WhatsApp; the other channels a workspace
+   * can now connect (Messenger, Instagram, email) are reached from the Inbox,
+   * where the conversation already says which one to use.
+   */
   private async resolveChannel(tenantId: string, channelId?: string) {
     if (channelId) {
       const channel = await this.channelsService.getChannelWithCredentials(tenantId, channelId);
       if (channel.status !== "active") {
-        throw new BadRequestException("That WhatsApp channel is disconnected");
+        throw new BadRequestException("That channel is disconnected");
       }
       return channel;
     }
 
-    const active = await this.prisma.whatsappChannel.findMany({
-      where: { tenantId, status: "active" },
+    const active = await this.prisma.channel.findMany({
+      where: { tenantId, type: "whatsapp", status: "active" },
       orderBy: { createdAt: "asc" },
     });
     if (active.length === 0) {
@@ -189,7 +209,7 @@ export class PublicMessagesService {
     }
     if (active.length > 1) {
       throw new BadRequestException(
-        "This workspace has more than one active channel — pass channelId to say which number to send from.",
+        "This workspace has more than one active WhatsApp channel — pass channelId to say which number to send from.",
       );
     }
     return active[0];
@@ -203,9 +223,15 @@ export class PublicMessagesService {
     if (existing) return existing;
 
     await this.entitlements.assertCanAdd(tenantId, "contacts");
-    const { contact } = await this.contactsService.upsertByNumber(tenantId, whatsappNumber, {
-      source: "api",
-    });
+    // Goes through the shared upsert so the row carries the same channelType
+    // and externalId the inbound webhook would write — otherwise the same
+    // person messaging in would land as a second contact.
+    const { contact } = await this.contactsService.upsertByExternalId(
+      tenantId,
+      "whatsapp",
+      whatsappNumber,
+      { source: "api" },
+    );
     return contact;
   }
 
@@ -213,9 +239,9 @@ export class PublicMessagesService {
    * Meta rejects a free-form send outside the window anyway; failing here
    * costs no quota and says what to do instead.
    */
-  private assertSessionWindowOpen(lastInboundAt: Date | null) {
-    if (windowIsOpen(lastInboundAt)) return;
-    const expired = windowExpiresAt(lastInboundAt);
+  private assertSessionWindowOpen(contact: { channelType: ChannelType; lastInboundAt: Date | null }) {
+    if (windowIsOpen(contact.channelType, contact.lastInboundAt)) return;
+    const expired = windowExpiresAt(contact.channelType, contact.lastInboundAt);
     throw new BadRequestException(
       expired
         ? `The 24-hour customer-service window closed at ${expired.toISOString()}. Send an approved template instead.`
@@ -226,7 +252,7 @@ export class PublicMessagesService {
   private async record(
     tenantId: string,
     channelId: string,
-    contactId: string,
+    contact: Contact,
     waMessageId: string,
     type: string,
     payload: Record<string, unknown>,
@@ -234,23 +260,18 @@ export class PublicMessagesService {
     const log = await this.messageLogService.recordOutbound({
       tenantId,
       channelId,
-      contactId,
+      contactId: contact.id,
       waMessageId,
       payload: { ...payload, source: "api" },
-    });
-
-    const contact = await this.prisma.contact.findUniqueOrThrow({
-      where: { id: contactId },
-      select: { whatsappNumber: true },
     });
 
     return {
       id: log.id,
       waMessageId: log.waMessageId,
-      to: contact.whatsappNumber,
+      to: recipientAddress(contact),
       type,
       status: log.status,
-      contactId,
+      contactId: contact.id,
       channelId,
       createdAt: log.createdAt,
     };
@@ -338,4 +359,29 @@ export function buildInteractive(dto: SendInteractiveDto): Record<string, unknow
       })),
     },
   };
+}
+
+/**
+ * Where a message to this contact goes. externalId is the channel-agnostic
+ * address; whatsappNumber is the pre-multi-channel column it mirrors.
+ */
+export function recipientAddress(contact: Contact): string {
+  const address = contact.externalId ?? contact.whatsappNumber;
+  if (!address) {
+    throw new BadRequestException("This contact has no address to send to");
+  }
+  return address;
+}
+
+/**
+ * Templates, media and interactive messages are WhatsApp features. Naming a
+ * channel of another type is a mistake worth reporting rather than passing to
+ * Meta's Graph API, which would reject it less helpfully.
+ */
+export function assertWhatsapp(channel: Channel, what: string): void {
+  if (channel.type !== "whatsapp") {
+    throw new BadRequestException(
+      `${what} are a WhatsApp feature — that channel is ${CHANNEL_LABELS[channel.type as ChannelType]}.`,
+    );
+  }
 }

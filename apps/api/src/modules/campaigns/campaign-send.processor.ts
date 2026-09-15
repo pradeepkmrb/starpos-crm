@@ -44,6 +44,11 @@ export class CampaignSendProcessor extends WorkerHost {
 
     const { campaign, contact } = recipient;
     try {
+      // Broadcasts are WhatsApp-only — templates are a WhatsApp concept, and a
+      // contact who arrived on Messenger, Instagram or email has no number.
+      if (!contact.whatsappNumber) {
+        throw new MetaApiError("This contact has no WhatsApp number to broadcast to");
+      }
       const { waMessageId } = await this.metaGraphClient.sendTemplateMessage(
         campaign.channel,
         contact.whatsappNumber,

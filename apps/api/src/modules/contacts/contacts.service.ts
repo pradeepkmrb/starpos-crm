@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import type { ChannelType } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
@@ -12,6 +13,13 @@ import { ImportContactsDto } from "./dto/import-contacts.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
 
+export interface UpsertContactOptions {
+  name?: string;
+  email?: string;
+  source?: string;
+  markInbound?: boolean;
+}
+
 @Injectable()
 export class ContactsService {
   constructor(
@@ -22,27 +30,46 @@ export class ContactsService {
 
   /**
    * Minimal upsert-by-number used by both outbound sends (Phase 2 test-send)
-   * and inbound webhook processing.
+   * and inbound WhatsApp webhook processing.
    */
-  async upsertByNumber(
+  upsertByNumber(tenantId: string, whatsappNumber: string, opts: UpsertContactOptions = {}) {
+    return this.upsertByExternalId(tenantId, "whatsapp", whatsappNumber, opts);
+  }
+
+  /**
+   * The channel-agnostic version: `externalId` is the person's id on whichever
+   * platform they wrote from — phone number, Messenger PSID, Instagram IGSID or
+   * email address. Someone who writes from two channels becomes two contacts,
+   * because no platform gives us a way to prove they are the same person.
+   */
+  async upsertByExternalId(
     tenantId: string,
-    whatsappNumber: string,
-    opts: { name?: string; markInbound?: boolean; source?: string } = {},
+    channelType: ChannelType,
+    externalId: string,
+    opts: UpsertContactOptions = {},
   ) {
+    const key = { tenantId_channelType_externalId: { tenantId, channelType, externalId } };
+
     // Existence is checked first so callers can tell a brand-new contact from
     // a returning one — the inbound webhook path needs this to fire "welcome"
     // automations exactly once.
-    const existing = await this.prisma.contact.findUnique({
-      where: { tenantId_whatsappNumber: { tenantId, whatsappNumber } },
-      select: { id: true },
-    });
+    const existing = await this.prisma.contact.findUnique({ where: key, select: { id: true } });
 
     const contact = await this.prisma.contact.upsert({
-      where: { tenantId_whatsappNumber: { tenantId, whatsappNumber } },
-      update: opts.markInbound ? { lastInboundAt: new Date() } : {},
+      where: key,
+      update: {
+        ...(opts.markInbound ? { lastInboundAt: new Date() } : {}),
+        // Meta only hands out a profile name once the person has messaged the
+        // Page, so a name that arrives later fills a gap but never overwrites
+        // one an operator typed in.
+        ...(opts.name && !existing ? { name: opts.name } : {}),
+      },
       create: {
         tenantId,
-        whatsappNumber,
+        channelType,
+        externalId,
+        whatsappNumber: channelType === "whatsapp" ? externalId : null,
+        email: channelType === "email" ? externalId : opts.email,
         name: opts.name,
         source: opts.source ?? "manual",
         ...(opts.markInbound ? { lastInboundAt: new Date() } : {}),
@@ -183,8 +210,12 @@ export class ContactsService {
     const attributes = normalizeCustomFieldValues(definitions, dto.customFields);
 
     return this.prisma.contact.create({
+      // externalId mirrors the number so this contact is reachable by the same
+      // channel-agnostic lookup the inbound webhooks use.
       data: {
         tenantId,
+        channelType: "whatsapp",
+        externalId: dto.whatsappNumber,
         whatsappNumber: dto.whatsappNumber,
         name: dto.name,
         source: "manual",
@@ -276,6 +307,8 @@ export class ContactsService {
         return this.prisma.contact.create({
           data: {
             tenantId,
+            channelType: "whatsapp",
+            externalId: row.whatsappNumber,
             whatsappNumber: row.whatsappNumber,
             name: row.name,
             source: "import",

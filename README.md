@@ -81,6 +81,9 @@ with a runnable curl example and a sample response.
 - Base URL: `${NEXT_PUBLIC_API_URL}/api/v1`
 - Auth: `X-API-Key: <key>` on every request. Session tokens are not accepted
   here, and an API key is not accepted on the dashboard routes.
+- Sends address a customer by phone number, so they go over WhatsApp.
+  Messenger, Instagram and email conversations are answered from the Inbox,
+  where the thread already says which channel to reply on.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -96,7 +99,7 @@ with a runnable curl example and a sample response.
 | PATCH | `/contacts/{id}` | Update named fields on a contact |
 | GET | `/lists` | Contact lists and their sizes |
 | GET | `/templates` | Templates available to send |
-| GET | `/channels` | Connected WhatsApp numbers |
+| GET | `/channels` | Connected channels, each with its type |
 
 Every failure answers with one envelope —
 `{ "error": { "code", "message", "status" } }` — so integrations branch on

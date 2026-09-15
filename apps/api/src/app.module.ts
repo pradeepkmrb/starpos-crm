@@ -9,6 +9,7 @@ import { MembershipsModule } from "./modules/memberships/memberships.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BullmqCoreModule } from "./common/bullmq-core.module";
 import { WhatsappModule } from "./modules/whatsapp/whatsapp.module";
+import { ChannelsModule } from "./modules/channels/channels.module";
 import { CampaignsModule } from "./modules/campaigns/campaigns.module";
 import { AutomationsModule } from "./modules/automations/automations.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
@@ -33,6 +34,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
     MembershipsModule,
     AuthModule,
     WhatsappModule,
+    ChannelsModule,
     CampaignsModule,
     AutomationsModule,
     BillingModule,

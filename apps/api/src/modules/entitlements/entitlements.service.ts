@@ -52,7 +52,7 @@ export class EntitlementsService {
   async getUsage(tenantId: string): Promise<UsageSnapshot> {
     const [contacts, channels, automations, teamSeats, apiUsage] = await Promise.all([
       this.prisma.contact.count({ where: { tenantId } }),
-      this.prisma.whatsappChannel.count({ where: { tenantId, status: "active" } }),
+      this.prisma.channel.count({ where: { tenantId, status: "active" } }),
       this.prisma.automationWorkflow.count({ where: { tenantId } }),
       this.prisma.tenantMembership.count({ where: { tenantId, status: "active" } }),
       this.prisma.tenantApiUsage.findUnique({
@@ -124,8 +124,8 @@ export class EntitlementsService {
       case "channels":
         return {
           limit: plan.maxChannels,
-          current: await this.prisma.whatsappChannel.count({ where: { tenantId, status: "active" } }),
-          noun: "WhatsApp channel(s)",
+          current: await this.prisma.channel.count({ where: { tenantId, status: "active" } }),
+          noun: "connected channel(s)",
         };
       case "automations":
         return {

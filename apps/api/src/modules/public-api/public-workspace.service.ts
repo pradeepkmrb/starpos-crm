@@ -25,9 +25,17 @@ export class PublicWorkspaceService {
   async me(tenantId: string, apiKeyId: string) {
     const [tenant, channels, usage, limits, apiKey] = await Promise.all([
       this.prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, include: { plan: true } }),
-      this.prisma.whatsappChannel.findMany({
+      this.prisma.channel.findMany({
         where: { tenantId },
-        select: { id: true, displayPhoneNumber: true, phoneNumberId: true, status: true },
+        select: {
+          id: true,
+          type: true,
+          displayPhoneNumber: true,
+          displayName: true,
+          externalId: true,
+          phoneNumberId: true,
+          status: true,
+        },
         orderBy: { createdAt: "asc" },
       }),
       this.entitlements.getUsage(tenantId),
@@ -55,11 +63,14 @@ export class PublicWorkspaceService {
   }
 
   listChannels(tenantId: string) {
-    return this.prisma.whatsappChannel.findMany({
+    return this.prisma.channel.findMany({
       where: { tenantId },
       select: {
         id: true,
+        type: true,
         displayPhoneNumber: true,
+        displayName: true,
+        externalId: true,
         phoneNumberId: true,
         wabaId: true,
         status: true,

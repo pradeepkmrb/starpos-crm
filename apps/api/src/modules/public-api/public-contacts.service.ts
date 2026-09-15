@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@digitel/db";
+import type { ChannelType } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { windowExpiresAt, windowIsOpen } from "../whatsapp/inbox.service";
@@ -35,8 +36,12 @@ export class PublicContactsService {
     const where: Prisma.ContactWhereInput = { tenantId };
     if (query.search?.trim()) {
       const term = query.search.trim();
+      const asNumber = normalizeWhatsappNumber(term);
       where.OR = [
-        { whatsappNumber: { contains: normalizeWhatsappNumber(term) ?? term } },
+        { whatsappNumber: { contains: asNumber ?? term } },
+        // externalId is where a contact's address lives whatever channel they
+        // arrived on, so a search by handle or mailbox finds them too.
+        { externalId: { contains: asNumber ?? term } },
         { name: { contains: term, mode: "insensitive" } },
         { email: { contains: term, mode: "insensitive" } },
       ];
@@ -108,7 +113,16 @@ export class PublicContactsService {
     const contact = await this.prisma.contact.upsert({
       where: { tenantId_whatsappNumber: { tenantId, whatsappNumber } },
       update: writable,
-      create: { tenantId, whatsappNumber, source: "api", ...writable },
+      // channelType and externalId mirror what upsertByExternalId writes, so a
+      // contact created here is the same row the inbound webhook would find.
+      create: {
+        tenantId,
+        channelType: "whatsapp",
+        externalId: whatsappNumber,
+        whatsappNumber,
+        source: "api",
+        ...writable,
+      },
       include: { labels: { select: { label: { select: { id: true, name: true, color: true } } } } },
     });
 
@@ -176,7 +190,9 @@ function clampLimit(raw?: string): number {
 
 interface ContactRow {
   id: string;
-  whatsappNumber: string;
+  channelType: ChannelType;
+  externalId: string | null;
+  whatsappNumber: string | null;
   name: string | null;
   email: string | null;
   languageCode: string | null;
@@ -198,6 +214,10 @@ interface ContactRow {
 function serializeContact(contact: ContactRow) {
   return {
     id: contact.id,
+    /** Which platform this contact reached you on. */
+    channelType: contact.channelType,
+    /** Their address on that platform: number, Messenger id, handle or mailbox. */
+    externalId: contact.externalId,
     whatsappNumber: contact.whatsappNumber,
     name: contact.name,
     email: contact.email,
@@ -208,8 +228,8 @@ function serializeContact(contact: ContactRow) {
     attributes: contact.attributesJson ?? null,
     labels: (contact.labels ?? []).map((cl) => cl.label),
     lastInboundAt: contact.lastInboundAt,
-    sessionWindowOpen: windowIsOpen(contact.lastInboundAt),
-    sessionWindowExpiresAt: windowExpiresAt(contact.lastInboundAt),
+    sessionWindowOpen: windowIsOpen(contact.channelType, contact.lastInboundAt),
+    sessionWindowExpiresAt: windowExpiresAt(contact.channelType, contact.lastInboundAt),
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
   };

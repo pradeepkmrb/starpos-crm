@@ -23,7 +23,7 @@ import { getCurrentTenantId } from "./tenant-context.store";
 const TENANT_SCOPED_MODELS = new Set([
   "TenantMembership",
   "TenantInvite",
-  "WhatsappChannel",
+  "Channel",
   "Contact",
   "ContactList",
   "MessageTemplate",

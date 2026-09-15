@@ -39,7 +39,13 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
           plan: { code: "professional", name: "Professional" },
           apiKey: { id: "clw1key", name: "Default key", prefix: "1d4a4cc5", lastUsedAt: "2026-09-15T05:31:12.004Z" },
           channels: [
-            { id: "clw1chan", displayPhoneNumber: "+91 98765 43210", phoneNumberId: "109876543210987", status: "active" },
+            {
+              id: "clw1chan",
+              type: "whatsapp",
+              displayPhoneNumber: "+91 98765 43210",
+              phoneNumberId: "109876543210987",
+              status: "active",
+            },
           ],
           usage: { contacts: 1420, channels: 1, automations: 3, teamSeats: 4, apiRequests: 8123 },
           limits: { maxContacts: 5000, maxChannels: 3, maxAutomations: 10, maxTeamSeats: 5, maxApiRequestsPerMonth: 50000 },
@@ -51,7 +57,7 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
     id: "messages",
     title: "Messages",
     blurb:
-      "Open-session vs template: free-form messages (text, media, interactive buttons and lists below) can only be sent inside the 24-hour customer-service window — i.e. after the customer messaged you within the last 24 hours. To message a customer outside that window, use an approved template message.",
+      "These endpoints address a customer by phone number, so they send over WhatsApp; Messenger, Instagram and email conversations are answered from the Inbox. Open-session vs template: free-form messages (text, media, interactive buttons and lists below) can only be sent inside the 24-hour customer-service window — i.e. after the customer messaged you within the last 24 hours. To message a customer outside that window, use an approved template message.",
     endpoints: [
       {
         method: "POST",
@@ -167,7 +173,7 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
     id: "contacts",
     title: "Contacts",
     blurb:
-      "Contacts are keyed on the phone number, so posting the same number twice updates rather than duplicates. sessionWindowOpen on each contact tells you whether a free-form send will go through right now.",
+      "Contacts are keyed on the phone number, so posting the same number twice updates rather than duplicates. channelType says which platform a contact reached you on, and sessionWindowOpen tells you whether a free-form send will go through right now.",
     endpoints: [
       {
         method: "GET",
@@ -179,6 +185,8 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
           data: [
             {
               id: "clw1contact",
+              channelType: "whatsapp",
+              externalId: "919876543210",
               whatsappNumber: "919876543210",
               name: "Priya",
               email: "priya@example.com",
@@ -205,6 +213,8 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
         summary: "Fetch one contact by phone number, when you do not hold our id.",
         response: {
           id: "clw1contact",
+          channelType: "whatsapp",
+          externalId: "919876543210",
           whatsappNumber: "919876543210",
           name: "Priya",
           optedIn: true,
@@ -277,12 +287,15 @@ export const ENDPOINT_SECTIONS: EndpointSection[] = [
       {
         method: "GET",
         path: "/channels",
-        summary: "List the WhatsApp numbers connected to this workspace.",
-        note: "Pass channelId on a send when more than one is active, so we know which number to send from.",
+        summary: "List every channel connected to this workspace, with its type.",
+        note: "Sends here go over WhatsApp. Pass channelId when more than one WhatsApp number is active, so we know which to send from.",
         response: [
           {
             id: "clw1chan",
+            type: "whatsapp",
             displayPhoneNumber: "+91 98765 43210",
+            displayName: null,
+            externalId: "109876543210987",
             phoneNumberId: "109876543210987",
             wabaId: "203040506070809",
             status: "active",

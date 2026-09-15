@@ -1,30 +1,46 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
+import { CHANNEL_LABELS, type ChannelType, channelHasReplyWindow } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
-import { MetaGraphClient } from "./meta-graph.client";
 import { MessageLogService } from "../messages/message-log.service";
+import { OutboundDispatcher, contactAddress } from "../channels/outbound-dispatcher.service";
 
 /**
  * Meta only allows free-form (non-template) replies inside 24 hours of the
  * contact's last inbound message. Outside it, the only way to re-open the
  * conversation is a template — which is the Broadcasts path, not this one.
+ * The same 24-hour rule governs Messenger and Instagram; email has no window.
  */
 export const CUSTOMER_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export function windowExpiresAt(lastInboundAt: Date | null): Date | null {
-  return lastInboundAt ? new Date(lastInboundAt.getTime() + CUSTOMER_SERVICE_WINDOW_MS) : null;
+export function windowExpiresAt(channelType: ChannelType, lastInboundAt: Date | null): Date | null {
+  if (!channelHasReplyWindow(channelType) || !lastInboundAt) return null;
+  return new Date(lastInboundAt.getTime() + CUSTOMER_SERVICE_WINDOW_MS);
 }
 
-export function windowIsOpen(lastInboundAt: Date | null, now = new Date()): boolean {
-  const expiry = windowExpiresAt(lastInboundAt);
+export function windowIsOpen(
+  channelType: ChannelType,
+  lastInboundAt: Date | null,
+  now = new Date(),
+): boolean {
+  // Email threads never close, so there is nothing to wait for.
+  if (!channelHasReplyWindow(channelType)) return true;
+  const expiry = windowExpiresAt(channelType, lastInboundAt);
   return expiry !== null && expiry.getTime() > now.getTime();
 }
 
-/** Meta's inbound payload is a tagged union; this pulls out something displayable. */
+/**
+ * Each channel logs its own payload shape — WhatsApp stores Meta's raw message
+ * object, Messenger and Instagram a flattened `{text}`, email a `{subject, body}`.
+ * This narrows all three to something the chat bubble can render.
+ */
 function describeInbound(payload: unknown): { text: string; kind: string } {
   const p = (payload ?? {}) as {
+    channel?: string;
     type?: string;
-    text?: { body?: string };
+    text?: { body?: string } | string;
+    subject?: string;
+    body?: string;
     button?: { text?: string };
     interactive?: {
       button_reply?: { title?: string };
@@ -33,6 +49,13 @@ function describeInbound(payload: unknown): { text: string; kind: string } {
     caption?: string;
   };
   const kind = p.type ?? "unknown";
+
+  if (p.channel === "email") {
+    const subject = p.subject ? `${p.subject}\n\n` : "";
+    return { text: `${subject}${p.body ?? ""}`.trim() || "[empty email]", kind: "email" };
+  }
+  // Messenger and Instagram flatten the text; WhatsApp nests it under text.body.
+  if (typeof p.text === "string") return { text: p.text, kind };
   if (p.text?.body) return { text: p.text.body, kind };
   if (p.button?.text) return { text: p.button.text, kind };
   const interactiveTitle = p.interactive?.button_reply?.title ?? p.interactive?.list_reply?.title;
@@ -62,8 +85,9 @@ export class InboxService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly channelsService: ChannelsService,
-    private readonly metaGraphClient: MetaGraphClient,
     private readonly messageLogService: MessageLogService,
+    @Inject(forwardRef(() => OutboundDispatcher))
+    private readonly dispatcher: OutboundDispatcher,
   ) {}
 
   /**
@@ -87,6 +111,8 @@ export class InboxService {
         where: { tenantId, id: { in: contactIds } },
         select: {
           id: true,
+          channelType: true,
+          externalId: true,
           whatsappNumber: true,
           name: true,
           lastInboundAt: true,
@@ -121,13 +147,16 @@ export class InboxService {
       return [
         {
           contactId: contact.id,
+          channelType: contact.channelType,
+          /** Their address on that channel — number, @handle or email. */
+          handle: contact.externalId ?? contact.whatsappNumber ?? "",
           whatsappNumber: contact.whatsappNumber,
           name: contact.name,
           lastMessageAt: row._max.createdAt,
           lastMessagePreview: preview.text,
           lastMessageDirection: last?.direction ?? null,
-          windowOpen: windowIsOpen(contact.lastInboundAt),
-          windowExpiresAt: windowExpiresAt(contact.lastInboundAt),
+          windowOpen: windowIsOpen(contact.channelType, contact.lastInboundAt),
+          windowExpiresAt: windowExpiresAt(contact.channelType, contact.lastInboundAt),
           assignedUserId: contact.assignedUserId,
           assignedUser: contact.assignedUser,
           labels: contact.labels.map((cl) => cl.label),
@@ -194,6 +223,8 @@ export class InboxService {
     return {
       contact: {
         id: contact.id,
+        channelType: contact.channelType,
+        handle: contact.externalId ?? contact.whatsappNumber ?? "",
         whatsappNumber: contact.whatsappNumber,
         name: contact.name,
         email: contact.email,
@@ -205,8 +236,8 @@ export class InboxService {
         assignedUser: contact.assignedUser,
         labels: contact.labels.map((cl) => cl.label),
       },
-      windowOpen: windowIsOpen(contact.lastInboundAt),
-      windowExpiresAt: windowExpiresAt(contact.lastInboundAt),
+      windowOpen: windowIsOpen(contact.channelType, contact.lastInboundAt),
+      windowExpiresAt: windowExpiresAt(contact.channelType, contact.lastInboundAt),
       messages,
     };
   }
@@ -214,45 +245,52 @@ export class InboxService {
   async reply(tenantId: string, contactId: string, body: string) {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, tenantId } });
     if (!contact) throw new NotFoundException("Contact not found");
+    if (!contactAddress(contact)) {
+      throw new BadRequestException("This contact has no address to reply to");
+    }
 
     // Enforced here as well as in the UI: Meta rejects the send anyway, but a
-    // clear message beats surfacing a raw Graph API error.
-    if (!windowIsOpen(contact.lastInboundAt)) {
+    // clear message beats surfacing a raw Graph API error. Email skips this —
+    // there is no window to miss.
+    if (!windowIsOpen(contact.channelType, contact.lastInboundAt)) {
       throw new BadRequestException(
-        "The 24-hour reply window has closed. Send a template from Broadcasts to reopen the conversation.",
+        contact.channelType === "whatsapp"
+          ? "The 24-hour reply window has closed. Send a template from Broadcasts to reopen the conversation."
+          : "The 24-hour reply window has closed. They need to message you again before you can reply.",
       );
     }
 
-    const channel = await this.resolveChannel(tenantId, contactId);
-    const { waMessageId } = await this.metaGraphClient.sendTextMessage(
-      channel,
-      contact.whatsappNumber,
-      body,
-    );
+    const channel = await this.resolveChannel(tenantId, contact.channelType, contactId);
+    const { externalMessageId, payload } = await this.dispatcher.sendText(channel, contact, body);
 
     return this.messageLogService.recordOutbound({
       tenantId,
       channelId: channel.id,
       contactId: contact.id,
-      waMessageId,
-      payload: { body },
+      waMessageId: externalMessageId,
+      payload,
     });
   }
 
-  /** Replies go out on whichever channel the conversation already used. */
-  private async resolveChannel(tenantId: string, contactId: string) {
+  /**
+   * Replies go out on whichever channel the conversation already used, and
+   * never on a different one — a WhatsApp number cannot answer an Instagram DM.
+   */
+  private async resolveChannel(tenantId: string, channelType: ChannelType, contactId: string) {
     const lastLog = await this.prisma.messageLog.findFirst({
-      where: { tenantId, contactId },
+      where: { tenantId, contactId, channel: { type: channelType } },
       orderBy: { createdAt: "desc" },
       select: { channelId: true },
     });
     if (lastLog) return this.channelsService.getChannelWithCredentials(tenantId, lastLog.channelId);
 
-    const channel = await this.prisma.whatsappChannel.findFirst({
-      where: { tenantId, status: "active" },
+    const channel = await this.prisma.channel.findFirst({
+      where: { tenantId, type: channelType, status: "active" },
       orderBy: { createdAt: "asc" },
     });
-    if (!channel) throw new BadRequestException("No active WhatsApp channel to reply from");
+    if (!channel) {
+      throw new BadRequestException(`No active ${CHANNEL_LABELS[channelType]} channel to reply from`);
+    }
     return channel;
   }
 }
