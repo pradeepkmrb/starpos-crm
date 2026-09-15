@@ -11,6 +11,9 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+/** Origin the public REST API is served from — the docs page quotes it in every example. */
+export const API_BASE_URL = API_URL;
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -1209,5 +1212,29 @@ export function setIntegrationActive(provider: string, isActive: boolean) {
 export function disconnectIntegration(provider: string) {
   return request<{ provider: string; disconnected: boolean }>(`/integrations/${provider}`, {
     method: "DELETE",
+  });
+}
+
+// --- API keys (public REST API credential) ---
+
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  prefix: string;
+  /** The raw key. Only an admin of the workspace ever sees this. */
+  key: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export function getApiKey() {
+  return request<ApiKeyRecord>("/api-keys");
+}
+
+/** Revokes the current key and mints a replacement — existing integrations break. */
+export function regenerateApiKey(name?: string) {
+  return request<ApiKeyRecord>("/api-keys/regenerate", {
+    method: "POST",
+    body: JSON.stringify(name ? { name } : {}),
   });
 }

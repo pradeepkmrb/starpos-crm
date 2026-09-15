@@ -44,6 +44,7 @@ model Tenant {
   subscription Subscription?
   invoices     Invoice[]
   apiUsage     TenantApiUsage[]
+  apiKeys      ApiKey[]
 
   channels           Channel[]
   contacts           Contact[]
@@ -176,6 +177,30 @@ model TenantApiUsage {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([tenantId, periodMonth])
+}
+
+/// A tenant-scoped credential for the public REST API (/api/v1). Authenticates
+/// as the workspace rather than as a person, so it carries no userId.
+model ApiKey {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String @default("Default key")
+  /// SHA-256 of the raw key, hex encoded. The lookup column — indexed and
+  /// unique so authenticating a request is a single point read.
+  keyHash  String @unique
+  /// AES-GCM ciphertext of the raw key. Stored (rather than hash-only) because
+  /// the dashboard lets the owner reveal and copy a key they already created;
+  /// the plaintext never leaves an authenticated owner/admin session.
+  keyEncrypted String
+  /// Leading characters of the raw key, safe to show in lists and logs.
+  prefix       String
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 // ---------- WhatsApp / Messaging ----------

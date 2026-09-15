@@ -52,6 +52,9 @@ interface SendMessageResult {
   waMessageId: string;
 }
 
+export const MEDIA_MESSAGE_TYPES = ["image", "video", "document", "audio", "sticker"] as const;
+export type MediaMessageType = (typeof MEDIA_MESSAGE_TYPES)[number];
+
 /**
  * Single choke point for every Meta Graph API call. Kept deliberately thin —
  * from Phase 5 onward, API-usage metering (EntitlementsService) hooks in
@@ -81,12 +84,63 @@ export class MetaGraphClient {
   }
 
   /** Session (free-form text) message — only deliverable within Meta's 24h customer-service window. */
-  async sendTextMessage(channel: ChannelCredentials, to: string, body: string): Promise<SendMessageResult> {
+  async sendTextMessage(
+    channel: ChannelCredentials,
+    to: string,
+    body: string,
+    previewUrl = false,
+  ): Promise<SendMessageResult> {
     return this.sendMessage(channel, {
       messaging_product: "whatsapp",
       to,
       type: "text",
-      text: { body },
+      text: { body, ...(previewUrl ? { preview_url: true } : {}) },
+    });
+  }
+
+  /**
+   * Image, video, document, audio or sticker. Meta takes either a public
+   * `link` it fetches itself or the `id` of media already uploaded to the
+   * phone number — the caller supplies exactly one. Session message, so the
+   * 24h window applies the same as text.
+   */
+  async sendMediaMessage(
+    channel: ChannelCredentials,
+    to: string,
+    mediaType: MediaMessageType,
+    media: { link?: string; id?: string; caption?: string; filename?: string },
+  ): Promise<SendMessageResult> {
+    const payload: Record<string, unknown> = media.id ? { id: media.id } : { link: media.link };
+    // Meta rejects a caption on audio and sticker, and a filename anywhere
+    // but document, so neither is forwarded where it is not allowed.
+    if (media.caption && mediaType !== "audio" && mediaType !== "sticker") {
+      payload.caption = media.caption;
+    }
+    if (media.filename && mediaType === "document") payload.filename = media.filename;
+
+    return this.sendMessage(channel, {
+      messaging_product: "whatsapp",
+      to,
+      type: mediaType,
+      [mediaType]: payload,
+    });
+  }
+
+  /**
+   * Reply buttons or a list picker. `interactive` is passed through as Meta
+   * defines it; PublicMessagesService builds it from the friendlier request
+   * body the public API accepts. Session message, so the 24h window applies.
+   */
+  async sendInteractiveMessage(
+    channel: ChannelCredentials,
+    to: string,
+    interactive: unknown,
+  ): Promise<SendMessageResult> {
+    return this.sendMessage(channel, {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive,
     });
   }
 
