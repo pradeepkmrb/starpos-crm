@@ -74,7 +74,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
             <ul className="divide-y divide-slate-100 text-sm">
               {detail.recipients.map((r) => (
                 <li key={r.id} className="flex justify-between py-2">
-                  <span className="text-slate-700">{r.contact.name ?? r.contact.whatsappNumber}</span>
+                  <span className="text-slate-700">{r.contact.name ?? r.contact.whatsappNumber ?? "—"}</span>
                   <span className={r.status === "failed" ? "text-red-600" : "text-slate-500"}>
                     {r.status}
                     {r.error ? ` — ${r.error}` : ""}

@@ -24,7 +24,7 @@ function buildService(overrides: {
   const prisma = {
     tenant: { findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "t1", plan }) },
     contact: { count: jest.fn().mockResolvedValue(overrides.contactCount ?? 0) },
-    whatsappChannel: { count: jest.fn().mockResolvedValue(0) },
+    channel: { count: jest.fn().mockResolvedValue(0) },
     automationWorkflow: { count: jest.fn().mockResolvedValue(0) },
     tenantMembership: { count: jest.fn().mockResolvedValue(0) },
     tenantApiUsage: {

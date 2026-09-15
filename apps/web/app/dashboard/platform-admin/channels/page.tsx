@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CHANNEL_LABELS } from "@digitel/shared";
 import { ApiError, getPlatformChannels, type PlatformChannel } from "../../../../lib/api";
 
 export default function PlatformChannelsPage() {
@@ -29,7 +30,8 @@ export default function PlatformChannelsPage() {
             <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Phone number</th>
+                <th className="px-4 py-3">Channel</th>
+                <th className="px-4 py-3">Account</th>
                 <th className="px-4 py-3">WABA ID</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Connected</th>
@@ -39,8 +41,11 @@ export default function PlatformChannelsPage() {
               {channels.map((c) => (
                 <tr key={c.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{c.tenant.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{c.displayPhoneNumber}</td>
-                  <td className="px-4 py-3 text-slate-500">{c.wabaId}</td>
+                  <td className="px-4 py-3 text-slate-600">{CHANNEL_LABELS[c.type]}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {c.displayPhoneNumber ?? c.displayName ?? c.externalId ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{c.wabaId ?? "—"}</td>
                   <td className="px-4 py-3">
                     <span className={`badge ${c.status === "active" ? "badge-success" : "badge-neutral"}`}>
                       {c.status}
