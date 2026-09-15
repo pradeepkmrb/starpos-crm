@@ -5,8 +5,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
 import { ContactsService } from "../contacts/contacts.service";
 import { AutomationEngineService } from "../automations/automation-engine.service";
+import { MetaLeadsService } from "../crm/meta-leads.service";
 import {
   MetaInboundMessage,
+  MetaLeadgenNotification,
   MetaStatusUpdate,
   MetaTemplateStatusUpdate,
   MetaWebhookPayload,
@@ -29,6 +31,7 @@ export class WebhookProcessor extends WorkerHost {
     private readonly contactsService: ContactsService,
     @Inject(forwardRef(() => AutomationEngineService))
     private readonly automationEngine: AutomationEngineService,
+    private readonly metaLeads: MetaLeadsService,
   ) {
     super();
   }
@@ -44,6 +47,13 @@ export class WebhookProcessor extends WorkerHost {
         // Meta's side, rather than needing a WABA-to-channel lookup).
         if (change.field === "message_template_status_update" && value.message_template_id) {
           await this.handleTemplateStatusUpdate(value as MetaTemplateStatusUpdate);
+          continue;
+        }
+
+        // Lead ads arrive on the Page object, so they carry a leadgen id
+        // instead of phone-number metadata — handled before the gate below.
+        if (change.field === "leadgen" && value.leadgen_id) {
+          await this.handleLeadgen(value as MetaLeadgenNotification);
           continue;
         }
 
@@ -64,6 +74,18 @@ export class WebhookProcessor extends WorkerHost {
         }
       }
     }
+  }
+
+  private async handleLeadgen(notification: MetaLeadgenNotification) {
+    const outcome = await this.metaLeads.ingestLeadgen({
+      leadgenId: notification.leadgen_id,
+      formId: notification.form_id,
+      pageId: notification.page_id,
+      adId: notification.ad_id,
+    });
+    this.logger.log(
+      `Leadgen ${notification.leadgen_id}: ${outcome.created} lead(s) created, ${outcome.skipped} skipped`,
+    );
   }
 
   private async handleInboundMessage(tenantId: string, channelId: string, message: MetaInboundMessage) {

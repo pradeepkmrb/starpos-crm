@@ -1,4 +1,12 @@
-import type { PlanCode, TenantRole } from "@digitel/shared";
+import type {
+  CustomFieldEntity,
+  CustomFieldType,
+  IntegrationFieldSpec,
+  IntegrationStatus,
+  LeadStatus,
+  PlanCode,
+  TenantRole,
+} from "@digitel/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -218,6 +226,15 @@ export interface ImportResult {
   duplicateInFileCount: number;
   newContacts: number;
   existingContactsLinked: number;
+  /** Existing contacts whose custom answers the file topped up. */
+  updatedContacts: number;
+  /** Columns that landed on a contact field. */
+  customFieldColumns: { column: string; field: string }[];
+  /** Headers that matched no contact field, so nothing was imported from them. */
+  ignoredColumns: string[];
+  /** Cells a field could not hold; the row was kept, the cell dropped. */
+  invalidValueCount: number;
+  sampleIssues: string[];
 }
 
 export interface Contact {
@@ -230,6 +247,8 @@ export interface Contact {
   optedIn: boolean;
   /** When false, automations stop auto-replying to this contact. */
   botEnabled: boolean;
+  /** Answers to the tenant's custom contact fields, keyed by field key. */
+  attributesJson: CustomFieldValues | null;
   createdAt: string;
 }
 
@@ -249,6 +268,8 @@ export function updateContact(
     languageCode?: string | null;
     optedIn?: boolean;
     botEnabled?: boolean;
+    /** Omitted keys keep their stored answer. */
+    customFields?: CustomFieldValues;
   },
 ) {
   return request<Contact>(`/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(input) });
@@ -289,7 +310,11 @@ export function deleteContactList(listId: string) {
   return request<{ id: string; deleted: boolean }>(`/contacts/lists/${listId}`, { method: "DELETE" });
 }
 
-export function createContact(input: { whatsappNumber: string; name?: string }) {
+export function createContact(input: {
+  whatsappNumber: string;
+  name?: string;
+  customFields?: CustomFieldValues;
+}) {
   return request<Contact>("/contacts", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -785,6 +810,294 @@ export function createPlatformTenant(input: {
 
 export function getPlatformChannels() {
   return request<PlatformChannel[]>("/platform/channels");
+}
+
+// --- CRM: leads ---
+
+export interface LeadOwner {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+/** An answer map for a tenant's custom fields, keyed by field key. */
+export interface CustomFieldValues {
+  [key: string]: string | number | boolean;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  source: string;
+  status: LeadStatus;
+  valuePaise: number | null;
+  notes: string | null;
+  ownerUserId: string | null;
+  owner: LeadOwner | null;
+  /** Answers to the tenant's custom fields, keyed by field key. */
+  customFieldsJson: CustomFieldValues | null;
+  metaLeadId: string | null;
+  metaAdId: string | null;
+  metaFormLink: { id: string; formId: string; formName: string | null; pageName: string | null } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeadSummary {
+  total: number;
+  byStatus: Record<LeadStatus, number>;
+}
+
+export interface LeadInput {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  company?: string | null;
+  status?: LeadStatus;
+  source?: string | null;
+  valuePaise?: number | null;
+  notes?: string | null;
+  ownerUserId?: string | null;
+  customFields?: Record<string, string | number | boolean>;
+}
+
+export function listLeads(params: { status?: string; q?: string; limit?: number } = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.q) query.set("q", params.q);
+  if (params.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString();
+  return request<Lead[]>(`/leads${suffix ? `?${suffix}` : ""}`);
+}
+
+export function getLeadSummary() {
+  return request<LeadSummary>("/leads/summary");
+}
+
+export function createLead(input: LeadInput) {
+  return request<Lead>("/leads", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateLead(leadId: string, input: Partial<LeadInput>) {
+  return request<Lead>(`/leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteLead(leadId: string) {
+  return request<{ id: string; deleted: boolean }>(`/leads/${leadId}`, { method: "DELETE" });
+}
+
+// --- Custom fields (the same builder behind the lead and contact forms) ---
+
+export interface CustomFieldDefinition {
+  id: string;
+  entity: CustomFieldEntity;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  /** Choices for dropdown and radio fields; null for the free-entry types. */
+  optionsJson: string[] | null;
+  required: boolean;
+  isActive: boolean;
+  placeholder: string | null;
+  helpText: string | null;
+  order: number;
+  createdAt: string;
+}
+
+export interface CustomFieldInputValues {
+  label: string;
+  type: CustomFieldType;
+  options?: string[];
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+}
+
+/** Each entity has its own route, so a request can only ever touch its own fields. */
+function fieldsPath(entity: CustomFieldEntity): string {
+  return entity === "lead" ? "/lead-fields" : "/contact-fields";
+}
+
+export function listCustomFields(entity: CustomFieldEntity) {
+  return request<CustomFieldDefinition[]>(fieldsPath(entity));
+}
+
+export function createCustomField(entity: CustomFieldEntity, input: CustomFieldInputValues) {
+  return request<CustomFieldDefinition>(fieldsPath(entity), {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** The key and type are fixed once created, so answers already on file stay valid. */
+export function updateCustomField(
+  entity: CustomFieldEntity,
+  fieldId: string,
+  input: {
+    label?: string;
+    options?: string[];
+    required?: boolean;
+    isActive?: boolean;
+    placeholder?: string;
+    helpText?: string;
+  },
+) {
+  return request<CustomFieldDefinition>(`${fieldsPath(entity)}/${fieldId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteCustomField(entity: CustomFieldEntity, fieldId: string) {
+  return request<{ id: string; deleted: boolean }>(`${fieldsPath(entity)}/${fieldId}`, {
+    method: "DELETE",
+  });
+}
+
+export function reorderCustomFields(entity: CustomFieldEntity, ids: string[]) {
+  return request<CustomFieldDefinition[]>(`${fieldsPath(entity)}/reorder`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+// --- CRM: Meta lead-ads forms ---
+
+export interface MetaLeadFormLink {
+  id: string;
+  pageId: string;
+  pageName: string | null;
+  formId: string;
+  formName: string | null;
+  isActive: boolean;
+  /** Meta question name -> "name" | "phone" | "email" | "company" | "notes" | "custom:<key>" | "ignore". */
+  fieldMapping: Record<string, string>;
+  defaultStatus: LeadStatus;
+  leadCount: number;
+  lastLeadAt: string | null;
+  lastSyncAt: string | null;
+  createdAt: string;
+}
+
+export interface MetaFormQuestion {
+  key: string;
+  label: string;
+  type?: string;
+}
+
+export function listMetaLeadForms() {
+  return request<MetaLeadFormLink[]>("/lead-sources/meta");
+}
+
+export function linkMetaLeadForm(input: {
+  pageId: string;
+  formId: string;
+  pageAccessToken: string;
+  pageName?: string;
+  formName?: string;
+  defaultStatus?: LeadStatus;
+  fieldMapping?: Record<string, string>;
+}) {
+  return request<{ form: MetaLeadFormLink; questions: MetaFormQuestion[]; warning?: string }>(
+    "/lead-sources/meta",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updateMetaLeadForm(
+  linkId: string,
+  input: {
+    isActive?: boolean;
+    fieldMapping?: Record<string, string>;
+    defaultStatus?: LeadStatus;
+    pageAccessToken?: string;
+    formName?: string;
+    pageName?: string;
+  },
+) {
+  return request<MetaLeadFormLink>(`/lead-sources/meta/${linkId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteMetaLeadForm(linkId: string) {
+  return request<{ id: string; deleted: boolean }>(`/lead-sources/meta/${linkId}`, { method: "DELETE" });
+}
+
+export function getMetaFormQuestions(linkId: string) {
+  return request<{ questions: MetaFormQuestion[]; warning?: string }>(
+    `/lead-sources/meta/${linkId}/questions`,
+  );
+}
+
+/** Pulls submissions Meta already holds — the catch-up for leads that predate the webhook. */
+export function syncMetaLeadForm(linkId: string, limit?: number) {
+  return request<{ created: number; skipped: number; form: MetaLeadFormLink }>(
+    `/lead-sources/meta/${linkId}/sync${limit ? `?limit=${limit}` : ""}`,
+    { method: "POST" },
+  );
+}
+
+// --- Integrations (per-tenant connections to third-party services) ---
+
+export interface IntegrationConnection {
+  status: IntegrationStatus;
+  /** "test" or "live", read from the key prefix. */
+  mode: string | null;
+  accountLabel: string | null;
+  /** Non-secret fields as entered; secrets only as a masked tail. */
+  values: Record<string, string>;
+  connectedBy: { id: string; name: string | null; email: string } | null;
+  connectedAt: string;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+}
+
+export interface Integration {
+  provider: string;
+  name: string;
+  category: string;
+  description: string;
+  initials: string;
+  docsUrl: string;
+  fields: IntegrationFieldSpec[];
+  /** Null until this workspace connects it. */
+  connection: IntegrationConnection | null;
+}
+
+export function listIntegrations() {
+  return request<Integration[]>("/integrations");
+}
+
+/** Sends the provider's own fields; a blank secret keeps the stored one. */
+export function connectIntegration(provider: string, credentials: Record<string, string>) {
+  return request<Integration>(`/integrations/${provider}/connect`, {
+    method: "POST",
+    body: JSON.stringify({ credentials }),
+  });
+}
+
+/** Re-checks the stored keys against the provider. */
+export function testIntegration(provider: string) {
+  return request<Integration>(`/integrations/${provider}/test`, { method: "POST" });
+}
+
+/** Pauses or resumes a connection without discarding its credentials. */
+export function setIntegrationActive(provider: string, isActive: boolean) {
+  return request<Integration>(`/integrations/${provider}`, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function disconnectIntegration(provider: string) {
+  return request<{ provider: string; disconnected: boolean }>(`/integrations/${provider}`, {
+    method: "DELETE",
+  });
 }
 
 // --- API keys (public REST API credential) ---
