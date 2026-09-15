@@ -43,7 +43,7 @@ model Tenant {
   invoices     Invoice[]
   apiUsage     TenantApiUsage[]
 
-  channels           WhatsappChannel[]
+  channels           Channel[]
   contacts           Contact[]
   contactLists       ContactList[]
   labels             Label[]
@@ -173,15 +173,40 @@ model TenantApiUsage {
 
 // ---------- WhatsApp / Messaging ----------
 
-model WhatsappChannel {
+/// One connected messaging account. WhatsApp was the only kind until multi-channel
+/// landed, so the WhatsApp-specific columns stay nullable rather than being forced
+/// onto a Facebook Page, an Instagram account, or a mailbox.
+model Channel {
   id                   String   @id @default(cuid())
   tenantId             String
-  wabaId               String
-  phoneNumberId        String   @unique
-  displayPhoneNumber   String
+  type                 ChannelType @default(whatsapp)
+
+  // --- WhatsApp Cloud API only ---
+  wabaId               String?
+  phoneNumberId        String?  @unique
+  displayPhoneNumber   String?
+
+  /// The account's native id on its own platform: Facebook Page id, Instagram
+  /// business account id, or the mailbox address. Mirrors phoneNumberId for
+  /// WhatsApp so inbound routing can look a channel up the same way for every type.
+  externalId           String?
+  /// What to show in the UI when there is no phone number to show.
+  displayName          String?
+
+  /// The channel's secret: WhatsApp/Page access token, or the mailbox password.
   accessTokenEncrypted String
+  /// Non-secret per-type settings — IMAP/SMTP host and port, From name, the Page
+  /// an Instagram account is linked to.
+  configJson           Json?
+
   status               ChannelStatus @default(active)
   messagingTier        String?
+  /// Email only: when the mailbox was last polled, and the IMAP UID high-water
+  /// mark so a poll fetches only what arrived since.
+  lastSyncedAt         DateTime?
+  syncCursor           String?
+  /// Last connection failure, surfaced on the Connections page.
+  lastError            String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -191,7 +216,15 @@ model WhatsappChannel {
   messageLogs MessageLog[]
   automationWorkflows AutomationWorkflow[]
 
+  @@unique([tenantId, type, externalId])
   @@index([tenantId])
+}
+
+enum ChannelType {
+  whatsapp
+  facebook
+  instagram
+  email
 }
 
 enum ChannelStatus {
@@ -202,7 +235,16 @@ enum ChannelStatus {
 model Contact {
   id             String   @id @default(cuid())
   tenantId       String
-  whatsappNumber String
+  /// Which channel this person reached you on. A single human writing from both
+  /// WhatsApp and Instagram is two Contact rows — the platforms hand out
+  /// unrelated ids and give us no way to prove they are the same person.
+  channelType    ChannelType @default(whatsapp)
+  /// Their id on that channel: phone number, Messenger PSID, Instagram IGSID,
+  /// or email address. Mirrors whatsappNumber for WhatsApp contacts.
+  externalId     String?
+  /// Kept as its own column because broadcasts, CSV import and export are all
+  /// phone-number shaped; null for contacts who arrived on another channel.
+  whatsappNumber String?
   name           String?
   email          String?
   /// Free text (e.g. "en", "ta") — Meta language codes aren't a closed set.
@@ -228,6 +270,7 @@ model Contact {
   labels           ContactLabel[]
 
   @@unique([tenantId, whatsappNumber])
+  @@unique([tenantId, channelType, externalId])
   @@index([tenantId])
   @@index([assignedUserId])
 }
@@ -302,7 +345,7 @@ model MessageTemplate {
   updatedAt     DateTime @updatedAt
 
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel   WhatsappChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   campaigns Campaign[]
 
   @@index([tenantId])
@@ -328,7 +371,7 @@ model Campaign {
   updatedAt    DateTime @updatedAt
 
   tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel    WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel    Channel    @relation(fields: [channelId], references: [id])
   template   MessageTemplate    @relation(fields: [templateId], references: [id])
   targetList ContactList        @relation(fields: [targetListId], references: [id])
   recipients CampaignRecipient[]
@@ -385,7 +428,7 @@ model MessageLog {
   statusUpdatedAt      DateTime @default(now())
 
   tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel  WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel  Channel    @relation(fields: [channelId], references: [id])
   contact  Contact            @relation(fields: [contactId], references: [id])
   recipient CampaignRecipient?
 
@@ -410,7 +453,7 @@ model AutomationWorkflow {
   updatedAt       DateTime @updatedAt
 
   tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel WhatsappChannel    @relation(fields: [channelId], references: [id])
+  channel Channel    @relation(fields: [channelId], references: [id])
   steps   AutomationStep[]
 
   @@index([tenantId])

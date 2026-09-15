@@ -124,6 +124,46 @@ export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function MailIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+      />
+    </Icon>
+  );
+}
+
+/** Generic camera glyph for the Instagram DM channel — not a reproduction of any third-party logo. */
+export function CameraIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+    </Icon>
+  );
+}
+
+/** Two-person glyph for the Facebook Messenger channel — not a reproduction of any third-party logo. */
+export function MessengerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 2.25c-5.11 0-9 3.74-9 8.36 0 2.63 1.26 4.98 3.24 6.51v3.13l2.97-1.63c.89.25 1.83.38 2.79.38 5.11 0 9-3.74 9-8.39s-3.89-8.36-9-8.36z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12.6l3-3.15 2.1 2.1 2.85-2.1-2.85 3.15-2.1-2.1L7.5 12.6z" />
+    </Icon>
+  );
+}
+
 /** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
 export function BrandMark(props: SVGProps<SVGSVGElement>) {
   return (
