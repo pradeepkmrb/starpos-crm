@@ -8,8 +8,10 @@ import { ContactsService } from "../contacts/contacts.service";
 import { ChannelConnectionsService } from "../channels/channel-connections.service";
 import { MessengerClient } from "../channels/messenger.client";
 import { AutomationEngineService } from "../automations/automation-engine.service";
+import { MetaLeadsService } from "../crm/meta-leads.service";
 import {
   MetaInboundMessage,
+  MetaLeadgenNotification,
   MetaMessagingEvent,
   MetaStatusUpdate,
   MetaTemplateStatusUpdate,
@@ -22,9 +24,10 @@ import { mapMetaStatus } from "./templates.service";
  * Runs the actual webhook side-effects: contact upserts, MessageLog writes,
  * delivery-status updates. The controller only ACKs Meta and enqueues here.
  *
- * One queue handles all three Meta products, because they share one app and
- * one webhook URL: WhatsApp arrives under `entry[].changes[]`, while Messenger
- * and Instagram arrive under `entry[].messaging[]`.
+ * One queue handles every Meta product, because they share one app and one
+ * webhook URL: WhatsApp messages and lead-ad notifications arrive under
+ * `entry[].changes[]`, while Messenger and Instagram arrive under
+ * `entry[].messaging[]`. A Page entry can carry both at once.
  */
 @Processor(WEBHOOK_QUEUE)
 export class WebhookProcessor extends WorkerHost {
@@ -38,6 +41,7 @@ export class WebhookProcessor extends WorkerHost {
     private readonly messengerClient: MessengerClient,
     @Inject(forwardRef(() => AutomationEngineService))
     private readonly automationEngine: AutomationEngineService,
+    private readonly metaLeads: MetaLeadsService,
   ) {
     super();
   }
@@ -46,11 +50,13 @@ export class WebhookProcessor extends WorkerHost {
     const messagingType = messagingChannelType(job.data.object);
 
     for (const entry of job.data.entry ?? []) {
+      // Messenger and Instagram messages. Deliberately not a `continue`: a Page
+      // entry can carry messaging[] and changes[] in the same delivery, and the
+      // lead-ad notifications below live in changes[].
       if (messagingType) {
         for (const event of entry.messaging ?? []) {
           await this.handleMessagingEvent(messagingType, entry.id, event);
         }
-        continue;
       }
 
       for (const change of entry.changes ?? []) {
@@ -62,6 +68,13 @@ export class WebhookProcessor extends WorkerHost {
         // Meta's side, rather than needing a WABA-to-channel lookup).
         if (change.field === "message_template_status_update" && value.message_template_id) {
           await this.handleTemplateStatusUpdate(value as MetaTemplateStatusUpdate);
+          continue;
+        }
+
+        // Lead ads arrive on the Page object, so they carry a leadgen id
+        // instead of phone-number metadata — handled before the gate below.
+        if (change.field === "leadgen" && value.leadgen_id) {
+          await this.handleLeadgen(value as MetaLeadgenNotification);
           continue;
         }
 
@@ -82,6 +95,18 @@ export class WebhookProcessor extends WorkerHost {
         }
       }
     }
+  }
+
+  private async handleLeadgen(notification: MetaLeadgenNotification) {
+    const outcome = await this.metaLeads.ingestLeadgen({
+      leadgenId: notification.leadgen_id,
+      formId: notification.form_id,
+      pageId: notification.page_id,
+      adId: notification.ad_id,
+    });
+    this.logger.log(
+      `Leadgen ${notification.leadgen_id}: ${outcome.created} lead(s) created, ${outcome.skipped} skipped`,
+    );
   }
 
   private async handleInboundMessage(tenantId: string, channelId: string, message: MetaInboundMessage) {

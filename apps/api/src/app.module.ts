@@ -16,6 +16,8 @@ import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { CrmModule } from "./modules/crm/crm.module";
+import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { ProductsModule } from "./modules/products/products.module";
 
 @Module({
@@ -36,6 +38,8 @@ import { ProductsModule } from "./modules/products/products.module";
     BillingModule,
     AnalyticsModule,
     PlatformModule,
+    CrmModule,
+    IntegrationsModule,
     ProductsModule,
   ],
 })

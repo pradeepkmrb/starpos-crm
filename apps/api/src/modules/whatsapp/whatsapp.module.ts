@@ -17,6 +17,7 @@ import { MessagesModule } from "../messages/messages.module";
 import { AutomationsModule } from "../automations/automations.module";
 import { PlatformModule } from "../platform/platform.module";
 import { ChannelsModule } from "../channels/channels.module";
+import { CrmModule } from "../crm/crm.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ChannelsModule } from "../channels/channels.module";
     ContactsModule,
     MessagesModule,
     PlatformModule,
+    CrmModule,
     forwardRef(() => AutomationsModule),
     forwardRef(() => ChannelsModule),
   ],
