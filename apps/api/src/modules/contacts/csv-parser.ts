@@ -1,3 +1,5 @@
+import { normalizeWhatsappNumber as normalizePhone } from "../../common/phone";
+
 const PHONE_COLUMN_ALIASES = ["phone", "whatsappnumber", "whatsapp_number", "number", "mobile"];
 const NAME_COLUMN_ALIASES = ["name", "full_name", "fullname", "contact_name"];
 
@@ -17,13 +19,6 @@ export interface CsvParseResult {
   extraHeaders: string[];
 }
 
-/** E.164-ish: optional leading +, 7–15 digits total. */
-const PHONE_RE = /^\+?[1-9]\d{6,14}$/;
-
-function normalizePhone(raw: string): string | null {
-  const cleaned = raw.trim().replace(/[\s\-().]/g, "");
-  return PHONE_RE.test(cleaned) ? cleaned.replace(/^\+/, "") : null;
-}
 
 /**
  * RFC 4180 reader: quoted fields, "" for a literal quote, and commas or

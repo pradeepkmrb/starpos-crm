@@ -61,7 +61,7 @@ export class TemplatesService {
    * campaign templates, because the rest of the app reads MessageTemplate.
    */
   async syncFromMeta(tenantId: string): Promise<{ imported: number; updated: number; channels: number }> {
-    const channels = await this.prisma.whatsappChannel.findMany({ where: { tenantId } });
+    const channels = await this.prisma.channel.findMany({ where: { tenantId, type: "whatsapp" } });
     let imported = 0;
     let updated = 0;
 

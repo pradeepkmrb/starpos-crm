@@ -5,11 +5,16 @@ import { CreateTenantDto } from "./dto/create-tenant.dto";
 
 const SAFE_CHANNEL_SELECT = {
   id: true,
+  type: true,
   wabaId: true,
   phoneNumberId: true,
   displayPhoneNumber: true,
+  externalId: true,
+  displayName: true,
   status: true,
   messagingTier: true,
+  lastSyncedAt: true,
+  lastError: true,
   createdAt: true,
 } as const;
 
@@ -42,13 +47,13 @@ export class PlatformDirectoryService {
   }
 
   listChannels() {
-    // WhatsappChannel is a tenant-scoped model — the scoping middleware
+    // Channel is a tenant-scoped model — the scoping middleware
     // (tenant-scoping.middleware.ts) would otherwise silently inject the
     // *calling admin's own* tenantId into an unscoped `where`, defeating the
     // entire point of a cross-tenant directory view. Passing a `where` that
     // already names `tenantId` (matching every non-empty id, i.e. every row)
     // uses the middleware's own explicit-already-present bypass instead.
-    return this.prisma.whatsappChannel.findMany({
+    return this.prisma.channel.findMany({
       where: { tenantId: { not: "" } },
       select: { ...SAFE_CHANNEL_SELECT, tenant: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },

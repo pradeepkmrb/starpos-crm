@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import { describeChannel, roleAtLeast, type TenantRole } from "@digitel/shared";
 import {
   ApiError,
   type Automation,
-  type Channel,
+  type ChannelConnection,
   type CreateAutomationInput,
   createAutomation,
   getAccessToken,
   listAutomations,
-  listChannels,
+  listConnections,
   me,
 } from "../../../lib/api";
 import { AutomationCard } from "./AutomationCard";
@@ -21,7 +21,7 @@ export default function AutomationsPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
   const [automations, setAutomations] = useState<Automation[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channels, setChannels] = useState<ChannelConnection[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,10 +31,12 @@ export default function AutomationsPage() {
     }
     (async () => {
       try {
+        // Every connected channel, not just WhatsApp — an auto-reply works the
+        // same on Messenger, Instagram and email.
         const [meRes, automationsRes, channelsRes] = await Promise.all([
           me(),
           listAutomations(),
-          listChannels(),
+          listConnections(),
         ]);
         setRole(meRes.role);
         setAutomations(automationsRes);
@@ -99,7 +101,7 @@ function CreateForm({
   channels,
   onCreated,
 }: {
-  channels: Channel[];
+  channels: ChannelConnection[];
   onCreated: (automation: Automation) => void;
 }) {
   const [name, setName] = useState("");
@@ -182,7 +184,7 @@ function CreateForm({
               </option>
               {channels.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.displayPhoneNumber}
+                  {describeChannel(c)}
                 </option>
               ))}
             </select>

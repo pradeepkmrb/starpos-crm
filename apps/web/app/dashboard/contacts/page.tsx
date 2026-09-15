@@ -2,7 +2,12 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import {
+  CHANNEL_LABELS,
+  CHANNEL_SHORT_LABELS,
+  roleAtLeast,
+  type TenantRole,
+} from "@digitel/shared";
 import {
   ApiError,
   type Contact,
@@ -47,6 +52,11 @@ function csvCell(value: string | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/** A contact's address on their own channel — a number, a platform id, or an email. */
+function contactHandle(c: Contact): string {
+  return c.externalId ?? c.whatsappNumber ?? "";
+}
+
 /** Tick boxes read as yes/no both ways, so an exported file can be re-imported. */
 function answerCell(value: string | number | boolean | undefined): string {
   if (value === undefined) return "";
@@ -58,9 +68,20 @@ function downloadCsv(contacts: Contact[], fields: CustomFieldDefinition[]) {
   // Custom columns are named by key, which is what the importer matches on.
   const custom = fields.filter((field) => field.isActive);
   const rows = [
-    ["phone", "name", "source", "opted_in", "created_at", ...custom.map((f) => csvCell(f.key))],
+    // The address column stays "phone" so an exported file still imports; the
+    // importer ignores "channel", which is here to say where each row came from.
+    [
+      "channel",
+      "phone",
+      "name",
+      "source",
+      "opted_in",
+      "created_at",
+      ...custom.map((f) => csvCell(f.key)),
+    ],
     ...contacts.map((c) => [
-      csvCell(c.whatsappNumber),
+      csvCell(CHANNEL_LABELS[c.channelType]),
+      csvCell(contactHandle(c)),
       csvCell(c.name),
       csvCell(c.source),
       c.optedIn ? "yes" : "no",
@@ -132,7 +153,7 @@ export default function ContactsPage() {
     if (!q) return contacts;
     return contacts.filter(
       (c) =>
-        c.whatsappNumber.toLowerCase().includes(q) ||
+        contactHandle(c).toLowerCase().includes(q) ||
         (c.name ?? "").toLowerCase().includes(q) ||
         (c.source ?? "").toLowerCase().includes(q),
     );
@@ -172,7 +193,7 @@ export default function ContactsPage() {
   }
 
   async function onDeleteOne(contact: Contact) {
-    const label = contact.name ? `${contact.name} (${contact.whatsappNumber})` : contact.whatsappNumber;
+    const label = contact.name ? `${contact.name} (${contactHandle(contact)})` : contactHandle(contact);
     if (!window.confirm(`Delete ${label}? Their message history is erased too. This cannot be undone.`)) {
       return;
     }
@@ -437,7 +458,7 @@ export default function ContactsPage() {
                           type="checkbox"
                           checked={selected.has(c.id)}
                           onChange={() => toggleOne(c.id)}
-                          aria-label={`Select ${c.whatsappNumber}`}
+                          aria-label={`Select ${contactHandle(c)}`}
                         />
                       </td>
                     )}
@@ -451,7 +472,12 @@ export default function ContactsPage() {
                         {c.name || <span className="text-slate-400">—</span>}
                       </button>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">{c.whatsappNumber}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">
+                      {contactHandle(c)}
+                      <span className="ml-2 text-xs text-slate-400">
+                        {CHANNEL_SHORT_LABELS[c.channelType]}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{c.source || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`badge ${c.optedIn ? "badge-success" : "badge-neutral"}`}>
@@ -557,7 +583,7 @@ export default function ContactsPage() {
           onAdded={(contact) => {
             setContacts((prev) => [contact, ...prev]);
             setCreating(false);
-            setNotice(`Added ${contact.whatsappNumber}.`);
+            setNotice(`Added ${contactHandle(contact)}.`);
           }}
         />
       )}

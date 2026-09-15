@@ -2,22 +2,31 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # The default branch is master; there is no main. Naming the wrong branch
+    # here meant pushes to the default branch ran no checks at all.
+    branches: [master]
+  # Every pull request, whatever its base — which is what covers the
+  # claude/** feature branches without paying for a run on each push to them.
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      # pnpm/setup is the newer sibling action, but it requires pnpm v11+ and
+      # this repo pins 9.15.0; action-setup supports pnpm 12 and earlier.
+      # It runs before setup-node so that `cache: pnpm` below can find the store.
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
+          # Required explicitly from v6 on: automatic caching now covers npm
+          # only, so pnpm has to be named.
           cache: pnpm
 
       - name: Install dependencies

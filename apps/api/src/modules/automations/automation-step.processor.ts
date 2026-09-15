@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
+import { Inject, Logger, forwardRef } from "@nestjs/common";
 import { Job } from "bullmq";
 import { PrismaService } from "../../prisma/prisma.service";
-import { MetaApiError, MetaGraphClient } from "../whatsapp/meta-graph.client";
+import { MetaApiError } from "../whatsapp/meta-graph.client";
+import { OutboundDispatcher } from "../channels/outbound-dispatcher.service";
 import { MessageLogService } from "../messages/message-log.service";
 import { AUTOMATION_STEP_QUEUE } from "./automations.constants";
 
@@ -29,7 +30,8 @@ export class AutomationStepProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly metaGraphClient: MetaGraphClient,
+    @Inject(forwardRef(() => OutboundDispatcher))
+    private readonly dispatcher: OutboundDispatcher,
     private readonly messageLogService: MessageLogService,
   ) {
     super();
@@ -41,7 +43,7 @@ export class AutomationStepProcessor extends WorkerHost {
     const [step, workflow, channel, contact] = await Promise.all([
       this.prisma.automationStep.findUnique({ where: { id: stepId } }),
       this.prisma.automationWorkflow.findUnique({ where: { id: workflowId } }),
-      this.prisma.whatsappChannel.findUnique({ where: { id: channelId } }),
+      this.prisma.channel.findUnique({ where: { id: channelId } }),
       this.prisma.contact.findUnique({ where: { id: contactId } }),
     ]);
 
@@ -61,16 +63,18 @@ export class AutomationStepProcessor extends WorkerHost {
     }
 
     try {
-      const { waMessageId } =
+      // Through the dispatcher rather than straight to WhatsApp, so an
+      // auto-reply works the same on Messenger, Instagram and email.
+      const { externalMessageId, payload } =
         step.action === "send_text"
-          ? await this.metaGraphClient.sendTextMessage(
+          ? await this.dispatcher.sendText(
               channel,
-              contact.whatsappNumber,
+              contact,
               (step.configJson as unknown as SendTextConfig).body,
             )
-          : await this.metaGraphClient.sendTemplateMessage(
+          : await this.dispatcher.sendTemplate(
               channel,
-              contact.whatsappNumber,
+              contact,
               (step.configJson as unknown as SendTemplateConfig).templateName,
               (step.configJson as unknown as SendTemplateConfig).languageCode,
             );
@@ -79,9 +83,9 @@ export class AutomationStepProcessor extends WorkerHost {
         tenantId,
         channelId,
         contactId,
-        waMessageId,
+        waMessageId: externalMessageId,
         automationWorkflowId: workflowId,
-        payload: { stepId, action: step.action },
+        payload: { ...payload, stepId, action: step.action },
       });
     } catch (err) {
       const message = err instanceof MetaApiError ? err.message : "Unknown send error";

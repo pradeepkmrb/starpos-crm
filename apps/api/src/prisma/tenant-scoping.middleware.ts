@@ -16,10 +16,14 @@ import { getCurrentTenantId } from "./tenant-context.store";
  * scope their Prisma calls explicitly, same as before this middleware
  * existed.
  */
+// ApiKey is deliberately absent: it is reached only by ApiKeysService, which
+// always scopes explicitly, and its authenticate() lookup is a findUnique on
+// keyHash that runs before any tenant context exists — injecting a tenantId
+// there would make the key unverifiable.
 const TENANT_SCOPED_MODELS = new Set([
   "TenantMembership",
   "TenantInvite",
-  "WhatsappChannel",
+  "Channel",
   "Contact",
   "ContactList",
   "MessageTemplate",

@@ -27,7 +27,7 @@ pnpm dev
 ```
 
 - API: http://localhost:4000/health (reports live DB connectivity)
-- Web: http://localhost:3000 — register an account to get a free-plan tenant, then explore the dashboard nav (Analytics, WhatsApp Channels, Contacts, Campaigns, Automations, CRM, Billing)
+- Web: http://localhost:3000 — register an account to get a free-plan tenant, then explore the dashboard nav (Analytics, WhatsApp Channels, Contacts, Campaigns, Automations, CRM, Billing, API & Developers)
 
 ## Fully containerized
 
@@ -67,7 +67,49 @@ integration credential handling (masking, rotation, unknown-field rejection),
 custom-field validation, Meta lead-ad field mapping,
 keyword-matching for automations (including non-space-delimited
 scripts like Chinese/Japanese/Thai), the entitlements/plan-limit boundary
-math, and the tenant-scoping Prisma safety net.
+math, the tenant-scoping Prisma safety net, the public API's Meta payload
+builders and phone normalisation, and the guard rules that keep session
+tokens and API keys on their own halves of the app.
+
+## Public REST API
+
+Each tenant gets an API key so their own systems can send WhatsApp messages
+and sync contacts. The key is created on first visit to **API &
+Developers** in the dashboard, which also documents every endpoint below
+with a runnable curl example and a sample response.
+
+- Base URL: `${NEXT_PUBLIC_API_URL}/api/v1`
+- Auth: `X-API-Key: <key>` on every request. Session tokens are not accepted
+  here, and an API key is not accepted on the dashboard routes.
+- Sends address a customer by phone number, so they go over WhatsApp.
+  Messenger, Instagram and email conversations are answered from the Inbox,
+  where the thread already says which channel to reply on.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/me` | Verify a key; returns workspace, channels, usage and limits |
+| POST | `/messages/send` | Free-form text (24-hour window only) |
+| POST | `/messages/send-template` | Approved template; works outside the window |
+| POST | `/messages/send-media` | Image, video, document, audio or sticker |
+| POST | `/messages/send-interactive` | Reply buttons or a list picker |
+| GET | `/messages/{id}` | Delivery state, by our id or Meta's wamid |
+| GET | `/contacts` | Cursor-paginated list, with search and list filters |
+| GET | `/contacts/by-number/{number}` | Fetch one contact by phone number |
+| POST | `/contacts` | Create, or update the contact with that number |
+| PATCH | `/contacts/{id}` | Update named fields on a contact |
+| GET | `/lists` | Contact lists and their sizes |
+| GET | `/templates` | Templates available to send |
+| GET | `/channels` | Connected channels, each with its type |
+
+Every failure answers with one envelope —
+`{ "error": { "code", "message", "status" } }` — so integrations branch on
+`error.code` rather than parsing prose. Requests are capped per key per
+minute (`PUBLIC_API_RATE_LIMIT_PER_MINUTE`, default 120), reported through
+`X-RateLimit-*` headers; the plan's monthly allowance is separate and is
+metered on the outbound Meta calls a request makes.
+
+Deleting a contact is deliberately absent from this surface: it also erases
+their delivery history, so it stays a dashboard action.
 
 ## CRM (leads)
 
@@ -203,6 +245,12 @@ disconnecting require admin or owner.
   monthly API requests goes through it.
 - **WhatsApp sends**: all go through `MetaGraphClient`, the single choke
   point where API-usage metering happens, so no call site can bypass quota.
+- **API keys**: stored as a SHA-256 hash (the unique lookup column used to
+  authenticate a request) alongside AES-GCM ciphertext, so an admin can
+  re-read the key they already own instead of being forced to rotate.
+  `TenantContextMiddleware` resolves either credential into the same tenant
+  context, and only after no valid session token was presented, so a stray
+  header cannot re-attribute a logged-in request.
 - **Custom fields**: one builder serves every entry screen that has one. The
   definitions are rows (`CustomField`, discriminated by `entity`), the answers
   are one JSON column on the record. That keeps a tenant's form changes out of

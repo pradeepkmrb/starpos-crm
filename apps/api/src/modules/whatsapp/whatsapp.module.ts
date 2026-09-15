@@ -16,6 +16,7 @@ import { ContactsModule } from "../contacts/contacts.module";
 import { MessagesModule } from "../messages/messages.module";
 import { AutomationsModule } from "../automations/automations.module";
 import { PlatformModule } from "../platform/platform.module";
+import { ChannelsModule } from "../channels/channels.module";
 import { CrmModule } from "../crm/crm.module";
 
 @Module({
@@ -26,6 +27,7 @@ import { CrmModule } from "../crm/crm.module";
     PlatformModule,
     CrmModule,
     forwardRef(() => AutomationsModule),
+    forwardRef(() => ChannelsModule),
   ],
   controllers: [ChannelsController, WebhooksController, TemplatesController, InboxController],
   providers: [ChannelsService, MetaGraphClient, MetaOAuthService, WebhookProcessor, TemplatesService, InboxService, LabelsService],

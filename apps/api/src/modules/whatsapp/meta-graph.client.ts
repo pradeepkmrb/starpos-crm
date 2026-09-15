@@ -5,11 +5,37 @@ import { EntitlementsService } from "../entitlements/entitlements.service";
 export const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION ?? "v21.0";
 export const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
+/**
+ * A Channel row, as far as the WhatsApp client cares. The two id columns are
+ * nullable on the model because a Facebook, Instagram or email channel has
+ * neither — reaching this client without them is a programming error, so the
+ * accessors below fail loudly rather than building a `/null/messages` URL.
+ */
 export interface ChannelCredentials {
   tenantId: string;
-  wabaId: string;
-  phoneNumberId: string;
+  wabaId: string | null;
+  phoneNumberId: string | null;
   accessTokenEncrypted: string;
+}
+
+function requireWabaId(channel: ChannelCredentials): string {
+  if (!channel.wabaId) throw new MetaApiError("This channel has no WhatsApp Business account id");
+  return channel.wabaId;
+}
+
+function requirePhoneNumberId(channel: ChannelCredentials): string {
+  if (!channel.phoneNumberId) throw new MetaApiError("This channel has no WhatsApp phone number id");
+  return channel.phoneNumberId;
+}
+
+/** The `error` object Meta puts in a failed Graph API response body. */
+export interface MetaErrorBody {
+  message?: string;
+  code?: number;
+  error_subcode?: number;
+  error_user_title?: string;
+  error_user_msg?: string;
+  error_data?: { details?: string };
 }
 
 export class MetaApiError extends Error {
@@ -25,6 +51,9 @@ export class MetaApiError extends Error {
 interface SendMessageResult {
   waMessageId: string;
 }
+
+export const MEDIA_MESSAGE_TYPES = ["image", "video", "document", "audio", "sticker"] as const;
+export type MediaMessageType = (typeof MEDIA_MESSAGE_TYPES)[number];
 
 /**
  * Single choke point for every Meta Graph API call. Kept deliberately thin —
@@ -55,17 +84,68 @@ export class MetaGraphClient {
   }
 
   /** Session (free-form text) message — only deliverable within Meta's 24h customer-service window. */
-  async sendTextMessage(channel: ChannelCredentials, to: string, body: string): Promise<SendMessageResult> {
+  async sendTextMessage(
+    channel: ChannelCredentials,
+    to: string,
+    body: string,
+    previewUrl = false,
+  ): Promise<SendMessageResult> {
     return this.sendMessage(channel, {
       messaging_product: "whatsapp",
       to,
       type: "text",
-      text: { body },
+      text: { body, ...(previewUrl ? { preview_url: true } : {}) },
+    });
+  }
+
+  /**
+   * Image, video, document, audio or sticker. Meta takes either a public
+   * `link` it fetches itself or the `id` of media already uploaded to the
+   * phone number — the caller supplies exactly one. Session message, so the
+   * 24h window applies the same as text.
+   */
+  async sendMediaMessage(
+    channel: ChannelCredentials,
+    to: string,
+    mediaType: MediaMessageType,
+    media: { link?: string; id?: string; caption?: string; filename?: string },
+  ): Promise<SendMessageResult> {
+    const payload: Record<string, unknown> = media.id ? { id: media.id } : { link: media.link };
+    // Meta rejects a caption on audio and sticker, and a filename anywhere
+    // but document, so neither is forwarded where it is not allowed.
+    if (media.caption && mediaType !== "audio" && mediaType !== "sticker") {
+      payload.caption = media.caption;
+    }
+    if (media.filename && mediaType === "document") payload.filename = media.filename;
+
+    return this.sendMessage(channel, {
+      messaging_product: "whatsapp",
+      to,
+      type: mediaType,
+      [mediaType]: payload,
+    });
+  }
+
+  /**
+   * Reply buttons or a list picker. `interactive` is passed through as Meta
+   * defines it; PublicMessagesService builds it from the friendlier request
+   * body the public API accepts. Session message, so the 24h window applies.
+   */
+  async sendInteractiveMessage(
+    channel: ChannelCredentials,
+    to: string,
+    interactive: unknown,
+  ): Promise<SendMessageResult> {
+    return this.sendMessage(channel, {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive,
     });
   }
 
   async listTemplates(channel: ChannelCredentials): Promise<unknown[]> {
-    const res = await this.graphFetch(channel, `/${channel.wabaId}/message_templates?limit=50`, {
+    const res = await this.graphFetch(channel, `/${requireWabaId(channel)}/message_templates?limit=50`, {
       method: "GET",
     });
     return (res as { data?: unknown[] }).data ?? [];
@@ -75,7 +155,7 @@ export class MetaGraphClient {
     channel: ChannelCredentials,
     params: { name: string; category: string; language: string; components: unknown[] },
   ): Promise<{ id: string; status: string }> {
-    const res = (await this.graphFetch(channel, `/${channel.wabaId}/message_templates`, {
+    const res = (await this.graphFetch(channel, `/${requireWabaId(channel)}/message_templates`, {
       method: "POST",
       body: JSON.stringify({
         name: params.name,
@@ -117,13 +197,13 @@ export class MetaGraphClient {
   async deleteTemplate(channel: ChannelCredentials, name: string, metaTemplateId?: string | null): Promise<void> {
     const query = new URLSearchParams({ name });
     if (metaTemplateId) query.set("hsm_id", metaTemplateId);
-    await this.graphFetch(channel, `/${channel.wabaId}/message_templates?${query.toString()}`, {
+    await this.graphFetch(channel, `/${requireWabaId(channel)}/message_templates?${query.toString()}`, {
       method: "DELETE",
     });
   }
 
   private async sendMessage(channel: ChannelCredentials, payload: unknown): Promise<SendMessageResult> {
-    const res = (await this.graphFetch(channel, `/${channel.phoneNumberId}/messages`, {
+    const res = (await this.graphFetch(channel, `/${requirePhoneNumberId(channel)}/messages`, {
       method: "POST",
       body: JSON.stringify(payload),
     })) as { messages?: { id: string }[] };
@@ -155,18 +235,7 @@ export class MetaGraphClient {
 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = (
-        body as {
-          error?: {
-            message?: string;
-            code?: number;
-            error_subcode?: number;
-            error_user_title?: string;
-            error_user_msg?: string;
-            error_data?: { details?: string };
-          };
-        }
-      ).error;
+      const err = (body as { error?: MetaErrorBody }).error;
       throw new MetaApiError(
         describeMetaError(err) ?? `Meta API request failed (${res.status})`,
         err?.code,
@@ -182,12 +251,7 @@ export class MetaGraphClient {
  * actually names the offending field tucked into error_data.details or
  * error_user_msg. Prefer whichever of those is present.
  */
-export function describeMetaError(err?: {
-  message?: string;
-  error_user_title?: string;
-  error_user_msg?: string;
-  error_data?: { details?: string };
-}): string | undefined {
+export function describeMetaError(err?: MetaErrorBody): string | undefined {
   if (!err) return undefined;
   const detail = err.error_data?.details ?? err.error_user_msg ?? err.error_user_title;
   if (!detail) return err.message;
