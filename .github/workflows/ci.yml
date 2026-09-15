@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # The default branch is master; there is no main. Naming the wrong branch
+    # here meant pushes to the default branch ran no checks at all.
+    branches: [master]
+  # Every pull request, whatever its base — which is what covers the
+  # claude/** feature branches without paying for a run on each push to them.
   pull_request:
 
 jobs:
