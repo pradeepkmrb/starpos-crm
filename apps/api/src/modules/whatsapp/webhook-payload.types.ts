@@ -24,11 +24,44 @@ export interface MetaWebhookPayload {
         page_id?: string;
         ad_id?: string;
         created_time?: number;
+        // Coexistence numbers (WhatsApp Business app + Cloud API) only.
+        state_sync?: MetaStateSyncItem[];
+        history?: MetaHistoryChunk[];
+        message_echoes?: MetaCoexistenceMessage[];
       };
     }[];
     /** Messenger and Instagram put their events here rather than under `changes`. */
     messaging?: MetaMessagingEvent[];
   }[];
+}
+
+/** `smb_app_state_sync`: a contact from the business's WhatsApp Business app. */
+export interface MetaStateSyncItem {
+  type: string;
+  action?: "add" | "remove" | string;
+  contact?: { full_name?: string; first_name?: string; phone_number?: string };
+  metadata?: { timestamp?: string };
+}
+
+/**
+ * A message from `history` or `smb_message_echoes`. Echoes carry `to` (the
+ * customer); history messages don't — their thread id is the customer.
+ */
+export interface MetaCoexistenceMessage {
+  id: string;
+  from: string;
+  to?: string;
+  timestamp?: string;
+  type?: string;
+  text?: { body: string };
+  history_context?: { status?: string };
+}
+
+/** `history`: one chunk of the WhatsApp Business app's past chats, or why sharing was refused. */
+export interface MetaHistoryChunk {
+  metadata?: { phase?: number; chunk_order?: number; progress?: number };
+  threads?: { id: string; messages?: MetaCoexistenceMessage[] }[];
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
 }
 
 export interface MetaLeadgenNotification {
@@ -59,6 +92,13 @@ export interface MetaStatusUpdate {
   status: "sent" | "delivered" | "read" | "failed";
   timestamp: string;
   recipient_id: string;
+  /** Present on "failed": why Meta could not deliver a message it had accepted. */
+  errors?: {
+    code?: number;
+    title?: string;
+    message?: string;
+    error_data?: { details?: string };
+  }[];
 }
 
 /**

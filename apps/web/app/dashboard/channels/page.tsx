@@ -127,6 +127,20 @@ export default function ChannelsPage() {
                 onConnected={(channel) => setChannels((prev) => [...prev, channel])}
               />
             </div>
+            <div className="mt-6 border-t border-slate-200 pt-4">
+              <p className="text-sm font-medium text-slate-900">Already using the WhatsApp Business app?</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Keep the number on your phone and use it here too. Your contacts and the last 6 months of
+                chats are imported. Have the phone ready — you&apos;ll scan a QR code in the app.
+              </p>
+              <div className="mt-3">
+                <EmbeddedSignupButton
+                  businessApp
+                  config={platformConfig}
+                  onConnected={(channel) => setChannels((prev) => [...prev, channel])}
+                />
+              </div>
+            </div>
           </div>
         )}
 

@@ -62,7 +62,13 @@ export class ChannelsService {
   /** Auto-provisioned via Meta Embedded Signup — same limit check and encryption as manual createChannel. */
   async createChannelFromEmbeddedSignup(
     tenantId: string,
-    params: { wabaId: string; phoneNumberId: string; accessToken: string; displayPhoneNumber: string },
+    params: {
+      wabaId: string;
+      phoneNumberId: string;
+      accessToken: string;
+      displayPhoneNumber: string;
+      coexistence?: boolean;
+    },
   ) {
     await this.entitlements.assertCanAdd(tenantId, "channels");
 
@@ -75,7 +81,16 @@ export class ChannelsService {
         externalId: params.phoneNumberId,
         displayPhoneNumber: params.displayPhoneNumber,
         accessTokenEncrypted: encryptToken(params.accessToken),
+        ...(params.coexistence ? { configJson: { coexistence: true } } : {}),
       },
+      select: SAFE_CHANNEL_SELECT,
+    });
+  }
+
+  recordLastError(channelId: string, lastError: string) {
+    return this.prisma.channel.update({
+      where: { id: channelId },
+      data: { lastError },
       select: SAFE_CHANNEL_SELECT,
     });
   }

@@ -48,6 +48,39 @@ export class MetaOAuthService {
     await this.graphPost(url, accessToken);
   }
 
+  /**
+   * The WABA's phone number, for signups whose finish event didn't name one.
+   * A coexistence signup creates a WABA around exactly one number; anything
+   * else is ambiguous and must not silently pick the wrong line.
+   */
+  async findOnlyPhoneNumberId(wabaId: string, accessToken: string): Promise<string> {
+    const url = `${GRAPH_API_BASE}/${wabaId}/phone_numbers?fields=id`;
+    const body = (await this.graphGet(url, accessToken)) as { data?: { id: string }[] };
+    const numbers = body.data ?? [];
+    if (numbers.length !== 1) {
+      throw new MetaApiError(
+        numbers.length === 0
+          ? "Meta did not return a phone number for this WhatsApp account"
+          : "This WhatsApp account has several numbers — Meta did not say which one was connected",
+      );
+    }
+    return numbers[0].id;
+  }
+
+  /**
+   * Asks Meta to replay a coexistence number's WhatsApp Business app data as
+   * webhooks: `smb_app_state_sync` for contacts, `history` for past chats.
+   * Meta requires both within 24 hours of onboarding.
+   */
+  async requestBusinessAppSync(
+    phoneNumberId: string,
+    accessToken: string,
+    syncType: "smb_app_state_sync" | "history",
+  ): Promise<void> {
+    const url = `${GRAPH_API_BASE}/${phoneNumberId}/smb_app_data`;
+    await this.graphPost(url, accessToken, { messaging_product: "whatsapp", sync_type: syncType });
+  }
+
   private async requireAppCredentials(): Promise<{ appId: string; appSecret: string }> {
     const [{ metaAppId }, appSecret] = await Promise.all([
       this.platformSettings.getPublicConfig(),
@@ -66,8 +99,15 @@ export class MetaOAuthService {
     return this.parseGraphResponse(res);
   }
 
-  private async graphPost(url: string, accessToken: string): Promise<unknown> {
-    const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } });
+  private async graphPost(url: string, accessToken: string, body?: unknown): Promise<unknown> {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
     return this.parseGraphResponse(res);
   }
 

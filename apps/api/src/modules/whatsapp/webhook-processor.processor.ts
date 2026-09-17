@@ -10,8 +10,11 @@ import { MessengerClient } from "../channels/messenger.client";
 import { AutomationEngineService } from "../automations/automation-engine.service";
 import { MetaLeadsService } from "../crm/meta-leads.service";
 import {
+  MetaCoexistenceMessage,
+  MetaHistoryChunk,
   MetaInboundMessage,
   MetaLeadgenNotification,
+  MetaStateSyncItem,
   MetaMessagingEvent,
   MetaStatusUpdate,
   MetaTemplateStatusUpdate,
@@ -19,6 +22,14 @@ import {
 } from "./webhook-payload.types";
 import { WEBHOOK_QUEUE } from "./whatsapp.constants";
 import { mapMetaStatus } from "./templates.service";
+import { describeStatusError, shouldApplyStatus } from "./message-status";
+import {
+  BUSINESS_APP_SOURCE,
+  coexistenceMessageText,
+  historyDirection,
+  historyStatus,
+  metaTimestampToDate,
+} from "./coexistence";
 
 /**
  * Runs the actual webhook side-effects: contact upserts, MessageLog writes,
@@ -93,6 +104,17 @@ export class WebhookProcessor extends WorkerHost {
         for (const status of value.statuses ?? []) {
           await this.handleStatusUpdate(status);
         }
+
+        // Coexistence: the number is also live on the WhatsApp Business app.
+        if (value.state_sync?.length) {
+          await this.handleStateSync(channel.tenantId, value.state_sync);
+        }
+        for (const chunk of value.history ?? []) {
+          await this.handleHistoryChunk(channel.tenantId, channel.id, chunk);
+        }
+        for (const echo of value.message_echoes ?? []) {
+          await this.handleMessageEcho(channel.tenantId, channel.id, echo);
+        }
       }
     }
   }
@@ -135,6 +157,106 @@ export class WebhookProcessor extends WorkerHost {
       contactId: contact.id,
       messageText: message.text?.body ?? "",
       isNewContact: isNew,
+    });
+  }
+
+  /**
+   * Contacts from the business's WhatsApp Business app. Removals are ignored:
+   * someone deleting a phonebook entry shouldn't erase a CRM contact and its
+   * message history. A contact limit hit is logged per contact rather than
+   * thrown, so one over-limit entry doesn't make BullMQ retry the whole batch.
+   */
+  private async handleStateSync(tenantId: string, items: MetaStateSyncItem[]) {
+    let skipped = 0;
+    for (const item of items) {
+      const number = item.contact?.phone_number;
+      if (item.type !== "contact" || item.action === "remove" || !number) continue;
+      try {
+        await this.contactsService.upsertByNumber(tenantId, number, {
+          name: item.contact?.full_name || item.contact?.first_name || undefined,
+          source: BUSINESS_APP_SOURCE,
+        });
+      } catch (err) {
+        skipped++;
+        this.logger.warn(`Business app contact ${number} not imported: ${(err as Error).message}`);
+      }
+    }
+    if (skipped) this.logger.warn(`Business app contact sync skipped ${skipped} of ${items.length}`);
+  }
+
+  /**
+   * Past chats from the WhatsApp Business app. Imported as plain log rows:
+   * no automations fire and lastInboundAt is untouched, since none of this is
+   * a customer writing in now.
+   */
+  private async handleHistoryChunk(tenantId: string, channelId: string, chunk: MetaHistoryChunk) {
+    if (chunk.errors?.length) {
+      const err = chunk.errors[0];
+      this.logger.warn(
+        `Business app history not shared: (#${err.code}) ${err.error_data?.details ?? err.message ?? err.title}`,
+      );
+      return;
+    }
+
+    for (const thread of chunk.threads ?? []) {
+      const messages = thread.messages ?? [];
+      if (!thread.id || messages.length === 0) continue;
+
+      let contactId: string;
+      try {
+        ({ contact: { id: contactId } } = await this.contactsService.upsertByNumber(tenantId, thread.id, {
+          source: BUSINESS_APP_SOURCE,
+        }));
+      } catch (err) {
+        this.logger.warn(`History for ${thread.id} not imported: ${(err as Error).message}`);
+        continue;
+      }
+
+      await this.prisma.messageLog.createMany({
+        data: messages.map((message) => {
+          const direction = historyDirection(thread.id, message);
+          return {
+            tenantId,
+            channelId,
+            contactId,
+            direction,
+            waMessageId: message.id,
+            status: historyStatus(direction, message.history_context?.status),
+            createdAt: metaTimestampToDate(message.timestamp),
+            payloadJson: (direction === "inbound"
+              ? message
+              : { body: coexistenceMessageText(message), type: message.type, source: BUSINESS_APP_SOURCE }) as never,
+          };
+        }),
+        // Meta can resend a chunk; waMessageId is unique.
+        skipDuplicates: true,
+      });
+    }
+
+    const progress = chunk.metadata?.progress;
+    if (progress !== undefined) this.logger.log(`Business app history import ${progress}% (channel ${channelId})`);
+  }
+
+  /** A message the business sent from the WhatsApp Business app on their phone. */
+  private async handleMessageEcho(tenantId: string, channelId: string, echo: MetaCoexistenceMessage) {
+    if (!echo.to) return;
+    const existing = await this.prisma.messageLog.findUnique({ where: { waMessageId: echo.id } });
+    if (existing) return;
+
+    const { contact } = await this.contactsService.upsertByNumber(tenantId, echo.to, {
+      source: BUSINESS_APP_SOURCE,
+    });
+    await this.prisma.messageLog.create({
+      data: {
+        tenantId,
+        channelId,
+        contactId: contact.id,
+        direction: "outbound",
+        waMessageId: echo.id,
+        status: "sent",
+        createdAt: metaTimestampToDate(echo.timestamp),
+        payloadJson: { body: coexistenceMessageText(echo), type: echo.type, source: BUSINESS_APP_SOURCE } as never,
+      },
     });
   }
 
@@ -240,16 +362,43 @@ export class WebhookProcessor extends WorkerHost {
     });
   }
 
+  /**
+   * Broadcast counts are read from CampaignRecipient, not MessageLog, so the
+   * recipient row has to move with the log — otherwise a broadcast reads
+   * "sent 1 · delivered 0" forever even after the message is read.
+   */
   private async handleStatusUpdate(status: MetaStatusUpdate) {
-    const log = await this.prisma.messageLog.findUnique({ where: { waMessageId: status.id } });
+    const log = await this.prisma.messageLog.findUnique({
+      where: { waMessageId: status.id },
+      include: { recipient: true },
+    });
     if (!log) {
       this.logger.warn(`Status update for unknown message ${status.id}`);
       return;
     }
-    await this.prisma.messageLog.update({
-      where: { id: log.id },
-      data: { status: status.status, statusUpdatedAt: new Date() },
-    });
+
+    const error = describeStatusError(status);
+    if (status.status === "failed") {
+      this.logger.warn(`Message ${status.id} failed after send: ${error ?? "no reason given"}`);
+    }
+
+    if (shouldApplyStatus(log.status, status.status)) {
+      await this.prisma.messageLog.update({
+        where: { id: log.id },
+        data: { status: status.status, statusUpdatedAt: new Date() },
+      });
+    }
+
+    const recipient = log.recipient;
+    if (recipient && shouldApplyStatus(recipient.status, status.status)) {
+      await this.prisma.campaignRecipient.update({
+        where: { id: recipient.id },
+        data: {
+          status: status.status,
+          ...(status.status === "failed" ? { error: error ?? "Delivery failed" } : {}),
+        },
+      });
+    }
   }
 
   private async handleTemplateStatusUpdate(value: MetaTemplateStatusUpdate) {

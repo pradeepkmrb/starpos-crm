@@ -713,7 +713,12 @@ export function updatePlatformSettings(input: {
   });
 }
 
-export function completeEmbeddedSignup(input: { code: string; wabaId: string; phoneNumberId: string }) {
+export function completeEmbeddedSignup(input: {
+  code: string;
+  wabaId: string;
+  phoneNumberId?: string;
+  coexistence?: boolean;
+}) {
   return request<Channel>("/channels/embedded-signup", {
     method: "POST",
     body: JSON.stringify(input),

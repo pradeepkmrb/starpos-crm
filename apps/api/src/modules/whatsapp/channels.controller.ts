@@ -44,15 +44,40 @@ export class ChannelsController {
 
     const shortLivedToken = await this.metaOAuthService.exchangeCodeForToken(dto.code);
     const accessToken = await this.metaOAuthService.getLongLivedToken(shortLivedToken);
-    const { displayPhoneNumber } = await this.metaOAuthService.getPhoneNumberDetails(dto.phoneNumberId, accessToken);
+    const phoneNumberId =
+      dto.phoneNumberId ?? (await this.metaOAuthService.findOnlyPhoneNumberId(dto.wabaId, accessToken));
+    const { displayPhoneNumber } = await this.metaOAuthService.getPhoneNumberDetails(phoneNumberId, accessToken);
     await this.metaOAuthService.subscribeAppToWaba(dto.wabaId, accessToken);
 
-    return this.channelsService.createChannelFromEmbeddedSignup(tenantId, {
+    const channel = await this.channelsService.createChannelFromEmbeddedSignup(tenantId, {
       wabaId: dto.wabaId,
-      phoneNumberId: dto.phoneNumberId,
+      phoneNumberId,
       accessToken,
       displayPhoneNumber,
+      coexistence: dto.coexistence,
     });
+
+    // A coexistence number is already registered by the WhatsApp Business app,
+    // so there is no /register step. Instead Meta must be asked to sync the
+    // app's contacts and chats within 24 hours. The channel is connected
+    // either way, so a failure here is recorded rather than thrown.
+    if (dto.coexistence) {
+      const failures: string[] = [];
+      for (const syncType of ["smb_app_state_sync", "history"] as const) {
+        try {
+          await this.metaOAuthService.requestBusinessAppSync(phoneNumberId, accessToken, syncType);
+        } catch (err) {
+          failures.push(`${syncType}: ${(err as Error).message}`);
+        }
+      }
+      if (failures.length) {
+        return this.channelsService.recordLastError(
+          channel.id,
+          `WhatsApp Business app sync failed — ${failures.join("; ")}`,
+        );
+      }
+    }
+    return channel;
   }
 
   @Post(":id/disconnect")

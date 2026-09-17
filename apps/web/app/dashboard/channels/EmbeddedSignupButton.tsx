@@ -86,16 +86,28 @@ interface SignupData {
 }
 
 /**
+ * The finish event for a regular signup, and for connecting a number that
+ * stays on the WhatsApp Business app (coexistence). The latter can omit
+ * phone_number_id; the API looks it up from the WABA.
+ */
+const FINISH_EVENTS = ["FINISH", "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"];
+
+/**
  * Meta's Embedded Signup: FB.login() returns an authorization `code`, while
  * the WABA/phone number the user picked in the popup arrives separately via
  * a postMessage event. Both are needed to complete the connection.
+ *
+ * `businessApp` runs Meta's coexistence flow instead: the business keeps
+ * using the WhatsApp Business app on their phone with the same number.
  */
 export function EmbeddedSignupButton({
   config,
   onConnected,
+  businessApp = false,
 }: {
   config: PlatformPublicConfig;
   onConnected: (channel: Channel) => void;
+  businessApp?: boolean;
 }) {
   const [loadingSdk, setLoadingSdk] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -145,7 +157,7 @@ export function EmbeddedSignupButton({
       try {
         const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
-        if (data.event === "FINISH") {
+        if (FINISH_EVENTS.includes(data.event)) {
           signupDataRef.current = {
             wabaId: data.data?.waba_id,
             phoneNumberId: data.data?.phone_number_id,
@@ -212,12 +224,17 @@ export function EmbeddedSignupButton({
         await new Promise((r) => setTimeout(r, 150));
       }
       const { wabaId, phoneNumberId } = signupDataRef.current;
-      if (!wabaId || !phoneNumberId) {
+      if (!wabaId || (!phoneNumberId && !businessApp)) {
         finish("Didn't receive the WhatsApp account details from Meta. Please try again.");
         return;
       }
       try {
-        const channel = await completeEmbeddedSignup({ code, wabaId, phoneNumberId });
+        const channel = await completeEmbeddedSignup({
+          code,
+          wabaId,
+          phoneNumberId,
+          ...(businessApp ? { coexistence: true } : {}),
+        });
         finish(null);
         onConnected(channel);
       } catch (err) {
@@ -241,7 +258,11 @@ export function EmbeddedSignupButton({
             config_id: config.embeddedSignupConfigId,
             response_type: "code",
             override_default_response_type: true,
-            extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+            extras: {
+              setup: {},
+              featureType: businessApp ? "whatsapp_business_app_onboarding" : "",
+              sessionInfoVersion: "3",
+            },
           },
         ),
       );
@@ -276,7 +297,13 @@ export function EmbeddedSignupButton({
     <div>
       <div className="flex items-center gap-3">
         <button type="button" onClick={connect} disabled={loadingSdk || connecting} className="btn-primary">
-          {loadingSdk ? "Loading…" : connecting ? "Connecting…" : "Connect WhatsApp"}
+          {loadingSdk
+            ? "Loading…"
+            : connecting
+              ? "Connecting…"
+              : businessApp
+                ? "Connect WhatsApp Business app"
+                : "Connect WhatsApp"}
         </button>
         {connecting && (
           <>
