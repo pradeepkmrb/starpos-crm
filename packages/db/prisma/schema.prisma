@@ -23,6 +23,8 @@ model User {
   invitesSent TenantInvite[]     @relation("InvitedBy")
   assignedContacts Contact[]     @relation("AssignedAgent")
   ownedLeads       Lead[]         @relation("LeadOwner")
+  ownedActivities   Activity[]    @relation("ActivityOwner")
+  createdActivities Activity[]    @relation("ActivityCreator")
   connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
 }
 
@@ -55,6 +57,7 @@ model Tenant {
   messageLogs        MessageLog[]
   automationWorkflows AutomationWorkflow[]
   leads              Lead[]
+  activities         Activity[]
   customFields       CustomField[]
   metaLeadForms      MetaLeadForm[]
   integrations       TenantIntegration[]
@@ -560,6 +563,18 @@ model Lead {
   /// The teammate working this lead; null means unclaimed.
   ownerUserId String?
 
+  /// Where a field rep visits the lead. Coordinates come from the phone's GPS
+  /// ("use current location") or a geocoded address, and power nearby search.
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  /// A rep's "hot" flag — a priority marker independent of the stage.
+  isHot           Boolean   @default(false)
+  expectedCloseAt DateTime?
+  /// Stamped when the lead reaches won or lost, so closings can be counted by
+  /// month; cleared if it is reopened.
+  closedAt        DateTime?
+
   /// Answers to the tenant's custom lead fields, keyed by CustomField.key.
   customFieldsJson Json?
 
@@ -578,6 +593,7 @@ model Lead {
   // leads they happened to be working.
   owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   metaFormLink MetaLeadForm? @relation(fields: [metaFormLinkId], references: [id], onDelete: SetNull)
+  activities   Activity[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -587,9 +603,67 @@ model Lead {
 enum LeadStatus {
   new
   contacted
+  interested
   qualified
+  demo_scheduled
+  proposal
   won
   lost
+}
+
+/// One entry on a lead's timeline: a call, visit, demo, follow-up or note.
+/// Scheduled ones are the rep's to-do list; completing one records the outcome.
+model Activity {
+  id       String @id @default(cuid())
+  tenantId String
+  leadId   String
+
+  type   ActivityType
+  status ActivityStatus @default(scheduled)
+  title  String?
+  notes  String?
+  /// What happened, e.g. "connected" or "not_interested" for a call.
+  outcome String?
+
+  /// Who is doing it; null means unassigned.
+  ownerUserId     String?
+  createdByUserId String?
+
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  durationSeconds Int?
+
+  /// Where the rep was when checking in to a visit.
+  latitude       Float?
+  longitude      Float?
+  distanceMeters Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead      Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // SetNull: removing a teammate keeps the history of what they did.
+  owner     User?  @relation("ActivityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ActivityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, ownerUserId, status, scheduledAt])
+  @@index([tenantId, completedAt])
+  @@index([leadId])
+}
+
+enum ActivityType {
+  call
+  visit
+  demo
+  follow_up
+  note
+}
+
+enum ActivityStatus {
+  scheduled
+  completed
+  cancelled
 }
 
 /// A tenant-defined extra question on an entry screen. One builder serves

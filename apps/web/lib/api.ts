@@ -1,4 +1,6 @@
 import type {
+  ActivityStatus,
+  ActivityType,
   ChannelType,
   CustomFieldEntity,
   CustomFieldType,
@@ -962,6 +964,12 @@ export interface Lead {
   metaLeadId: string | null;
   metaAdId: string | null;
   metaFormLink: { id: string; formId: string; formName: string | null; pageName: string | null } | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isHot: boolean;
+  expectedCloseAt: string | null;
+  closedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -982,13 +990,22 @@ export interface LeadInput {
   notes?: string | null;
   ownerUserId?: string | null;
   customFields?: Record<string, string | number | boolean>;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isHot?: boolean;
+  expectedCloseAt?: string | null;
 }
 
-export function listLeads(params: { status?: string; q?: string; limit?: number } = {}) {
+export function listLeads(
+  params: { status?: string; q?: string; limit?: number; owner?: string; hot?: boolean } = {},
+) {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.q) query.set("q", params.q);
   if (params.limit) query.set("limit", String(params.limit));
+  if (params.owner) query.set("owner", params.owner);
+  if (params.hot) query.set("hot", "true");
   const suffix = query.toString();
   return request<Lead[]>(`/leads${suffix ? `?${suffix}` : ""}`);
 }
@@ -1007,6 +1024,73 @@ export function updateLead(leadId: string, input: Partial<LeadInput>) {
 
 export function deleteLead(leadId: string) {
   return request<{ id: string; deleted: boolean }>(`/leads/${leadId}`, { method: "DELETE" });
+}
+
+// --- Field sales: activities (calls, visits, demos, follow-ups, notes) ---
+
+export interface Activity {
+  id: string;
+  leadId: string;
+  type: ActivityType;
+  status: ActivityStatus;
+  title: string | null;
+  notes: string | null;
+  outcome: string | null;
+  ownerUserId: string | null;
+  owner: LeadOwner | null;
+  createdByUserId: string | null;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  durationSeconds: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  distanceMeters: number | null;
+  createdAt: string;
+  lead: {
+    id: string;
+    name: string;
+    company: string | null;
+    phone: string | null;
+    status: LeadStatus;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+}
+
+export interface ActivityInput {
+  leadId: string;
+  type: ActivityType;
+  status?: ActivityStatus;
+  title?: string | null;
+  notes?: string | null;
+  outcome?: string | null;
+  ownerUserId?: string | null;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+}
+
+export function listActivities(
+  params: { leadId?: string; owner?: string; status?: ActivityStatus; from?: string; to?: string; limit?: number } = {},
+) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.toString();
+  return request<Activity[]>(`/activities${suffix ? `?${suffix}` : ""}`);
+}
+
+export function createActivity(input: ActivityInput) {
+  return request<Activity>("/activities", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateActivity(activityId: string, input: Partial<Omit<ActivityInput, "leadId">>) {
+  return request<Activity>(`/activities/${activityId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteActivity(activityId: string) {
+  return request<{ id: string; deleted: boolean }>(`/activities/${activityId}`, { method: "DELETE" });
 }
 
 // --- Custom fields (the same builder behind the lead and contact forms) ---

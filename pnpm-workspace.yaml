@@ -1,3 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # The Expo app installs with npm on its own: it needs React 19, while the
+  # web app is on React 18, and this repo's hoisted node_modules can't hold both.
+  - "!apps/mobile"

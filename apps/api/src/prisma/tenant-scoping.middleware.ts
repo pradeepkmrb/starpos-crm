@@ -31,6 +31,7 @@ const TENANT_SCOPED_MODELS = new Set([
   "MessageLog",
   "AutomationWorkflow",
   "Lead",
+  "Activity",
   // Renamed from LeadCustomField when contacts gained the same builder.
   "CustomField",
   "MetaLeadForm",

@@ -17,6 +17,7 @@ import { BillingModule } from "./modules/billing/billing.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PlatformModule } from "./modules/platform/platform.module";
 import { CrmModule } from "./modules/crm/crm.module";
+import { FieldSalesModule } from "./modules/field-sales/field-sales.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
@@ -41,6 +42,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
     AnalyticsModule,
     PlatformModule,
     CrmModule,
+    FieldSalesModule,
     IntegrationsModule,
     ProductsModule,
     ApiKeysModule,

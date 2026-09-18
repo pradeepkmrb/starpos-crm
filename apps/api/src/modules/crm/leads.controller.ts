@@ -19,11 +19,17 @@ export class LeadsController {
     @Query("status") status?: string,
     @Query("q") search?: string,
     @Query("limit") limit?: string,
+    @Query("owner") owner?: string,
+    @Query("hot") hot?: string,
   ) {
     const parsed = Number(limit);
     // Capped so a hand-rolled ?limit= can't pull the whole table in one go.
     const take = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 2000) : 200;
-    return this.leadsService.list(req.tenantContext!.tenantId, { status, search, take });
+    const ctx = req.tenantContext!;
+    // "me" for an API-key caller (no user) matches nobody rather than everybody.
+    const ownerUserId =
+      owner === "me" ? ctx.userId || "__nobody__" : owner === "unassigned" ? null : owner || undefined;
+    return this.leadsService.list(ctx.tenantId, { status, search, take, ownerUserId, hot: hot === "true" });
   }
 
   /** Declared before :id so "summary" isn't read as a lead id. */

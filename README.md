@@ -51,6 +51,7 @@ token) happens per-tenant through the `/dashboard/channels` UI, not via env vars
 ## Workspace layout
 
 - `apps/web` — Next.js dashboard (auth, channels, contacts, campaigns, automations, CRM leads, integrations, billing, analytics) + marketing/pricing pages
+- `apps/mobile` — Expo (React Native) field-sales app for reps; installs with npm, outside the pnpm workspace — see its README
 - `apps/api` — NestJS API; `src/worker.main.ts` is the BullMQ worker entrypoint (webhook processing, campaign sends, automation steps)
 - `packages/db` — Prisma schema, migrations, seed script (3 pricing tiers)
 - `packages/shared` — plan/limit constants, role hierarchy, and types shared by web + api

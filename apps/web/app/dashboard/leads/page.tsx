@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, roleAtLeast, type LeadStatus, type TenantRole } from "@digitel/shared";
 import {
   ApiError,
   type Lead,
@@ -22,11 +22,15 @@ import {
   updateLead,
 } from "../../../lib/api";
 import { LeadForm } from "./LeadForm";
+import { LeadActivities } from "./LeadActivities";
 
 const STATUS_BADGE: Record<LeadStatus, string> = {
   new: "badge-neutral",
   contacted: "badge-warning",
+  interested: "badge-warning",
   qualified: "badge-success",
+  demo_scheduled: "badge-warning",
+  proposal: "badge-warning",
   won: "badge-success",
   lost: "badge-danger",
 };
@@ -205,12 +209,12 @@ export default function LeadsPage() {
       {notice && <p className="mt-3 text-sm text-slate-600">{notice}</p>}
 
       {summary && (
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
           <StatTile label="All leads" value={summary.total} active={statusFilter === ""} onClick={() => setStatusFilter("")} />
           {LEAD_STATUSES.map((status) => (
             <StatTile
               key={status}
-              label={status}
+              label={LEAD_STATUS_LABELS[status]}
               value={summary.byStatus[status] ?? 0}
               active={statusFilter === status}
               onClick={() => setStatusFilter(statusFilter === status ? "" : status)}
@@ -284,6 +288,7 @@ export default function LeadsPage() {
                           >
                             {lead.name}
                           </button>
+                          {lead.isHot && <span className="badge badge-danger ml-2">Hot</span>}
                         </td>
                         <td className="px-4 py-3 text-slate-600">
                           <div className="whitespace-nowrap">{lead.phone || "—"}</div>
@@ -293,21 +298,21 @@ export default function LeadsPage() {
                         <td className="px-4 py-3">
                           {canEdit ? (
                             <select
-                              className="input w-32 capitalize"
+                              className="input w-40"
                               value={lead.status}
                               disabled={busy}
                               aria-label={`Stage for ${lead.name}`}
                               onChange={(e) => void onStatusChange(lead, e.target.value as LeadStatus)}
                             >
                               {LEAD_STATUSES.map((status) => (
-                                <option key={status} value={status} className="capitalize">
-                                  {status}
+                                <option key={status} value={status}>
+                                  {LEAD_STATUS_LABELS[status]}
                                 </option>
                               ))}
                             </select>
                           ) : (
-                            <span className={`badge ${STATUS_BADGE[lead.status]} capitalize`}>
-                              {lead.status}
+                            <span className={`badge ${STATUS_BADGE[lead.status]}`}>
+                              {LEAD_STATUS_LABELS[lead.status]}
                             </span>
                           )}
                         </td>
@@ -360,7 +365,19 @@ export default function LeadsPage() {
                         <tr className="bg-slate-50">
                           <td colSpan={9} className="px-4 py-3">
                             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {answers.length === 0 && !lead.notes && (
+                              {lead.address && (
+                                <div className="sm:col-span-2">
+                                  <dt className="text-xs uppercase tracking-wide text-slate-500">Address</dt>
+                                  <dd className="text-sm text-slate-800">{lead.address}</dd>
+                                </div>
+                              )}
+                              {lead.expectedCloseAt && (
+                                <div>
+                                  <dt className="text-xs uppercase tracking-wide text-slate-500">Expected close</dt>
+                                  <dd className="text-sm text-slate-800">{formatDate(lead.expectedCloseAt)}</dd>
+                                </div>
+                              )}
+                              {answers.length === 0 && !lead.notes && !lead.address && !lead.expectedCloseAt && (
                                 <p className="text-sm text-slate-500">
                                   Nothing else recorded for this lead.
                                 </p>
@@ -393,6 +410,7 @@ export default function LeadsPage() {
                                 </div>
                               )}
                             </dl>
+                            <LeadActivities leadId={lead.id} canEdit={canEdit} onLeadChanged={() => void reload()} />
                           </td>
                         </tr>
                       )}
@@ -435,7 +453,7 @@ function StatTile({
       onClick={onClick}
       className={`card card-hover px-4 py-3 text-left ${active ? "ring-2 ring-brand-500/40" : ""}`}
     >
-      <p className="text-xs uppercase tracking-wide text-slate-500 capitalize">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
     </button>
   );
