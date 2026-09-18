@@ -1,4 +1,9 @@
-import { closedAtForStatusChange, completedAtForStatus, stageImpliedByActivity } from "./activity-rules";
+import {
+  checkInDecision,
+  closedAtForStatusChange,
+  completedAtForStatus,
+  stageImpliedByActivity,
+} from "./activity-rules";
 
 describe("closedAtForStatusChange", () => {
   const now = new Date("2026-09-18T10:00:00Z");
@@ -59,5 +64,35 @@ describe("completedAtForStatus", () => {
   it("clears it for scheduled or cancelled activities", () => {
     expect(completedAtForStatus("scheduled", now, now)).toBeNull();
     expect(completedAtForStatus("cancelled", undefined, now)).toBeNull();
+  });
+});
+
+describe("checkInDecision", () => {
+  // A lead in Koramangala, Bangalore; 0.0009° of latitude is about 100 m.
+  const lead = { latitude: 12.9352, longitude: 77.6245 };
+
+  it("allows a check-in inside the radius and reports the distance", () => {
+    const d = checkInDecision(lead, { latitude: 12.9361, longitude: 77.6245 });
+    expect(d.allowed).toBe(true);
+    expect(d.distanceMeters).toBeGreaterThan(95);
+    expect(d.distanceMeters).toBeLessThan(105);
+  });
+
+  it("refuses a check-in outside the radius", () => {
+    const d = checkInDecision(lead, { latitude: 12.9452, longitude: 77.6245 });
+    expect(d.allowed).toBe(false);
+    expect(d.distanceMeters).toBeGreaterThan(1000);
+  });
+
+  it("pins a lead that has no location yet", () => {
+    expect(checkInDecision({ latitude: null, longitude: null }, lead)).toEqual({
+      allowed: true,
+      distanceMeters: null,
+      pinLead: true,
+    });
+  });
+
+  it("honours a custom radius", () => {
+    expect(checkInDecision(lead, { latitude: 12.9361, longitude: 77.6245 }, 50).allowed).toBe(false);
   });
 });

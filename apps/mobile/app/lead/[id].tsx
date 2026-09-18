@@ -66,11 +66,20 @@ export default function LeadDetailScreen() {
     }
   }
 
-  /** Opens the dialer and queues up the call log for when the rep comes back. */
+  /**
+   * Opens the dialer and queues up the call log for when the rep comes back;
+   * the log screen estimates the call's length from the time spent away.
+   */
   function callLead() {
     if (!lead?.phone) return;
+    router.push(`/activity/new?leadId=${lead.id}&type=call&callStartedAt=${Date.now()}`);
     void openDialer(lead.phone);
-    router.push(`/activity/new?leadId=${lead.id}&type=call`);
+  }
+
+  const openVisit = activities.find((a) => a.status === "in_progress");
+  function visitLead() {
+    if (!lead) return;
+    router.push(openVisit ? `/visit/${openVisit.id}` : `/visit/check-in?leadId=${lead.id}`);
   }
 
   if (!lead) {
@@ -127,6 +136,7 @@ export default function LeadDetailScreen() {
             disabled={!lead.address && lead.latitude === null}
             onPress={() => void openMaps(lead)}
           />
+          <Action icon={openVisit ? "radio-button-on" : "log-in-outline"} label={openVisit ? "On visit" : "Check in"} onPress={visitLead} />
           <Action
             icon="add-circle"
             label="Log"
@@ -203,9 +213,16 @@ export default function LeadDetailScreen() {
                   activity={activity}
                   showLead={false}
                   onPress={
-                    activity.status === "scheduled"
-                      ? () => router.push(`/activity/new?leadId=${lead.id}&type=${activity.type}&completes=${activity.id}`)
-                      : undefined
+                    activity.status === "in_progress"
+                      ? () => router.push(`/visit/${activity.id}`)
+                      : activity.status === "scheduled"
+                        ? () =>
+                            router.push(
+                              activity.type === "visit"
+                                ? `/visit/check-in?leadId=${lead.id}&activityId=${activity.id}`
+                                : `/activity/new?leadId=${lead.id}&type=${activity.type}&completes=${activity.id}`,
+                            )
+                        : undefined
                   }
                 />
               ))

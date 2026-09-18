@@ -1,6 +1,9 @@
 import {
   CLOSED_LEAD_STATUSES,
   LEAD_STATUSES,
+  VISIT_CHECK_IN_RADIUS_METERS,
+  distanceMeters,
+  type LatLng,
   type ActivityStatus,
   type ActivityType,
   type LeadStatus,
@@ -55,4 +58,27 @@ export function completedAtForStatus(
 ): Date | null {
   if (status !== "completed") return null;
   return completedAt ?? now;
+}
+
+export type CheckInDecision =
+  | { allowed: true; distanceMeters: number | null; pinLead: boolean }
+  | { allowed: false; distanceMeters: number };
+
+/**
+ * Whether a rep standing at `here` may check in to a visit at a lead. A lead
+ * with no location yet can't be checked against, so the first check-in pins
+ * it; after that the rep has to be within the radius of that pin.
+ */
+export function checkInDecision(
+  lead: { latitude: number | null; longitude: number | null },
+  here: LatLng,
+  radiusMeters = VISIT_CHECK_IN_RADIUS_METERS,
+): CheckInDecision {
+  if (lead.latitude === null || lead.longitude === null) {
+    return { allowed: true, distanceMeters: null, pinLead: true };
+  }
+  const distance = Math.round(distanceMeters({ latitude: lead.latitude, longitude: lead.longitude }, here));
+  return distance <= radiusMeters
+    ? { allowed: true, distanceMeters: distance, pinLead: false }
+    : { allowed: false, distanceMeters: distance };
 }

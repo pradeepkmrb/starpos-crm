@@ -1040,11 +1040,16 @@ export interface Activity {
   owner: LeadOwner | null;
   createdByUserId: string | null;
   scheduledAt: string | null;
+  /** Visit check-in time; completedAt is check-out. */
+  startedAt: string | null;
   completedAt: string | null;
   durationSeconds: number | null;
   latitude: number | null;
   longitude: number | null;
   distanceMeters: number | null;
+  accuracyMeters: number | null;
+  endLatitude: number | null;
+  endLongitude: number | null;
   createdAt: string;
   lead: {
     id: string;
@@ -1061,7 +1066,8 @@ export interface Activity {
 export interface ActivityInput {
   leadId: string;
   type: ActivityType;
-  status?: ActivityStatus;
+  /** in_progress is set only by a visit check-in. */
+  status?: Exclude<ActivityStatus, "in_progress">;
   title?: string | null;
   notes?: string | null;
   outcome?: string | null;
@@ -1071,7 +1077,17 @@ export interface ActivityInput {
 }
 
 export function listActivities(
-  params: { leadId?: string; owner?: string; status?: ActivityStatus; from?: string; to?: string; limit?: number } = {},
+  params: {
+    leadId?: string;
+    owner?: string;
+    status?: ActivityStatus;
+    type?: ActivityType;
+    from?: string;
+    to?: string;
+    startedFrom?: string;
+    startedTo?: string;
+    limit?: number;
+  } = {},
 ) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

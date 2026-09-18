@@ -16,6 +16,7 @@ import {
   DocumentIcon,
   FunnelIcon,
   CalendarIcon,
+  MapPinIcon,
   HomeIcon,
   LogoutIcon,
   MegaphoneIcon,
@@ -56,6 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/leads", label: "Leads", icon: FunnelIcon },
       { href: "/dashboard/follow-ups", label: "Follow-ups", icon: CalendarIcon },
+      { href: "/dashboard/visits", label: "Visits", icon: MapPinIcon },
       { href: "/dashboard/lead-fields", label: "Lead Fields", icon: SlidersIcon },
       { href: "/dashboard/lead-sources", label: "Meta Ads", icon: MegaphoneIcon },
     ],

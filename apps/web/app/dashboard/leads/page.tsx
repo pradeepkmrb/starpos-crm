@@ -23,6 +23,7 @@ import {
 } from "../../../lib/api";
 import { LeadForm } from "./LeadForm";
 import { LeadActivities } from "./LeadActivities";
+import { mapsLink } from "../../../lib/activities";
 
 const STATUS_BADGE: Record<LeadStatus, string> = {
   new: "badge-neutral",
@@ -369,6 +370,21 @@ export default function LeadsPage() {
                                 <div className="sm:col-span-2">
                                   <dt className="text-xs uppercase tracking-wide text-slate-500">Address</dt>
                                   <dd className="text-sm text-slate-800">{lead.address}</dd>
+                                </div>
+                              )}
+                              {lead.latitude !== null && lead.longitude !== null && (
+                                <div>
+                                  <dt className="text-xs uppercase tracking-wide text-slate-500">Location</dt>
+                                  <dd className="text-sm">
+                                    <a
+                                      href={mapsLink(lead.latitude, lead.longitude)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-brand-800 underline"
+                                    >
+                                      Open in Google Maps
+                                    </a>
+                                  </dd>
                                 </div>
                               )}
                               {lead.expectedCloseAt && (

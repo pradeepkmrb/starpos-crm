@@ -3,22 +3,25 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "rea
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { Badge, Chip, ChipRow, EmptyState, ErrorText, Input, Loading, StageBadge } from "@/components/ui";
-import { ApiError, listLeads, type Lead } from "@/lib/api";
+import { formatDistance } from "@digitel/shared";
+import { ApiError, listLeads, listNearbyLeads, type Lead } from "@/lib/api";
+import { currentFix, LocationError } from "@/lib/location";
 import { formatRupees, openDialer } from "@/lib/format";
 import { colors, radius, space } from "@/theme";
 
-type Filter = "all" | "mine" | "hot";
+type Filter = "all" | "mine" | "hot" | "nearby";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "mine", label: "My leads" },
   { key: "hot", label: "Hot" },
+  { key: "nearby", label: "Nearby" },
 ];
 
 export default function LeadsScreen() {
   const [filter, setFilter] = useState<Filter>("mine");
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [leads, setLeads] = useState<(Lead & { distanceMeters?: number })[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -30,6 +33,14 @@ export default function LeadsScreen() {
 
   const load = useCallback(async () => {
     try {
+      if (filter === "nearby") {
+        const here = await currentFix();
+        const rows = await listNearbyLeads({ latitude: here.latitude, longitude: here.longitude, radiusKm: 10 });
+        const q = query.toLowerCase();
+        setLeads(q ? rows.filter((l) => [l.name, l.company, l.phone].some((v) => v?.toLowerCase().includes(q))) : rows);
+        setError(null);
+        return;
+      }
       setLeads(
         await listLeads({
           owner: filter === "mine" ? "me" : undefined,
@@ -39,7 +50,7 @@ export default function LeadsScreen() {
       );
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load leads");
+      setError(err instanceof ApiError || err instanceof LocationError ? err.message : "Could not load leads");
     }
   }, [filter, query]);
 
@@ -86,7 +97,9 @@ export default function LeadsScreen() {
                   ? "No leads assigned to you yet. Tap + to add one."
                   : filter === "hot"
                     ? "No hot leads."
-                    : "No leads match."
+                    : filter === "nearby"
+                      ? "No leads with a pinned location within 10 km. Leads get pinned when you add them with your location or check in there."
+                      : "No leads match."
               }
             />
           }
@@ -104,7 +117,7 @@ export default function LeadsScreen() {
   );
 }
 
-function LeadCard({ lead }: { lead: Lead }) {
+function LeadCard({ lead }: { lead: Lead & { distanceMeters?: number } }) {
   const subtitle = [lead.company !== lead.name ? lead.company : null, lead.address].filter(Boolean).join(" · ");
   return (
     <Pressable
@@ -127,6 +140,7 @@ function LeadCard({ lead }: { lead: Lead }) {
           <StageBadge status={lead.status} />
           {lead.isHot && <Badge label="Hot" fg={colors.danger} bg={colors.dangerSoft} />}
           {lead.valuePaise ? <Text style={styles.value}>{formatRupees(lead.valuePaise)}</Text> : null}
+          {lead.distanceMeters !== undefined ? <Text style={styles.value}>{formatDistance(lead.distanceMeters)}</Text> : null}
         </View>
       </View>
       {lead.phone ? (

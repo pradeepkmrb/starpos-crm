@@ -1,8 +1,17 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from "@nestjs/common";
 import { Prisma } from "@digitel/db";
 import {
   ACTIVITY_STATUSES,
   ACTIVITY_TYPES,
+  VISIT_CHECK_IN_RADIUS_METERS,
+  formatDistance,
   roleAtLeast,
   type ActivityStatus,
   type ActivityType,
@@ -10,8 +19,13 @@ import {
 } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
-import { CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
-import { closedAtForStatusChange, completedAtForStatus, stageImpliedByActivity } from "./activity-rules";
+import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
+import {
+  checkInDecision,
+  closedAtForStatusChange,
+  completedAtForStatus,
+  stageImpliedByActivity,
+} from "./activity-rules";
 
 export interface ListActivitiesOptions {
   leadId?: string;
@@ -22,6 +36,9 @@ export interface ListActivitiesOptions {
   /** Inclusive lower / exclusive upper bound on scheduledAt, as ISO strings. */
   from?: string;
   to?: string;
+  /** Same, on startedAt: visits checked in during a window. */
+  startedFrom?: string;
+  startedTo?: string;
   take?: number;
 }
 
@@ -50,6 +67,9 @@ export class ActivitiesService {
     const scheduledAt: Prisma.DateTimeNullableFilter = {};
     if (options.from) scheduledAt.gte = parseDate(options.from, "from");
     if (options.to) scheduledAt.lt = parseDate(options.to, "to");
+    const startedAt: Prisma.DateTimeNullableFilter = {};
+    if (options.startedFrom) startedAt.gte = parseDate(options.startedFrom, "startedFrom");
+    if (options.startedTo) startedAt.lt = parseDate(options.startedTo, "startedTo");
 
     const rows = await this.prisma.activity.findMany({
       where: {
@@ -59,9 +79,14 @@ export class ActivitiesService {
         ...(isIn(ACTIVITY_STATUSES, options.status) ? { status: options.status } : {}),
         ...(isIn(ACTIVITY_TYPES, options.type) ? { type: options.type } : {}),
         ...(options.from || options.to ? { scheduledAt } : {}),
+        ...(options.startedFrom || options.startedTo ? { startedAt } : {}),
       },
-      // To-do lists read soonest first; a lead's timeline reads newest first.
-      orderBy: options.leadId ? { createdAt: "desc" } : [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+      // To-do lists read soonest first; a lead's timeline and visit logs read newest first.
+      orderBy: options.leadId
+        ? { createdAt: "desc" }
+        : options.startedFrom || options.startedTo
+          ? { startedAt: "desc" }
+          : [{ scheduledAt: "asc" }, { createdAt: "asc" }],
       take: options.take ?? 200,
       include: ACTIVITY_INCLUDE,
     });
@@ -128,12 +153,115 @@ export class ActivitiesService {
     if (dto.status !== undefined || dto.completedAt !== undefined) {
       const requested = dto.completedAt ? new Date(dto.completedAt) : dto.completedAt === null ? null : existing.completedAt;
       data.completedAt = completedAtForStatus(status, requested);
+      // Ending a visit this way still records how long it took.
+      if (existing.status === "in_progress" && status === "completed" && existing.startedAt && data.completedAt) {
+        data.durationSeconds = secondsBetween(existing.startedAt, data.completedAt as Date);
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
       const activity = await tx.activity.update({ where: { id }, data, include: ACTIVITY_INCLUDE });
       await advanceLeadStage(tx, existing.lead, { type, status });
       return activity;
+    });
+  }
+
+  /**
+   * Starts a visit where the rep is standing. The server does the distance
+   * check (the app only displays it), a rep can have one visit open at a
+   * time, and a lead with no location yet is pinned to this spot.
+   */
+  async checkIn(ctx: TenantRequestContext, dto: CheckInDto) {
+    if (!ctx.userId) throw new BadRequestException("Check-in needs a signed-in user");
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: dto.leadId, tenantId: ctx.tenantId },
+      select: { id: true, name: true, company: true, latitude: true, longitude: true },
+    });
+    if (!lead) throw new NotFoundException("Lead not found");
+
+    const open = await this.prisma.activity.findFirst({
+      where: { tenantId: ctx.tenantId, ownerUserId: ctx.userId, status: "in_progress" },
+      select: { id: true, lead: { select: { name: true, company: true } } },
+    });
+    if (open) {
+      throw new ConflictException({
+        message: `You're still checked in at ${open.lead.company || open.lead.name}. End that visit first.`,
+        activeVisitId: open.id,
+      });
+    }
+
+    const decision = checkInDecision(lead, { latitude: dto.latitude, longitude: dto.longitude });
+    if (!decision.allowed) {
+      throw new UnprocessableEntityException({
+        message: `You're ${formatDistance(decision.distanceMeters)} from ${lead.company || lead.name}. Check in within ${VISIT_CHECK_IN_RADIUS_METERS} m of their location.`,
+        distanceMeters: decision.distanceMeters,
+      });
+    }
+
+    let scheduledVisitId: string | null = null;
+    if (dto.activityId) {
+      const scheduled = await this.prisma.activity.findFirst({
+        where: { id: dto.activityId, tenantId: ctx.tenantId, leadId: lead.id, type: "visit", status: "scheduled" },
+        select: { id: true },
+      });
+      if (!scheduled) throw new BadRequestException("That isn't a scheduled visit for this lead");
+      scheduledVisitId = scheduled.id;
+    }
+
+    const visitData = {
+      status: "in_progress" as const,
+      startedAt: new Date(),
+      ownerUserId: ctx.userId,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      accuracyMeters: dto.accuracyMeters ?? null,
+      distanceMeters: decision.distanceMeters,
+      ...(dto.title?.trim() ? { title: dto.title.trim() } : {}),
+      ...(dto.notes?.trim() ? { notes: dto.notes.trim() } : {}),
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      if (decision.pinLead) {
+        await tx.lead.update({ where: { id: lead.id }, data: { latitude: dto.latitude, longitude: dto.longitude } });
+      }
+      return scheduledVisitId
+        ? tx.activity.update({ where: { id: scheduledVisitId }, data: visitData, include: ACTIVITY_INCLUDE })
+        : tx.activity.create({
+            data: { ...visitData, tenantId: ctx.tenantId, leadId: lead.id, type: "visit", createdByUserId: ctx.userId },
+            include: ACTIVITY_INCLUDE,
+          });
+    });
+  }
+
+  /** Ends a visit: how long it took, what came of it, and where the rep was. */
+  async checkOut(ctx: TenantRequestContext, id: string, dto: CheckOutDto) {
+    const visit = await this.prisma.activity.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      include: { lead: { select: { id: true, status: true } } },
+    });
+    if (!visit) throw new NotFoundException("Visit not found");
+    if (visit.status !== "in_progress") throw new BadRequestException("This visit isn't in progress");
+    if (visit.ownerUserId !== ctx.userId && !roleAtLeast(ctx.role, "admin")) {
+      throw new ForbiddenException("Only the rep on this visit can end it");
+    }
+
+    const completedAt = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const done = await tx.activity.update({
+        where: { id },
+        data: {
+          status: "completed",
+          completedAt,
+          durationSeconds: visit.startedAt ? secondsBetween(visit.startedAt, completedAt) : null,
+          ...(dto.outcome !== undefined ? { outcome: emptyToNull(dto.outcome) } : {}),
+          ...(dto.notes !== undefined ? { notes: emptyToNull(dto.notes) } : {}),
+          endLatitude: dto.latitude ?? null,
+          endLongitude: dto.longitude ?? null,
+        },
+        include: ACTIVITY_INCLUDE,
+      });
+      await advanceLeadStage(tx, visit.lead, { type: "visit", status: "completed" });
+      return done;
     });
   }
 
@@ -183,6 +311,10 @@ export function ownerFilter(ctx: TenantRequestContext, owner?: string): Prisma.A
   // An API-key caller has no user, so "me" must match nothing rather than everything.
   if (owner === "me") return ctx.userId ? { ownerUserId: ctx.userId } : { id: { in: [] } };
   return { ownerUserId: owner };
+}
+
+function secondsBetween(from: Date, to: Date): number {
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / 1000));
 }
 
 function happenedAt(activity: { completedAt: Date | null; scheduledAt: Date | null; createdAt: Date }): number {

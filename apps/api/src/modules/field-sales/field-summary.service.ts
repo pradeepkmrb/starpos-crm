@@ -29,13 +29,14 @@ export class FieldSummaryService {
       scope === "me" ? (ctx.userId ? { ownerUserId: ctx.userId } : { id: { in: [] } }) : {};
     const inMonth = { gte: window.monthStart };
 
-    const [today, overdue, completedByType, won, openPipeline] = await Promise.all([
+    const [today, overdue, completedByType, won, openPipeline, activeVisit] = await Promise.all([
       this.prisma.activity.findMany({
         where: {
           tenantId,
           ...activityOwner,
           OR: [
             { status: "scheduled", scheduledAt: { gte: window.dayStart, lt: window.dayEnd } },
+            { status: "in_progress" },
             { status: "completed", completedAt: { gte: window.dayStart, lt: window.dayEnd }, type: { not: "note" } },
           ],
         },
@@ -61,6 +62,13 @@ export class FieldSummaryService {
         _count: { _all: true },
         _sum: { valuePaise: true },
       }),
+      // The rep's own open visit, whatever the scope, so the app can resume it.
+      ctx.userId
+        ? this.prisma.activity.findFirst({
+            where: { tenantId, ownerUserId: ctx.userId, status: "in_progress" },
+            include: ACTIVITY_INCLUDE,
+          })
+        : Promise.resolve(null),
     ]);
 
     const completedThisMonth = Object.fromEntries(ACTIVITY_TYPES.map((type) => [type, 0])) as Record<
@@ -71,6 +79,7 @@ export class FieldSummaryService {
 
     return {
       scope,
+      activeVisit,
       today,
       overdueCount: overdue,
       month: {

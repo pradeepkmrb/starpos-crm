@@ -68,6 +68,16 @@ export default function HomeScreen() {
           <Loading />
         ) : (
           <>
+            {summary.activeVisit && (
+              <Pressable onPress={() => router.push(`/visit/${summary.activeVisit!.id}`)} style={styles.visit}>
+                <Ionicons name="radio-button-on" size={18} color={colors.accent} />
+                <Text style={styles.visitText} numberOfLines={1}>
+                  On a visit · {summary.activeVisit.lead.company || summary.activeVisit.lead.name}
+                </Text>
+                <Text style={styles.visitAction}>Open</Text>
+              </Pressable>
+            )}
+
             <View style={styles.hero}>
               <Text style={styles.heroLabel}>Won this month</Text>
               <Text style={styles.heroValue}>{formatRupees(summary.month.wonValuePaise)}</Text>
@@ -157,6 +167,17 @@ const styles = StyleSheet.create({
   name: { fontSize: 20, fontWeight: "700", color: colors.ink },
   date: { fontSize: 12, color: colors.muted },
   hero: { backgroundColor: colors.brand, borderRadius: radius.lg, padding: space.lg },
+  visit: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: colors.ink,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginBottom: space.md,
+  },
+  visitText: { flex: 1, color: "#fff", fontWeight: "600" },
+  visitAction: { color: colors.accent, fontWeight: "700" },
   heroLabel: { color: "#CDEDE8", fontSize: 13 },
   heroValue: { color: "#fff", fontSize: 30, fontWeight: "800", marginTop: 2 },
   heroDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.25)", marginVertical: space.md },

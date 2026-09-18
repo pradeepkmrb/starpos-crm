@@ -14,6 +14,7 @@ import {
   type LeadInput,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { addressFor, currentFix, LocationError } from "@/lib/location";
 import { colors, space } from "@/theme";
 
 type CustomValue = string | boolean;
@@ -31,6 +32,8 @@ export default function EditLeadScreen() {
   const [status, setStatus] = useState<LeadStatus>("new");
   const [value, setValue] = useState("");
   const [address, setAddress] = useState("");
+  const [pin, setPin] = useState<{ latitude: number; longitude: number; accuracy: number | null } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [expectedClose, setExpectedClose] = useState<Date | null>(null);
   const [isHot, setIsHot] = useState(false);
   const [notes, setNotes] = useState("");
@@ -54,6 +57,9 @@ export default function EditLeadScreen() {
           setStatus(lead.status);
           setValue(lead.valuePaise ? String(lead.valuePaise / 100) : "");
           setAddress(lead.address ?? "");
+          if (lead.latitude !== null && lead.longitude !== null) {
+            setPin({ latitude: lead.latitude, longitude: lead.longitude, accuracy: null });
+          }
           setExpectedClose(lead.expectedCloseAt ? new Date(lead.expectedCloseAt) : null);
           setIsHot(lead.isHot);
           setNotes(lead.notes ?? "");
@@ -73,6 +79,22 @@ export default function EditLeadScreen() {
 
   const activeFields = useMemo(() => fields.filter((f) => f.isActive), [fields]);
 
+  /** Pins the lead to the rep's position and fills the address if it's empty. */
+  async function useCurrentLocation() {
+    setLocating(true);
+    setError(null);
+    try {
+      const fix = await currentFix();
+      setPin(fix);
+      const found = await addressFor(fix);
+      if (found && !address.trim()) setAddress(found);
+    } catch (err) {
+      setError(err instanceof LocationError ? err.message : "Couldn't get your location");
+    } finally {
+      setLocating(false);
+    }
+  }
+
   async function save() {
     const rupees = value.trim() ? Number(value.trim()) : null;
     if (rupees !== null && !Number.isFinite(rupees)) {
@@ -87,6 +109,7 @@ export default function EditLeadScreen() {
       status,
       valuePaise: rupees === null ? null : Math.round(rupees * 100),
       address: address.trim() || null,
+      ...(pin ? { latitude: pin.latitude, longitude: pin.longitude } : {}),
       expectedCloseAt: expectedClose ? expectedClose.toISOString() : null,
       isHot,
       notes: notes.trim() || null,
@@ -136,6 +159,18 @@ export default function EditLeadScreen() {
         </Field>
         <Field label="Address">
           <Input value={address} onChangeText={setAddress} multiline placeholder="Shop no., street, area, city" />
+          <Button
+            title={pin ? "Update to my current location" : "Use current location"}
+            variant="secondary"
+            onPress={() => void useCurrentLocation()}
+            loading={locating}
+            style={{ marginTop: space.sm }}
+          />
+          {pin ? (
+            <Text style={{ color: colors.success, fontSize: 13, marginTop: 6 }}>
+              Location pinned{pin.accuracy ? ` (±${Math.round(pin.accuracy)} m)` : ""} — used for visit check-ins and Nearby.
+            </Text>
+          ) : null}
         </Field>
         <Field label="Stage">
           <ChipRow>

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { LeadsService } from "./leads.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";
@@ -30,6 +30,31 @@ export class LeadsController {
     const ownerUserId =
       owner === "me" ? ctx.userId || "__nobody__" : owner === "unassigned" ? null : owner || undefined;
     return this.leadsService.list(ctx.tenantId, { status, search, take, ownerUserId, hot: hot === "true" });
+  }
+
+  /**
+   * Leads near a point, closest first — the app's "Nearby" list and map.
+   * Declared before :id, like summary. Radius defaults to 5 km, capped at 50.
+   */
+  @Get("nearby")
+  nearby(
+    @Req() req: Request,
+    @Query("lat") lat?: string,
+    @Query("lng") lng?: string,
+    @Query("radiusKm") radiusKm?: string,
+    @Query("owner") owner?: string,
+  ) {
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    if (!lat || !lng || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      throw new BadRequestException("lat and lng are required and must be valid coordinates");
+    }
+    const km = Number(radiusKm);
+    const radiusMeters = (Number.isFinite(km) && km > 0 ? Math.min(km, 50) : 5) * 1000;
+    const ctx = req.tenantContext!;
+    const ownerUserId =
+      owner === "me" ? ctx.userId || "__nobody__" : owner === "unassigned" ? null : owner || undefined;
+    return this.leadsService.nearby(ctx.tenantId, { latitude, longitude }, radiusMeters, { ownerUserId });
   }
 
   /** Declared before :id so "summary" isn't read as a lead id. */

@@ -1,7 +1,14 @@
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AppState, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS, CALL_OUTCOMES, type ActivityType } from "@digitel/shared";
+import {
+  ACTIVITY_TYPES,
+  ACTIVITY_TYPE_LABELS,
+  CALL_OUTCOMES,
+  DEMO_MODES,
+  VISIT_PURPOSES,
+  type ActivityType,
+} from "@digitel/shared";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Chip, ChipRow, ErrorText, Field, Input } from "@/components/ui";
 import { ApiError, createActivity, updateActivity } from "@/lib/api";
@@ -17,7 +24,14 @@ function isActivityType(value: unknown): value is ActivityType {
  * instead of creating a new one.
  */
 export default function NewActivityScreen() {
-  const params = useLocalSearchParams<{ leadId: string; type?: string; mode?: string; completes?: string }>();
+  const params = useLocalSearchParams<{
+    leadId: string;
+    type?: string;
+    mode?: string;
+    completes?: string;
+    /** Set when opened by the Call button: when the dialer was launched (ms). */
+    callStartedAt?: string;
+  }>();
   const completing = params.completes ?? null;
   const [type, setType] = useState<ActivityType>(isActivityType(params.type) ? params.type : "call");
   const [schedule, setSchedule] = useState(!completing && params.mode === "schedule");
@@ -26,8 +40,26 @@ export default function NewActivityScreen() {
   const [notes, setNotes] = useState("");
   const [followUp, setFollowUp] = useState(false);
   const [followUpAt, setFollowUpAt] = useState<Date | null>(null);
+  const [kind, setKind] = useState<string | null>(null);
+  const [callSeconds, setCallSeconds] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The app can't see the call itself, so its length is estimated as the time
+  // between opening the dialer and coming back to the app.
+  const leftForCall = useRef(false);
+  useEffect(() => {
+    const startedAt = Number(params.callStartedAt);
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") leftForCall.current = true;
+      if (state === "active" && leftForCall.current) {
+        leftForCall.current = false;
+        setCallSeconds(Math.max(0, Math.round((Date.now() - startedAt) / 1000)));
+      }
+    });
+    return () => sub.remove();
+  }, [params.callStartedAt]);
 
   const isNote = type === "note";
   const scheduling = schedule && !isNote;
@@ -54,6 +86,8 @@ export default function NewActivityScreen() {
           scheduledAt: scheduling ? when!.toISOString() : null,
           outcome: scheduling ? null : outcome,
           notes: notes.trim() || null,
+          title: kind,
+          durationSeconds: type === "call" && !scheduling ? callSeconds : null,
         });
       }
       if (!scheduling && followUp && followUpAt) {
@@ -82,7 +116,15 @@ export default function NewActivityScreen() {
           <Field label="What">
             <ChipRow>
               {ACTIVITY_TYPES.map((t) => (
-                <Chip key={t} label={ACTIVITY_TYPE_LABELS[t]} active={type === t} onPress={() => setType(t)} />
+                <Chip
+                  key={t}
+                  label={ACTIVITY_TYPE_LABELS[t]}
+                  active={type === t}
+                  onPress={() => {
+                    setType(t);
+                    setKind(null);
+                  }}
+                />
               ))}
             </ChipRow>
           </Field>
@@ -100,6 +142,22 @@ export default function NewActivityScreen() {
               </View>
             )}
           </Field>
+        )}
+
+        {(type === "demo" || type === "visit") && !completing && (
+          <Field label={type === "demo" ? "Demo type" : "Visit type"}>
+            <ChipRow>
+              {(type === "demo" ? DEMO_MODES : VISIT_PURPOSES).map((k) => (
+                <Chip key={k} label={k} active={kind === k} onPress={() => setKind(kind === k ? null : k)} />
+              ))}
+            </ChipRow>
+          </Field>
+        )}
+
+        {type === "call" && callSeconds !== null && !scheduling && (
+          <Text style={{ color: colors.muted, marginBottom: space.md }}>
+            Call length (estimated): {Math.floor(callSeconds / 60)} min {callSeconds % 60} s
+          </Text>
         )}
 
         {!scheduling && type === "call" && (

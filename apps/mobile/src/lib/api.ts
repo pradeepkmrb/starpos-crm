@@ -15,6 +15,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The rest of the error body, e.g. activeVisitId on a 409 check-in. */
+    public details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -109,7 +111,7 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
-    throw new ApiError(res.status, message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, message ?? `Request failed (${res.status})`, body);
   }
   return body as T;
 }
@@ -165,6 +167,8 @@ export interface LeadInput {
   notes?: string | null;
   ownerUserId?: string | null;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   isHot?: boolean;
   expectedCloseAt?: string | null;
   customFields?: Record<string, string | number | boolean>;
@@ -180,8 +184,11 @@ export interface Activity {
   outcome: string | null;
   owner: LeadOwner | null;
   scheduledAt: string | null;
+  /** Visit check-in; completedAt is check-out. */
+  startedAt: string | null;
   completedAt: string | null;
   durationSeconds: number | null;
+  distanceMeters: number | null;
   createdAt: string;
   lead: {
     id: string;
@@ -190,19 +197,25 @@ export interface Activity {
     phone: string | null;
     status: LeadStatus;
     address: string | null;
+    latitude: number | null;
+    longitude: number | null;
   };
 }
 
 export interface ActivityInput {
   leadId: string;
   type: ActivityType;
-  status?: ActivityStatus;
+  status?: Exclude<ActivityStatus, "in_progress">;
+  title?: string | null;
   notes?: string | null;
   outcome?: string | null;
   scheduledAt?: string | null;
+  durationSeconds?: number | null;
 }
 
 export interface FieldSummary {
+  /** The rep's open visit, if they're checked in somewhere. */
+  activeVisit: Activity | null;
   today: Activity[];
   overdueCount: number;
   month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number };
@@ -256,6 +269,18 @@ export const updateLead = (id: string, input: LeadInput) =>
 
 export const listLeadFields = () => request<CustomFieldDefinition[]>("/lead-fields");
 
+export type NearbyLead = Lead & { distanceMeters: number };
+
+export function listNearbyLeads(params: { latitude: number; longitude: number; radiusKm?: number; owner?: string }) {
+  const query = new URLSearchParams({
+    lat: String(params.latitude),
+    lng: String(params.longitude),
+    radiusKm: String(params.radiusKm ?? 5),
+  });
+  if (params.owner) query.set("owner", params.owner);
+  return request<NearbyLead[]>(`/leads/nearby?${query}`);
+}
+
 export function listActivities(params: {
   leadId?: string;
   owner?: string;
@@ -270,6 +295,21 @@ export function listActivities(params: {
 
 export const createActivity = (input: ActivityInput) =>
   request<Activity>("/activities", { method: "POST", body: JSON.stringify(input) });
+
+/** Start a visit; the server refuses (422) if the rep is too far from the lead. */
+export const checkIn = (input: {
+  leadId: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  activityId?: string;
+  title?: string;
+}) => request<Activity>("/activities/check-in", { method: "POST", body: JSON.stringify(input) });
+
+export const checkOut = (
+  id: string,
+  input: { outcome?: string | null; notes?: string | null; latitude?: number; longitude?: number },
+) => request<Activity>(`/activities/${id}/check-out`, { method: "POST", body: JSON.stringify(input) });
 
 export const updateActivity = (id: string, input: Partial<Omit<ActivityInput, "leadId">>) =>
   request<Activity>(`/activities/${id}`, { method: "PATCH", body: JSON.stringify(input) });

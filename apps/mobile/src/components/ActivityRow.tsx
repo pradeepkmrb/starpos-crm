@@ -27,7 +27,12 @@ export function ActivityRow({
   showLead?: boolean;
   onPress?: () => void;
 }) {
-  const when = activity.status === "completed" ? (activity.completedAt ?? activity.createdAt) : activity.scheduledAt;
+  const when =
+    activity.status === "completed"
+      ? (activity.completedAt ?? activity.createdAt)
+      : activity.status === "in_progress"
+        ? activity.startedAt
+        : activity.scheduledAt;
   const overdue = isOverdue(activity);
   // Reps know a place by its business name more than by the contact's.
   const title = showLead
@@ -51,7 +56,9 @@ export function ActivityRow({
         ) : null}
         <Text style={[styles.when, overdue && { color: colors.danger }]}>{formatWhen(when)}</Text>
       </View>
-      {activity.status === "completed" ? (
+      {activity.status === "in_progress" ? (
+        <Badge label="On site" fg={colors.warning} bg={colors.warningSoft} />
+      ) : activity.status === "completed" ? (
         <Badge label="Done" fg={colors.success} bg={colors.successSoft} />
       ) : activity.status === "cancelled" ? (
         <Badge label="Cancelled" fg={colors.muted} bg={colors.background} />

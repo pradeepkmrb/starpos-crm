@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@digitel/db";
-import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, boundingBox, distanceMeters, type LatLng, type LeadStatus } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";
@@ -53,6 +53,38 @@ export class LeadsService {
       take: options.take ?? 200,
       include: LEAD_INCLUDE,
     });
+  }
+
+  /**
+   * Leads with a pinned location near a point, closest first, each carrying
+   * its distance. A lat/lng box narrows the rows in the database; the exact
+   * distance then trims the box's corners.
+   */
+  async nearby(
+    tenantId: string,
+    center: LatLng,
+    radiusMeters: number,
+    options: { ownerUserId?: string | null; take?: number } = {},
+  ) {
+    const box = boundingBox(center, radiusMeters);
+    const rows = await this.prisma.lead.findMany({
+      where: {
+        tenantId,
+        latitude: { gte: box.minLat, lte: box.maxLat },
+        longitude: { gte: box.minLng, lte: box.maxLng },
+        ...(options.ownerUserId !== undefined ? { ownerUserId: options.ownerUserId } : {}),
+      },
+      include: LEAD_INCLUDE,
+      take: 2000,
+    });
+    return rows
+      .map((lead) => ({
+        ...lead,
+        distanceMeters: Math.round(distanceMeters(center, { latitude: lead.latitude!, longitude: lead.longitude! })),
+      }))
+      .filter((lead) => lead.distanceMeters <= radiusMeters)
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, options.take ?? 200);
   }
 
   /** Pipeline counts for the header tiles, in one grouped query. */

@@ -30,6 +30,9 @@ function RootNavigator() {
         <Stack.Screen name="lead/[id]" options={{ title: "Lead" }} />
         <Stack.Screen name="lead/edit" options={{ title: "Lead", presentation: "modal" }} />
         <Stack.Screen name="activity/new" options={{ title: "Log activity", presentation: "modal" }} />
+        <Stack.Screen name="visit/check-in" options={{ title: "Check in" }} />
+        <Stack.Screen name="visit/[id]" options={{ title: "Visit in progress" }} />
+        <Stack.Screen name="map" options={{ title: "Nearby leads" }} />
       </Stack.Protected>
       <Stack.Protected guard={!me}>
         <Stack.Screen name="login" options={{ headerShown: false }} />

@@ -630,13 +630,21 @@ model Activity {
   createdByUserId String?
 
   scheduledAt     DateTime?
+  /// Visit check-in time; completedAt is check-out.
+  startedAt       DateTime?
   completedAt     DateTime?
   durationSeconds Int?
 
   /// Where the rep was when checking in to a visit.
   latitude       Float?
   longitude      Float?
+  /// How far the check-in was from the lead's pinned location.
   distanceMeters Int?
+  /// The phone's reported GPS accuracy at check-in.
+  accuracyMeters Int?
+  /// Where the rep was at check-out.
+  endLatitude    Float?
+  endLongitude   Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -662,6 +670,8 @@ enum ActivityType {
 
 enum ActivityStatus {
   scheduled
+  /// A visit between check-in and check-out.
+  in_progress
   completed
   cancelled
 }

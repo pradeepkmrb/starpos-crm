@@ -119,10 +119,14 @@ export default function FollowUpsScreen() {
                   style={{ flex: 1, minHeight: 40 }}
                 />
                 <Button
-                  title="Log outcome"
+                  title={activity.type === "visit" ? "Check in" : "Log outcome"}
                   variant="secondary"
                   onPress={() =>
-                    router.push(`/activity/new?leadId=${activity.lead.id}&type=${activity.type}&completes=${activity.id}`)
+                    router.push(
+                      activity.type === "visit"
+                        ? `/visit/check-in?leadId=${activity.lead.id}&activityId=${activity.id}`
+                        : `/activity/new?leadId=${activity.lead.id}&type=${activity.type}&completes=${activity.id}`,
+                    )
                   }
                   style={{ flex: 1, minHeight: 40 }}
                 />

@@ -3,7 +3,7 @@ import { Request } from "express";
 import { roleAtLeast } from "@digitel/shared";
 import { ActivitiesService, parseDate } from "./activities.service";
 import { FieldSummaryService } from "./field-summary.service";
-import { CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
+import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
@@ -23,11 +23,23 @@ export class ActivitiesController {
     @Query("type") type?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("startedFrom") startedFrom?: string,
+    @Query("startedTo") startedTo?: string,
     @Query("limit") limit?: string,
   ) {
     const parsed = Number(limit);
     const take = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 500) : 200;
-    return this.activities.list(req.tenantContext!, { leadId, owner, status, type, from, to, take });
+    return this.activities.list(req.tenantContext!, {
+      leadId,
+      owner,
+      status,
+      type,
+      from,
+      to,
+      startedFrom,
+      startedTo,
+      take,
+    });
   }
 
   /** Agent-level, like leads: logging calls and visits is the day job. */
@@ -35,6 +47,19 @@ export class ActivitiesController {
   @Roles("agent")
   create(@Req() req: Request, @Body() dto: CreateActivityDto) {
     return this.activities.create(req.tenantContext!, dto);
+  }
+
+  /** Start a visit at the rep's current location (see ActivitiesService.checkIn). */
+  @Post("check-in")
+  @Roles("agent")
+  checkIn(@Req() req: Request, @Body() dto: CheckInDto) {
+    return this.activities.checkIn(req.tenantContext!, dto);
+  }
+
+  @Post(":id/check-out")
+  @Roles("agent")
+  checkOut(@Req() req: Request, @Param("id") id: string, @Body() dto: CheckOutDto) {
+    return this.activities.checkOut(req.tenantContext!, id, dto);
   }
 
   @Patch(":id")

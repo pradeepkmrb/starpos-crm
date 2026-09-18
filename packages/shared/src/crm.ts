@@ -40,8 +40,37 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   note: "Note",
 };
 
-export const ACTIVITY_STATUSES = ["scheduled", "completed", "cancelled"] as const;
+/**
+ * `in_progress` is only ever a visit between check-in and check-out; it is
+ * set by the check-in endpoint, never directly.
+ */
+export const ACTIVITY_STATUSES = ["scheduled", "in_progress", "completed", "cancelled"] as const;
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
+/** The statuses a client may set through the plain create/update endpoints. */
+export const SETTABLE_ACTIVITY_STATUSES = ["scheduled", "completed", "cancelled"] as const;
+
+/**
+ * How close a rep must be to a lead's pinned location to check in to a visit.
+ * Wide enough for GPS drift in dense areas, tight enough to mean "on site".
+ */
+export const VISIT_CHECK_IN_RADIUS_METERS = 200;
+
+/** What a visit was for; stored as the activity's title. */
+export const VISIT_PURPOSES = ["Sales visit", "Demo", "Payment collection", "Support", "Relationship"] as const;
+
+/** Suggested results for a visit, stored in Activity.outcome. */
+export const VISIT_OUTCOMES = {
+  cold_call: "Cold call",
+  interested: "Interested",
+  demo_given: "Demo given",
+  not_interested: "Not interested",
+  follow_up_needed: "Follow-up needed",
+  order_received: "Order received",
+} as const;
+
+/** How a demo is run; stored as the activity's title. */
+export const DEMO_MODES = ["On-site demo", "Online demo"] as const;
 
 /**
  * Suggested results for a call, stored in Activity.outcome. The column stays
@@ -64,7 +93,11 @@ export type CallOutcome = keyof typeof CALL_OUTCOMES;
 
 /** A known outcome's label, or free text made readable ("demo_given" → "demo given"). */
 export function outcomeLabel(outcome: string): string {
-  return (CALL_OUTCOMES as Record<string, string>)[outcome] ?? outcome.replace(/_/g, " ");
+  return (
+    (CALL_OUTCOMES as Record<string, string>)[outcome] ??
+    (VISIT_OUTCOMES as Record<string, string>)[outcome] ??
+    outcome.replace(/_/g, " ")
+  );
 }
 
 /** Fixed lead columns a Meta form question can be mapped onto. */

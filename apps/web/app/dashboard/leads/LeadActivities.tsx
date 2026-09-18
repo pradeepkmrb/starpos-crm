@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS, outcomeLabel, type ActivityType } from "@digitel/shared";
+import {
+  ACTIVITY_TYPES,
+  ACTIVITY_TYPE_LABELS,
+  formatDistance,
+  outcomeLabel,
+  type ActivityType,
+} from "@digitel/shared";
 import {
   ApiError,
   type Activity,
@@ -10,7 +16,14 @@ import {
   listActivities,
   updateActivity,
 } from "../../../lib/api";
-import { activityTime, formatWhen, isOverdue, localInputToIso } from "../../../lib/activities";
+import {
+  activityTime,
+  formatDuration,
+  formatWhen,
+  isOverdue,
+  localInputToIso,
+  mapsLink,
+} from "../../../lib/activities";
 
 /**
  * A lead's timeline: everything logged against it, newest first, with a
@@ -158,7 +171,7 @@ export function LeadActivities({
                     <span className="text-slate-500">· {activity.owner.name ?? activity.owner.email}</span>
                   )}
                 </div>
-                {canEdit && activity.status === "scheduled" && (
+                {canEdit && (activity.status === "scheduled" || activity.status === "in_progress") && (
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -168,17 +181,19 @@ export function LeadActivities({
                     >
                       Mark done
                     </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={busy}
-                      onClick={() => void run(() => updateActivity(activity.id, { status: "cancelled" }))}
-                    >
-                      Cancel
-                    </button>
+                    {activity.status === "scheduled" && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={busy}
+                        onClick={() => void run(() => updateActivity(activity.id, { status: "cancelled" }))}
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 )}
-                {canEdit && activity.status !== "scheduled" && (
+                {canEdit && (activity.status === "completed" || activity.status === "cancelled") && (
                   <button
                     type="button"
                     className="text-xs text-slate-400 hover:text-red-600"
@@ -191,6 +206,7 @@ export function LeadActivities({
                   </button>
                 )}
               </div>
+              {activity.type === "visit" && activity.startedAt && <VisitDetails activity={activity} />}
               {(activity.notes || activity.outcome) && (
                 <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
                   {activity.outcome ? <span className="font-medium">{outcomeLabel(activity.outcome)}{activity.notes ? ": " : ""}</span> : null}
@@ -206,8 +222,35 @@ export function LeadActivities({
 }
 
 export function StatusBadge({ activity }: { activity: Activity }) {
+  if (activity.status === "in_progress") return <span className="badge badge-warning">On site now</span>;
   if (activity.status === "completed") return <span className="badge badge-success">Done</span>;
   if (activity.status === "cancelled") return <span className="badge badge-neutral">Cancelled</span>;
   if (isOverdue(activity)) return <span className="badge badge-danger">Overdue</span>;
   return <span className="badge badge-warning">Scheduled</span>;
+}
+
+/** Check-in facts for a visit: when, for how long, and how close to the lead. */
+export function VisitDetails({ activity }: { activity: Activity }) {
+  return (
+    <p className="mt-1 text-xs text-slate-500">
+      Checked in {activity.startedAt ? formatWhen(activity.startedAt) : "—"}
+      {activity.status === "completed" ? ` · ${formatDuration(activity.durationSeconds)} on site` : ""}
+      {activity.distanceMeters !== null
+        ? ` · ${formatDistance(activity.distanceMeters)} from the lead`
+        : " · pinned the lead's location"}
+      {activity.latitude !== null && activity.longitude !== null && (
+        <>
+          {" · "}
+          <a
+            href={mapsLink(activity.latitude, activity.longitude)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-brand-800 underline"
+          >
+            map
+          </a>
+        </>
+      )}
+    </p>
+  );
 }
