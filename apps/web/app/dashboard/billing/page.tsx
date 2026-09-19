@@ -11,6 +11,7 @@ import {
   me,
   startCheckout,
 } from "../../../lib/api";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function BillingPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function BillingPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data || !role) return null;
 
@@ -59,7 +60,7 @@ export default function BillingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Plan &amp; Usage</h1>
+      <h1 className="page-title">Plan &amp; Usage</h1>
       <p className="mt-1 text-sm text-slate-500">
         You are on the <span className="font-medium text-slate-900">{data.currentPlan.name}</span> plan
         {data.subscription?.currentPeriodEnd &&

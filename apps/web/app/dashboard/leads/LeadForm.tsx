@@ -117,6 +117,7 @@ export function LeadForm({
   busy,
   onSubmit,
   onCancel,
+  bare = false,
 }: {
   fields: CustomFieldDefinition[];
   members: Member[];
@@ -124,6 +125,8 @@ export function LeadForm({
   busy: boolean;
   onSubmit: (input: LeadInput) => void | Promise<void>;
   onCancel: () => void;
+  /** Drop the card chrome and heading, for use inside a drawer that has its own. */
+  bare?: boolean;
 }) {
   const activeFields = useMemo(() => fields.filter((field) => field.isActive), [fields]);
   const [values, setValues] = useState<LeadFormValues>(() =>
@@ -142,13 +145,13 @@ export function LeadForm({
 
   return (
     <form
-      className="card mt-4 space-y-5 p-5"
+      className={bare ? "space-y-5" : "card mt-4 space-y-5 p-5"}
       onSubmit={(e) => {
         e.preventDefault();
         void onSubmit(toLeadInput(values));
       }}
     >
-      <div>
+      <div className={bare ? "hidden" : ""}>
         <h2 className="text-lg font-semibold text-slate-900">
           {editing ? `Edit ${editing.name}` : "New lead"}
         </h2>
@@ -157,7 +160,7 @@ export function LeadForm({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={bare ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"}>
         <div>
           <label className="field-label" htmlFor="lead-name">
             Name <span className="text-red-500">*</span>
@@ -308,7 +311,7 @@ export function LeadForm({
           />
           Hot lead
         </label>
-        <div className="sm:col-span-2 lg:col-span-3">
+        <div className={bare ? "sm:col-span-2" : "sm:col-span-2 lg:col-span-3"}>
           <label className="field-label" htmlFor="lead-notes">
             Notes
           </label>
@@ -327,7 +330,7 @@ export function LeadForm({
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Your lead fields
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={bare ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"}>
             {activeFields.map((field) => (
               <CustomFieldInput
                 key={field.id}

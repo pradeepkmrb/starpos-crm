@@ -262,13 +262,32 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 /** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
+/**
+ * The Digitel mark: a chat bubble with a rising trend line — messaging that
+ * grows sales — on an emerald tile. The gradient is built in, so it ignores
+ * text colour; pass className for size only.
+ */
 export function BrandMark(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 32 32" fill="currentColor" {...props}>
-      <rect x="1" y="1" width="30" height="30" rx="9" />
+    <svg viewBox="0 0 32 32" {...props}>
+      <defs>
+        <linearGradient id="digitel-mark" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#34d399" />
+          <stop offset="1" stopColor="#047857" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="url(#digitel-mark)" />
       <path
-        fill="white"
-        d="M25.2 7.4L7.4 14.3c-.78.3-.74 1.42.06 1.66l5.6 1.66 1.66 5.6c.24.8 1.36.84 1.66.06l6.9-17.8c.27-.7-.44-1.4-1.12-1.14z"
+        fill="#fff"
+        d="M9 8.5h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-6.6l-4.9 3.8v-3.8H9a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z"
+      />
+      <path
+        d="M10.5 18.2l3.4-3.4 2.4 2.2 4.9-4.9m-2.9 0h2.9v2.9"
+        fill="none"
+        stroke="#059669"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -325,4 +344,84 @@ export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
     </Icon>
   );
+}
+
+export function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></Icon>;
+}
+
+export function BellIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M14.86 17.08a23.85 23.85 0 005.45-1.31A8.97 8.97 0 0118 9.75V9A6 6 0 006 9v.75a8.97 8.97 0 01-2.31 6.02c1.73.64 3.55 1.08 5.45 1.31m5.72 0a24.26 24.26 0 01-5.72 0m5.72 0a3 3 0 11-5.72 0" /></Icon>;
+}
+
+export function PlusIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></Icon>;
+}
+
+export function MenuIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></Icon>;
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></Icon>;
+}
+
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></Icon>;
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></Icon>;
+}
+
+export function CollapseIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></Icon>;
+}
+
+export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5l7.5 7.5-7.5 7.5m6-15l7.5 7.5-7.5 7.5" /></Icon>;
+}
+
+export function PhoneIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.28 6.72 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.37c0-.52-.35-.97-.85-1.09l-4.42-1.1c-.44-.11-.9.05-1.17.41l-.97 1.29a1.13 1.13 0 01-1.21.38 12.04 12.04 0 01-7.14-7.14 1.13 1.13 0 01.38-1.21l1.29-.97c.36-.27.52-.73.41-1.17l-1.1-4.42a1.13 1.13 0 00-1.09-.85H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></Icon>;
+}
+
+export function TrophyIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.38c0-.62-.5-1.12-1.13-1.12h-.86m-6.51 4.5v-3.38c0-.62.5-1.12 1.13-1.12h.87m0 0V10.5a3.75 3.75 0 007.5 0V3.75h-7.5V10.5m0 3.75a6.72 6.72 0 01-3-5.25V6h3m7.5 8.25a6.72 6.72 0 003-5.25V6h-3" /></Icon>;
+}
+
+export function PresentationIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v-1.5m3 1.5V9m3 2.25v-3.75" /></Icon>;
+}
+
+export function BoardIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15M4.5 19.5h15a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-15A1.5 1.5 0 003 6v12a1.5 1.5 0 001.5 1.5z" /></Icon>;
+}
+
+export function ListIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.01v.01h-.01v-.01zm0 5.25h.01v.01h-.01V12zm0 5.25h.01v.01h-.01v-.01z" /></Icon>;
+}
+
+export function TrendUpIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.3 4.3a11.95 11.95 0 015.81-5.52l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.94" /></Icon>;
+}
+
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></Icon>;
+}
+
+export function ArrowRightIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></Icon>;
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></Icon>;
+}
+
+export function AlertIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.01v.01H12v-.01z" /></Icon>;
+}
+
+export function FlameIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M15.36 5.21A8.25 8.25 0 0112 21 8.25 8.25 0 016.04 7.05 8.29 8.29 0 009 9.6a8.98 8.98 0 013.36-6.87 8.25 8.25 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.5-7.47 4.5 4.5 0 00-2.5 3.47 2.25 2.25 0 01-.47-2.24A3.75 3.75 0 0012 18z" /></Icon>;
 }

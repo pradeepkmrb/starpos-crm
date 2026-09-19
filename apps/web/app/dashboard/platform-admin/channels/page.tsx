@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CHANNEL_LABELS } from "@digitel/shared";
 import { ApiError, getPlatformChannels, type PlatformChannel } from "../../../../lib/api";
+import { PageSkeleton } from "../../../../components/PageSkeleton";
 
 export default function PlatformChannelsPage() {
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export default function PlatformChannelsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
 
   return (

@@ -7,7 +7,7 @@ import { formatDistance } from "@digitel/shared";
 import { ApiError, listLeads, listNearbyLeads, type Lead } from "@/lib/api";
 import { currentFix, LocationError } from "@/lib/location";
 import { formatRupees, openDialer } from "@/lib/format";
-import { colors, radius, space } from "@/theme";
+import { colors, radius, shadow, space } from "@/theme";
 
 type Filter = "all" | "mine" | "hot" | "nearby";
 const FILTERS: { key: Filter; label: string }[] = [
@@ -79,7 +79,7 @@ export default function LeadsScreen() {
         <FlatList
           data={leads}
           keyExtractor={(lead) => lead.id}
-          contentContainerStyle={{ padding: space.lg, paddingBottom: 96, gap: space.sm }}
+          contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl * 2, gap: space.md }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -106,30 +106,25 @@ export default function LeadsScreen() {
           renderItem={({ item }) => <LeadCard lead={item} />}
         />
       )}
-      <Pressable
-        accessibilityLabel="Add lead"
-        onPress={() => router.push("/lead/edit")}
-        style={({ pressed }) => [styles.fab, pressed && { opacity: 0.85 }]}
-      >
-        <Ionicons name="add" size={30} color="#fff" />
-      </Pressable>
     </View>
   );
 }
 
 function LeadCard({ lead }: { lead: Lead & { distanceMeters?: number } }) {
-  const subtitle = [lead.company !== lead.name ? lead.company : null, lead.address].filter(Boolean).join(" · ");
+  // Business first, like the web board; the contact and area underneath.
+  const title = lead.company || lead.name;
+  const subtitle = [lead.company ? lead.name : null, lead.address].filter(Boolean).join(" · ");
   return (
     <Pressable
       onPress={() => router.push(`/lead/${lead.id}`)}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
     >
       <View style={styles.initial}>
-        <Text style={styles.initialText}>{lead.name.charAt(0).toUpperCase()}</Text>
+        <Text style={styles.initialText}>{title.charAt(0).toUpperCase()}</Text>
       </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={styles.name} numberOfLines={1}>
-          {lead.name}
+          {title}
         </Text>
         {subtitle ? (
           <Text style={styles.subtitle} numberOfLines={1}>
@@ -159,32 +154,30 @@ function LeadCard({ lead }: { lead: Lead & { distanceMeters?: number } }) {
 
 const styles = StyleSheet.create({
   toolbar: {
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingTop: space.xs,
     paddingBottom: space.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
     gap: space.md,
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: space.md,
+    ...shadow,
   },
   initial: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: colors.brandSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  initialText: { fontSize: 18, fontWeight: "700", color: colors.brand },
-  name: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  initialText: { fontSize: 18, fontWeight: "800", color: colors.brand },
+  name: { fontSize: 16, fontWeight: "800", color: colors.ink },
   subtitle: { fontSize: 13, color: colors.muted },
   value: { fontSize: 13, fontWeight: "600", color: colors.text, marginLeft: space.xs },
   callButton: {
@@ -194,17 +187,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandSoft,
     alignItems: "center",
     justifyContent: "center",
-  },
-  fab: {
-    position: "absolute",
-    right: space.xl,
-    bottom: space.xl,
-    width: 58,
-    height: 58,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
   },
 });

@@ -25,7 +25,37 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Access tokens last 15 minutes. On a 401 the refresh token buys a new pair
+// and the request is retried once, so people aren't bounced to the login
+// page mid-task. Concurrent 401s share a single refresh call.
+let refreshing: Promise<boolean> | null = null;
+
+/** Sign-in calls, where a 401 means wrong credentials rather than an expired session. */
+const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/register", "/auth/refresh", "/auth/accept-invite"]);
+
+async function refreshTokens(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  refreshing ??= (async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      storeTokens(await res.json());
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
   const token = getAccessToken();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -35,6 +65,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   });
+  if (res.status === 401 && !retried && !NO_REFRESH_PATHS.has(path) && (await refreshTokens())) {
+    return request<T>(path, options, true);
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new ApiError(res.status, body.message ?? `Request failed (${res.status})`);
@@ -1095,6 +1128,27 @@ export function listActivities(
   }
   const suffix = query.toString();
   return request<Activity[]>(`/activities${suffix ? `?${suffix}` : ""}`);
+}
+
+export interface FieldSummary {
+  scope: "me" | "team";
+  activeVisit: Activity | null;
+  today: Activity[];
+  overdueCount: number;
+  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number };
+  openPipeline: { count: number; valuePaise: number };
+}
+
+/** Today's plan and this month's numbers; day and month bounds are the viewer's local ones. */
+export function getFieldSummary(scope: "me" | "team" = "me", now = new Date()) {
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const params = new URLSearchParams({
+    dayStart: dayStart.toISOString(),
+    dayEnd: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString(),
+    monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+    scope,
+  });
+  return request<FieldSummary>(`/field/summary?${params}`);
 }
 
 export function createActivity(input: ActivityInput) {

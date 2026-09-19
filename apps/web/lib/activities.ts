@@ -15,7 +15,9 @@ export function formatWhen(iso: string | null, now = new Date()): string {
 
 /** When the thing happened, or is due: what a timeline row should show. */
 export function activityTime(activity: Activity): string | null {
-  return activity.status === "completed" ? (activity.completedAt ?? activity.createdAt) : activity.scheduledAt;
+  if (activity.status === "completed") return activity.completedAt ?? activity.createdAt;
+  if (activity.status === "in_progress") return activity.startedAt;
+  return activity.scheduledAt;
 }
 
 export function isOverdue(activity: Activity, now = new Date()): boolean {

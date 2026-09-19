@@ -11,6 +11,7 @@ import {
   me,
 } from "../../../lib/api";
 import { DailyBarChart } from "./DailyBarChart";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const DAY_OPTIONS = [7, 14, 30, 90];
 
@@ -43,7 +44,7 @@ export default function AnalyticsPage() {
     })();
   }, [router, days]);
 
-  if (loading && !data) return <p className="text-slate-500">Loading…</p>;
+  if (loading && !data) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data) return null;
 
@@ -53,7 +54,7 @@ export default function AnalyticsPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Insights</h1>
+          <h1 className="page-title">Insights</h1>
           <p className="mt-1 text-sm text-slate-500">
             Delivery performance across all your WhatsApp channels.
           </p>

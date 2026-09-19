@@ -16,6 +16,7 @@ import {
   syncTemplates,
   updateTemplate,
 } from "../../../lib/api";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const STATUS_BADGE: Record<MessageTemplate["status"], string> = {
   draft: "badge-neutral",
@@ -171,7 +172,7 @@ export default function TemplatesPage() {
     }
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (!role) return null;
 
   const canManage = roleAtLeast(role, "admin");
@@ -180,7 +181,7 @@ export default function TemplatesPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Message Library</h1>
+          <h1 className="page-title">Message Library</h1>
           <p className="mt-1 text-sm text-slate-500">
             Create WhatsApp message templates here — they&apos;re submitted to Meta for approval and this list
             updates automatically once Meta approves or rejects them.

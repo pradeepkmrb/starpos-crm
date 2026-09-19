@@ -19,6 +19,7 @@ import {
   me,
 } from "../../../lib/api";
 import { CampaignCard } from "./CampaignCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function CampaignsPage() {
   const router = useRouter();
@@ -76,13 +77,13 @@ export default function CampaignsPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Broadcasts</h1>
+      <h1 className="page-title">Broadcasts</h1>
       <p className="mt-1 text-sm text-slate-500">
         Send a template message to every contact in a list.
       </p>

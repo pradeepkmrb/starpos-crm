@@ -4,7 +4,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
 import { ActivityRow } from "@/components/ActivityRow";
-import { Badge, Button, Card, Chip, ChipRow, EmptyState, ErrorText, Loading, StageBadge } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  ErrorText,
+  GradientCard,
+  Loading,
+  StageBadge,
+} from "@/components/ui";
 import {
   ApiError,
   getLead,
@@ -16,6 +27,7 @@ import {
   type Lead,
 } from "@/lib/api";
 import { formatDate, formatRupees, openDialer, openMaps, openWhatsApp } from "@/lib/format";
+import { tap } from "@/lib/haptics";
 import { colors, radius, space } from "@/theme";
 
 type Tab = "info" | "activity";
@@ -57,6 +69,7 @@ export default function LeadDetailScreen() {
     setSavingStage(true);
     try {
       setLead(await updateLead(lead.id, { status }));
+      tap();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Could not change the stage";
       if (Platform.OS === "web") setError(message);
@@ -111,7 +124,7 @@ export default function LeadDetailScreen() {
     >
       <Stack.Screen
         options={{
-          title: lead.name,
+          title: lead.company || lead.name,
           headerRight: () => (
             <Pressable onPress={() => router.push(`/lead/edit?id=${lead.id}`)} hitSlop={10}>
               <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 16 }}>Edit</Text>
@@ -120,12 +133,22 @@ export default function LeadDetailScreen() {
         }}
       />
 
-      <Card>
-        <Text style={styles.name}>{lead.name}</Text>
-        {lead.company && lead.company !== lead.name ? <Text style={styles.muted}>{lead.company}</Text> : null}
-        <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.sm, flexWrap: "wrap" }}>
+      <GradientCard style={{ padding: space.lg }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          <View style={styles.heroInitial}>
+            <Text style={styles.heroInitialText}>{(lead.company || lead.name).charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name} numberOfLines={1}>
+              {lead.company || lead.name}
+            </Text>
+            {lead.company && lead.company !== lead.name ? <Text style={styles.muted}>{lead.name}</Text> : null}
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.md, flexWrap: "wrap" }}>
           <StageBadge status={lead.status} />
-          {lead.isHot && <Badge label="Hot lead" fg={colors.danger} bg={colors.dangerSoft} />}
+          {lead.isHot && <Badge label="Hot lead" fg={colors.danger} bg="#FEE2E2" />}
+          {lead.valuePaise ? <Badge label={formatRupees(lead.valuePaise)} fg={colors.brandDeep} bg="#D1FAE5" /> : null}
         </View>
         <View style={styles.actions}>
           <Action icon="call" label="Call" disabled={!lead.phone} onPress={callLead} />
@@ -143,7 +166,7 @@ export default function LeadDetailScreen() {
             onPress={() => router.push(`/activity/new?leadId=${lead.id}`)}
           />
         </View>
-      </Card>
+      </GradientCard>
 
       <View style={{ marginTop: space.lg }}>
         <ChipRow>
@@ -252,7 +275,7 @@ function Action({
       style={({ pressed }) => [styles.action, (pressed || disabled) && { opacity: disabled ? 0.35 : 0.7 }]}
     >
       <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={20} color={colors.brand} />
+        <Ionicons name={icon} size={20} color={colors.brandDark} />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
@@ -272,19 +295,28 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
 }
 
 const styles = StyleSheet.create({
-  name: { fontSize: 22, fontWeight: "800", color: colors.ink },
-  muted: { fontSize: 14, color: colors.muted, marginTop: 2 },
+  name: { fontSize: 22, fontWeight: "800", color: "#fff" },
+  muted: { fontSize: 14, color: "#D1FAE5", marginTop: 2 },
+  heroInitial: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroInitialText: { fontSize: 22, fontWeight: "800", color: "#fff" },
   actions: { flexDirection: "row", justifyContent: "space-between", marginTop: space.lg },
   action: { alignItems: "center", flex: 1 },
   actionIcon: {
     width: 44,
     height: 44,
     borderRadius: radius.pill,
-    backgroundColor: colors.brandSoft,
+    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
   },
-  actionLabel: { fontSize: 12, color: colors.text, marginTop: 4 },
+  actionLabel: { fontSize: 12, color: "#fff", fontWeight: "600", marginTop: 6 },
   sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.muted, marginBottom: space.sm },
   infoLabel: { fontSize: 12, color: colors.muted },
   infoValue: { fontSize: 15, color: colors.ink, marginTop: 1 },

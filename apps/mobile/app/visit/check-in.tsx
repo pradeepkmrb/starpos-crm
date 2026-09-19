@@ -7,6 +7,7 @@ import { CheckInMap } from "@/components/MapViews";
 import { Button, Card, Chip, ChipRow, ErrorText, Field, Loading } from "@/components/ui";
 import { ApiError, checkIn, getLead, type Lead } from "@/lib/api";
 import { currentFix, LocationError, type Fix } from "@/lib/location";
+import { success, warn } from "@/lib/haptics";
 import { colors, radius, space } from "@/theme";
 
 /**
@@ -78,11 +79,13 @@ export default function CheckInScreen() {
         activityId: activityId || undefined,
         title: purpose,
       });
+      success();
       router.replace(`/visit/${visit.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && typeof err.details.activeVisitId === "string") {
         setOpenVisitId(err.details.activeVisitId);
       }
+      warn();
       setError(err instanceof ApiError ? err.message : "Could not check in");
     } finally {
       setBusy(false);

@@ -7,6 +7,8 @@ import { ACTIVITY_TYPE_LABELS, roleAtLeast, type TenantRole } from "@digitel/sha
 import { ApiError, type Activity, getAccessToken, listActivities, me, updateActivity } from "../../../lib/api";
 import { addDays, formatWhen, localInputToIso, startOfDay } from "../../../lib/activities";
 import { StatusBadge } from "../leads/LeadActivities";
+import { ActivityIcon } from "../../../components/ActivityIcon";
+import { CheckIcon } from "../../../components/icons";
 
 type Tab = "today" | "upcoming" | "overdue";
 const TABS: { key: Tab; label: string }[] = [
@@ -98,7 +100,7 @@ export default function FollowUpsPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Follow-ups</h1>
+          <h1 className="page-title">Follow-ups</h1>
           <p className="mt-1 text-sm text-slate-500">
             Calls, visits, demos and follow-ups still to do. Schedule new ones from a lead&apos;s Activity
             section on the{" "}
@@ -119,21 +121,25 @@ export default function FollowUpsPage() {
         </select>
       </div>
 
-      <div className="mt-5 flex gap-1 border-b border-slate-200">
+      <div className="mt-6 inline-flex rounded-2xl border border-slate-200 bg-white p-1">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
-              tab === key ? "border-brand-600 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800"
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              tab === key ? "bg-brand-600 text-white shadow-brand" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             {label}
             {lists && (
               <span
-                className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
-                  key === "overdue" && lists.overdue.length > 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  tab === key
+                    ? "bg-white/20 text-white"
+                    : key === "overdue" && lists.overdue.length > 0
+                      ? "bg-red-100 text-red-700"
+                      : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {lists[key].length}
@@ -146,22 +152,34 @@ export default function FollowUpsPage() {
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       {!lists ? (
-        <p className="mt-4 text-sm text-slate-500">Loading…</p>
+        <div className="mt-5 space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton h-24" />
+          ))}
+        </div>
       ) : rows.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">
-          {tab === "overdue" ? "Nothing overdue." : tab === "today" ? "Nothing scheduled for today." : "Nothing coming up."}
-        </p>
+        <div className="card mt-5 flex flex-col items-center px-6 py-14 text-center">
+          <span className="icon-chip h-14 w-14 bg-brand-50 text-brand-600">
+            <CheckIcon className="h-7 w-7" />
+          </span>
+          <p className="mt-4 text-base font-bold text-slate-900">
+            {tab === "overdue" ? "Nothing overdue" : tab === "today" ? "Nothing scheduled for today" : "Nothing coming up"}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">Schedule a call, visit or demo from any lead.</p>
+        </div>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-5 space-y-3">
           {rows.map((activity) => (
-            <li key={activity.id} className="card px-4 py-3">
+            <li key={activity.id} className="card card-hover px-5 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 gap-4">
+                  <ActivityIcon type={activity.type} />
+                  <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-semibold text-slate-900">{ACTIVITY_TYPE_LABELS[activity.type]}</span>
-                    <span className="text-slate-400">·</span>
-                    <span className="font-medium text-slate-800">{activity.lead.name}</span>
-                    {activity.lead.company && <span className="text-slate-500">({activity.lead.company})</span>}
+                    <span className="font-bold text-slate-900">
+                      {ACTIVITY_TYPE_LABELS[activity.type]} · {activity.lead.company || activity.lead.name}
+                    </span>
+                    {activity.lead.company && <span className="text-slate-500">{activity.lead.name}</span>}
                     <StatusBadge activity={activity} />
                   </div>
                   <p className="mt-1 text-sm text-slate-600">
@@ -173,6 +191,7 @@ export default function FollowUpsPage() {
                   </p>
                   {activity.notes && <p className="mt-1 text-sm text-slate-700">{activity.notes}</p>}
                   {activity.lead.address && <p className="mt-1 text-xs text-slate-500">{activity.lead.address}</p>}
+                  </div>
                 </div>
                 {canEdit && (
                   <div className="flex flex-wrap gap-2">

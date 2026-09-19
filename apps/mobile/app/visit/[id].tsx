@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { VISIT_OUTCOMES } from "@digitel/shared";
 import { DateTimeField } from "@/components/DateTimeField";
-import { Button, Card, Chip, ChipRow, ErrorText, Field, Input, Loading } from "@/components/ui";
+import { Button, Card, Chip, ChipRow, ErrorText, Field, GradientCard, Input, Loading } from "@/components/ui";
+import { success } from "@/lib/haptics";
 import { ApiError, checkOut, createActivity, listActivities, type Activity } from "@/lib/api";
 import { currentFix } from "@/lib/location";
 import { colors, radius, space } from "@/theme";
@@ -67,6 +68,7 @@ export default function ActiveVisitScreen() {
           scheduledAt: followUpAt.toISOString(),
         });
       }
+      success();
       router.replace(`/lead/${visit.lead.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not end the visit");
@@ -90,13 +92,13 @@ export default function ActiveVisitScreen() {
     <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
       <Stack.Screen options={{ title: "Visit in progress" }} />
 
-      <View style={styles.timerCard}>
+      <GradientCard style={{ alignItems: "center" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <View style={styles.liveDot} />
           <Text style={styles.timer}>{visit.startedAt ? elapsed(visit.startedAt, now) : "--:--:--"}</Text>
         </View>
         <Text style={styles.timerLabel}>Visit in progress{visit.title ? ` · ${visit.title}` : ""}</Text>
-      </View>
+      </GradientCard>
 
       <Card style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
         <View style={styles.icon}>
@@ -139,10 +141,9 @@ export default function ActiveVisitScreen() {
 }
 
 const styles = StyleSheet.create({
-  timerCard: { backgroundColor: colors.brandSoft, borderRadius: radius.lg, padding: space.lg, alignItems: "center" },
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  timer: { fontSize: 32, fontWeight: "800", color: colors.ink, fontVariant: ["tabular-nums"] },
-  timerLabel: { color: colors.muted, marginTop: space.xs },
+  timer: { fontSize: 40, fontWeight: "800", color: "#fff", fontVariant: ["tabular-nums"] },
+  timerLabel: { color: "#D1FAE5", marginTop: space.xs, fontWeight: "600" },
   icon: {
     width: 44,
     height: 44,

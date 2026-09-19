@@ -1,27 +1,21 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const display = Space_Grotesk({
+const body = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-});
-
-const body = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: "Digitel — WhatsApp Marketing Platform",
-  description: "Bring your own WhatsApp API and scale your business.",
+  title: "Digitel — WhatsApp Marketing and Sales CRM",
+  description: "Bring your own WhatsApp API, run broadcasts, and manage your field sales team.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={body.variable}>
       <body className="min-h-screen font-sans">{children}</body>
     </html>
   );

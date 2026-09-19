@@ -75,7 +75,7 @@ export default function VisitsPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Visits</h1>
+          <h1 className="page-title">Visits</h1>
           <p className="mt-1 text-sm text-slate-500">
             Check-ins from the mobile app. A check-in only goes through within 200 m of the lead&apos;s location.
           </p>

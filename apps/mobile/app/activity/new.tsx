@@ -12,6 +12,7 @@ import {
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Chip, ChipRow, ErrorText, Field, Input } from "@/components/ui";
 import { ApiError, createActivity, updateActivity } from "@/lib/api";
+import { success } from "@/lib/haptics";
 import { colors, space } from "@/theme";
 
 function isActivityType(value: unknown): value is ActivityType {
@@ -98,6 +99,7 @@ export default function NewActivityScreen() {
           scheduledAt: followUpAt.toISOString(),
         });
       }
+      success();
       router.back();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save");

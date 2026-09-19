@@ -20,6 +20,7 @@ import {
   testIntegration,
 } from "../../../lib/api";
 import { IntegrationCard } from "./IntegrationCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function IntegrationsPage() {
   const router = useRouter();
@@ -136,12 +137,12 @@ export default function IntegrationsPage() {
     });
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading integrations…</p>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div>
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Integrations</h1>
+        <h1 className="page-title">Integrations</h1>
         <p className="mt-1 text-sm text-slate-500">
           Connect your own accounts to this workspace. Each workspace keeps its own keys, so what you
           connect here is used only for your customers.

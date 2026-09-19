@@ -20,7 +20,9 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerTintColor: colors.ink,
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontWeight: "800" },
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
         contentStyle: { backgroundColor: colors.background },
       }}
     >
@@ -33,6 +35,10 @@ function RootNavigator() {
         <Stack.Screen name="visit/check-in" options={{ title: "Check in" }} />
         <Stack.Screen name="visit/[id]" options={{ title: "Visit in progress" }} />
         <Stack.Screen name="map" options={{ title: "Nearby leads" }} />
+        <Stack.Screen
+          name="quick-add"
+          options={{ presentation: "transparentModal", animation: "fade", headerShown: false }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={!me}>
         <Stack.Screen name="login" options={{ headerShown: false }} />

@@ -15,6 +15,7 @@ import {
   me,
 } from "../../../lib/api";
 import { AutomationCard } from "./AutomationCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function AutomationsPage() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function AutomationsPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
@@ -61,7 +62,7 @@ export default function AutomationsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Flows</h1>
+      <h1 className="page-title">Flows</h1>
       <p className="mt-1 text-sm text-slate-500">
         Reply automatically when someone messages your WhatsApp number.
       </p>

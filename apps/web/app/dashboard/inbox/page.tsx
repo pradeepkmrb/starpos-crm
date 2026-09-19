@@ -31,6 +31,7 @@ import {
   setConversationLabels,
   updateContact,
 } from "../../../lib/api";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 /** Inbound messages arrive by webhook, so the list needs its own refresh. */
 const POLL_INTERVAL_MS = 15_000;
@@ -323,14 +324,14 @@ export default function InboxPage() {
     }
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (!role) return null;
 
   const canReply = roleAtLeast(role, "agent");
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Inbox</h1>
+      <h1 className="page-title">Inbox</h1>
       <p className="mt-1 text-sm text-slate-500">
         Every channel in one place — WhatsApp, Facebook Messenger, Instagram DMs and email. On the three Meta
         channels, free-form replies are only possible within 24 hours of the contact&apos;s last message;

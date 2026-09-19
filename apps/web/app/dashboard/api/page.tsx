@@ -21,6 +21,7 @@ import {
   type Endpoint,
   type HttpMethod,
 } from "./endpoints";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const PUBLIC_API_BASE = `${API_BASE_URL}/api/v1`;
 
@@ -113,7 +114,7 @@ export default function ApiDevelopersPage() {
   );
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
+    return <PageSkeleton />;
   }
 
   return (

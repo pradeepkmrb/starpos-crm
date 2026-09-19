@@ -17,6 +17,7 @@ import {
 } from "../../../lib/api";
 import { formatMoney } from "../../../lib/money";
 import { BoxIcon, LinkIcon, ShareIcon } from "../../../components/icons";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD"];
 
@@ -108,7 +109,7 @@ export default function CataloguePage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading catalogue…</p>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div>

@@ -20,6 +20,7 @@ import { ChannelCard } from "./ChannelCard";
 import { MessengerCard } from "./MessengerCard";
 import { InstagramCard } from "./InstagramCard";
 import { EmailCard } from "./EmailCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -75,7 +76,7 @@ export default function ChannelsPage() {
     setConnections((prev) => [...prev.filter((c) => c.id !== saved.id && c.type !== saved.type), saved]);
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
@@ -84,7 +85,7 @@ export default function ChannelsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Connections</h1>
+      <h1 className="page-title">Connections</h1>
       <p className="mt-1 text-sm text-slate-500">
         Connect WhatsApp, Facebook Messenger, Instagram DMs and your support mailbox. Everything you connect
         lands in one shared Inbox.

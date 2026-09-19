@@ -17,6 +17,7 @@ import {
 } from "../../../lib/api";
 import { roleAtLeast, type TenantRole } from "@digitel/shared";
 import { UsersIcon } from "../../../components/icons";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function TeamPage() {
   const router = useRouter();
@@ -56,13 +57,13 @@ export default function TeamPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!user || !tenant || !role) return null;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Workspace</h1>
+      <h1 className="page-title">Workspace</h1>
       <p className="mt-1 text-sm text-slate-500">Manage who has access to {tenant.name}.</p>
 
       <section className="mt-8">

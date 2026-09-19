@@ -37,6 +37,7 @@ import {
   toCustomFieldValues,
   type CustomValues,
 } from "./ContactCustomFields";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 /** Matches the server's own ceiling on ?limit=. */
 const CONTACT_FETCH_LIMIT = 5000;
@@ -321,7 +322,7 @@ export default function ContactsPage() {
     }
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (!role) return null;
 
   const canManage = roleAtLeast(role, "admin");
@@ -330,7 +331,7 @@ export default function ContactsPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Audience</h1>
+          <h1 className="page-title">Audience</h1>
           <p className="mt-1 text-sm text-slate-500">
             Add contacts one at a time or import a CSV, then target a list from a broadcast.
           </p>

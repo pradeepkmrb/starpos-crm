@@ -5,6 +5,7 @@ import { ActivityRow } from "@/components/ActivityRow";
 import { Button, Card, Chip, ChipRow, EmptyState, ErrorText, Loading } from "@/components/ui";
 import { ApiError, listActivities, updateActivity, type Activity } from "@/lib/api";
 import { addDays, startOfDay } from "@/lib/format";
+import { success } from "@/lib/haptics";
 import { colors, space } from "@/theme";
 
 type Tab = "today" | "upcoming" | "overdue";
@@ -58,6 +59,7 @@ export default function FollowUpsScreen() {
     setBusyId(activity.id);
     try {
       await updateActivity(activity.id, { status: "completed" });
+      success();
       await load();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Could not update";
