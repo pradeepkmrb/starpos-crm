@@ -15,6 +15,12 @@ import {
   me,
 } from "../../../lib/api";
 import { AutomationCard } from "./AutomationCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
+import { Drawer } from "../../../components/Drawer";
+import { useToast } from "../../../components/Toaster";
+import { EmptyState, PageHeader, StatTile } from "../../../components/ui";
+import { BoltIcon, ChatIcon, PlugIcon, PlusIcon, UsersIcon } from "../../../components/icons";
+import Link from "next/link";
 
 export default function AutomationsPage() {
   const router = useRouter();
@@ -23,6 +29,8 @@ export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [channels, setChannels] = useState<ChannelConnection[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -53,37 +61,94 @@ export default function AutomationsPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
   const canManage = roleAtLeast(role, "admin");
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">Flows</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Reply automatically when someone messages your WhatsApp number.
-      </p>
+  const live = automations.filter((a) => a.isActive).length;
 
-      <div className="mt-6 space-y-4">
-        {automations.length === 0 && <p className="text-sm text-slate-500">No automations yet.</p>}
-        {automations.map((a) => (
-          <AutomationCard
-            key={a.id}
-            automation={a}
-            canManage={canManage}
-            onRemoved={(id) => setAutomations((prev) => prev.filter((x) => x.id !== id))}
-          />
-        ))}
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        icon={BoltIcon}
+        tone="amber"
+        title="Flows"
+        subtitle="Answer automatically — greet new contacts, or reply when a message mentions a keyword like “price”."
+        actions={
+          canManage &&
+          channels.length > 0 && (
+            <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
+              <PlusIcon className="h-4 w-4" />
+              New flow
+            </button>
+          )
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatTile icon={BoltIcon} tone="amber" label="Flows" value={automations.length} sub={`${live} live`} />
+        <StatTile icon={ChatIcon} label="Keyword replies" value={automations.filter((a) => a.triggerType === "keyword").length} sub="answer common questions" />
+        <StatTile icon={UsersIcon} tone="sky" label="Welcome messages" value={automations.filter((a) => a.triggerType === "welcome").length} sub="greet new contacts" />
       </div>
 
-      {canManage && (
-        <CreateForm
-          channels={channels}
-          onCreated={(a) => setAutomations((prev) => [a, ...prev])}
-        />
+      {automations.length === 0 ? (
+        <div className="card">
+          {channels.length === 0 ? (
+            <EmptyState
+              icon={PlugIcon}
+              tone="amber"
+              title="Connect a channel first"
+              text="Flows reply on WhatsApp, Messenger, Instagram or email — connect one to get started."
+              action={
+                <Link href="/dashboard/channels" className="btn-primary">
+                  Go to Connections
+                </Link>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={BoltIcon}
+              tone="amber"
+              title="No flows yet"
+              text="Start with a welcome message, or an instant answer whenever someone asks about price."
+              action={
+                canManage && (
+                  <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
+                    <PlusIcon className="h-4 w-4" />
+                    Create your first flow
+                  </button>
+                )
+              }
+            />
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {automations.map((a) => (
+            <AutomationCard
+              key={a.id}
+              automation={a}
+              canManage={canManage}
+              onRemoved={(id) => setAutomations((prev) => prev.filter((x) => x.id !== id))}
+            />
+          ))}
+        </div>
       )}
+
+      <Drawer open={canManage && creating} onClose={() => setCreating(false)} title="New flow" subtitle="Pick a trigger, then what to send" width="max-w-2xl">
+        {creating && (
+          <CreateForm
+            channels={channels}
+            onCreated={(a) => {
+              setAutomations((prev) => [a, ...prev]);
+              setCreating(false);
+              toast(`“${a.name}” is live`);
+            }}
+          />
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -154,18 +219,32 @@ function CreateForm({
     }
   }
 
-  if (channels.length === 0) {
-    return (
-      <p className="mt-8 text-sm text-slate-500">
-        Connect a WhatsApp channel before creating an automation.
-      </p>
-    );
-  }
-
   return (
-    <section className="card mt-8 p-6">
-      <h2 className="text-lg font-semibold text-slate-900">Create an automation</h2>
-      <form onSubmit={onSubmit} className="mt-4 space-y-4">
+    <div>
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            ["keyword", "Keyword reply", "When a message mentions a word", ChatIcon],
+            ["welcome", "Welcome message", "When a new contact writes in", UsersIcon],
+          ] as const).map(([value, title, text, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTriggerType(value)}
+              className={`flex items-start gap-3 rounded-2xl border-2 p-3 text-left transition-colors ${
+                triggerType === value ? "border-brand-500 bg-brand-50/60" : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <span className={`icon-chip h-9 w-9 ${triggerType === value ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-slate-900">{title}</span>
+                <span className="block text-xs text-slate-500">{text}</span>
+              </span>
+            </button>
+          ))}
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="field-label">Name</span>
@@ -187,17 +266,6 @@ function CreateForm({
                   {describeChannel(c)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="field-label">Trigger</span>
-            <select
-              className="input"
-              value={triggerType}
-              onChange={(e) => setTriggerType(e.target.value as "keyword" | "welcome")}
-            >
-              <option value="keyword">Keyword in an inbound message</option>
-              <option value="welcome">Welcome — first message from a new contact</option>
             </select>
           </label>
           {triggerType === "keyword" && (
@@ -228,10 +296,13 @@ function CreateForm({
         </div>
 
         <div>
-          <span className="mb-2 block text-sm font-medium text-slate-700">Steps</span>
+          <span className="field-label">Then send</span>
           <div className="space-y-3">
             {steps.map((step, i) => (
-              <div key={i} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+              <div key={i} className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                  {i + 1}
+                </span>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-slate-600">Action</span>
                   <select
@@ -292,10 +363,11 @@ function CreateForm({
           {steps.length < 10 && (
             <button
               type="button"
-              className="btn-secondary mt-3"
+              className="btn-ghost mt-2 text-brand-700"
               onClick={() => setSteps((prev) => [...prev, { ...EMPTY_STEP }])}
             >
-              Add step
+              <PlusIcon className="h-4 w-4" />
+              Add another message
             </button>
           )}
         </div>
@@ -303,9 +375,10 @@ function CreateForm({
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button type="submit" disabled={submitting} className="btn-primary">
-          {submitting ? "Creating…" : "Create automation"}
+          <BoltIcon className="h-4 w-4" />
+          {submitting ? "Creating…" : "Create flow"}
         </button>
       </form>
-    </section>
+    </div>
   );
 }

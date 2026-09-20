@@ -96,7 +96,11 @@ export class CampaignsService {
   async listCampaigns(tenantId: string) {
     const campaigns = await this.prisma.campaign.findMany({
       where: { tenantId },
-      include: { channel: { select: { displayPhoneNumber: true } }, targetList: { select: { name: true } } },
+      include: {
+        channel: { select: { displayPhoneNumber: true } },
+        targetList: { select: { name: true } },
+        template: { select: { name: true, language: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
 

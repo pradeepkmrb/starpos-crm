@@ -20,6 +20,9 @@ import {
   testIntegration,
 } from "../../../lib/api";
 import { IntegrationCard } from "./IntegrationCard";
+import { PageSkeleton } from "../../../components/PageSkeleton";
+import { PageHeader } from "../../../components/ui";
+import { PlugIcon as PlugHeaderIcon } from "../../../components/icons";
 
 export default function IntegrationsPage() {
   const router = useRouter();
@@ -136,17 +139,16 @@ export default function IntegrationsPage() {
     });
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading integrations…</p>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div>
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Integrations</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Connect your own accounts to this workspace. Each workspace keeps its own keys, so what you
-          connect here is used only for your customers.
-        </p>
-      </div>
+      <PageHeader
+        icon={PlugHeaderIcon}
+        tone="sky"
+        title="Integrations"
+        subtitle="Connect your own accounts. Each workspace keeps its own keys, used only for your customers."
+      />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {notice && <p className="mt-3 text-sm text-slate-600">{notice}</p>}

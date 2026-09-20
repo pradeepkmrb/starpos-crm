@@ -1,16 +1,20 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@digitel/db";
-import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, boundingBox, distanceMeters, type LatLng, type LeadStatus } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
+import { closedAtForStatusChange } from "../field-sales/activity-rules";
 
 export interface ListLeadsOptions {
   status?: string;
   search?: string;
   take?: number;
+  /** Only this owner's leads; resolve "me" in the controller. Null means unassigned. */
+  ownerUserId?: string | null;
+  hot?: boolean;
 }
 
 /** What every lead response carries alongside the row itself. */
@@ -32,6 +36,8 @@ export class LeadsService {
       where: {
         tenantId,
         ...(isLeadStatus(options.status) ? { status: options.status } : {}),
+        ...(options.ownerUserId !== undefined ? { ownerUserId: options.ownerUserId } : {}),
+        ...(options.hot ? { isHot: true } : {}),
         ...(search
           ? {
               OR: [
@@ -47,6 +53,38 @@ export class LeadsService {
       take: options.take ?? 200,
       include: LEAD_INCLUDE,
     });
+  }
+
+  /**
+   * Leads with a pinned location near a point, closest first, each carrying
+   * its distance. A lat/lng box narrows the rows in the database; the exact
+   * distance then trims the box's corners.
+   */
+  async nearby(
+    tenantId: string,
+    center: LatLng,
+    radiusMeters: number,
+    options: { ownerUserId?: string | null; take?: number } = {},
+  ) {
+    const box = boundingBox(center, radiusMeters);
+    const rows = await this.prisma.lead.findMany({
+      where: {
+        tenantId,
+        latitude: { gte: box.minLat, lte: box.maxLat },
+        longitude: { gte: box.minLng, lte: box.maxLng },
+        ...(options.ownerUserId !== undefined ? { ownerUserId: options.ownerUserId } : {}),
+      },
+      include: LEAD_INCLUDE,
+      take: 2000,
+    });
+    return rows
+      .map((lead) => ({
+        ...lead,
+        distanceMeters: Math.round(distanceMeters(center, { latitude: lead.latitude!, longitude: lead.longitude! })),
+      }))
+      .filter((lead) => lead.distanceMeters <= radiusMeters)
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, options.take ?? 200);
   }
 
   /** Pipeline counts for the header tiles, in one grouped query. */
@@ -88,6 +126,12 @@ export class LeadsService {
         notes: emptyToNull(dto.notes),
         ownerUserId,
         customFieldsJson: customFields,
+        address: emptyToNull(dto.address),
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+        isHot: dto.isHot ?? false,
+        expectedCloseAt: dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : null,
+        closedAt: closedAtForStatusChange("new", dto.status ?? "new") ?? null,
       },
       include: LEAD_INCLUDE,
     });
@@ -104,7 +148,18 @@ export class LeadsService {
     if (dto.phone !== undefined) data.phone = emptyToNull(dto.phone);
     if (dto.email !== undefined) data.email = emptyToNull(dto.email);
     if (dto.company !== undefined) data.company = emptyToNull(dto.company);
-    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      const closedAt = closedAtForStatusChange(lead.status, dto.status);
+      if (closedAt !== undefined) data.closedAt = closedAt;
+    }
+    if (dto.address !== undefined) data.address = emptyToNull(dto.address);
+    if (dto.latitude !== undefined) data.latitude = dto.latitude;
+    if (dto.longitude !== undefined) data.longitude = dto.longitude;
+    if (dto.isHot !== undefined) data.isHot = dto.isHot;
+    if (dto.expectedCloseAt !== undefined) {
+      data.expectedCloseAt = dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : null;
+    }
     if (dto.source !== undefined) data.source = dto.source?.trim() || "manual";
     if (dto.valuePaise !== undefined) data.valuePaise = dto.valuePaise;
     if (dto.notes !== undefined) data.notes = emptyToNull(dto.notes);

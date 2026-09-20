@@ -29,7 +29,7 @@ export function ConnectChannelForm({ onConnected }: { onConnected: (channel: Cha
   }
 
   return (
-    <section className="card mt-8 p-6">
+    <section className="card p-6">
       <h2 className="text-lg font-semibold text-slate-900">Connect a WhatsApp channel</h2>
       <p className="mt-1 text-sm text-slate-500">
         Paste the WABA ID, phone number ID, and a system-user access token from your Meta app.

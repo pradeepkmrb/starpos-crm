@@ -17,6 +17,16 @@ import {
 } from "../../../lib/api";
 import { roleAtLeast, type TenantRole } from "@digitel/shared";
 import { UsersIcon } from "../../../components/icons";
+import { Avatar } from "../../../components/Avatar";
+import { PageHeader, SectionCard } from "../../../components/ui";
+
+const ROLE_BADGE: Record<string, string> = {
+  owner: "badge-success",
+  admin: "badge-info",
+  agent: "badge-neutral",
+  viewer: "badge-neutral",
+};
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 export default function TeamPage() {
   const router = useRouter();
@@ -56,37 +66,39 @@ export default function TeamPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!user || !tenant || !role) return null;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">Workspace</h1>
-      <p className="mt-1 text-sm text-slate-500">Manage who has access to {tenant.name}.</p>
+    <div className="space-y-6">
+      <PageHeader icon={UsersIcon} tone="sky" title="Team" subtitle={`Who has access to ${tenant.name}, and what they can do.`} />
 
-      <section className="mt-8">
-        <div className="flex items-center gap-2">
-          <UsersIcon className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold text-slate-900">Members</h2>
-        </div>
-        <div className="card mt-3 divide-y divide-slate-100">
-          {members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="text-slate-700">
-                {m.user.name ?? m.user.email} <span className="text-slate-400">({m.user.email})</span>
-              </span>
-              <span className="badge badge-neutral capitalize">{m.role}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_24rem]">
+        <SectionCard title="Members" subtitle={`${members.length} ${members.length === 1 ? "person" : "people"}`} bodyClassName="">
+          <ul className="divide-y divide-slate-100">
+            {members.map((m) => (
+              <li key={m.id} className="flex items-center gap-3 px-5 py-3.5">
+                <Avatar name={m.user.name ?? m.user.email} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-slate-900">
+                    {m.user.name ?? m.user.email}
+                    {m.user.id === user.id && <span className="ml-1.5 text-xs font-medium text-slate-400">(you)</span>}
+                  </p>
+                  <p className="truncate text-sm text-slate-500">{m.user.email}</p>
+                </div>
+                <span className={`badge capitalize ${ROLE_BADGE[m.role] ?? "badge-neutral"}`}>{m.role}</span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
 
-      {roleAtLeast(role, "admin") ? (
-        <InviteSection invites={invites} onInvited={(inv) => setInvites((prev) => [inv, ...prev])} />
-      ) : (
-        <p className="mt-8 text-sm text-slate-500">Only admins and owners can invite teammates.</p>
-      )}
+        {roleAtLeast(role, "admin") ? (
+          <InviteSection invites={invites} onInvited={(inv) => setInvites((prev) => [inv, ...prev])} />
+        ) : (
+          <p className="card p-5 text-sm text-slate-500">Only admins and owners can invite teammates.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,9 +134,10 @@ function InviteSection({
   }
 
   return (
-    <section className="card mt-8 p-6">
-      <h2 className="text-lg font-semibold text-slate-900">Invite a teammate</h2>
-      <form onSubmit={onSubmit} className="mt-3 flex flex-wrap items-end gap-3">
+    <section className="card p-5">
+      <h2 className="font-bold text-slate-900">Invite a teammate</h2>
+      <p className="mt-0.5 text-sm text-slate-500">They get a link to join this workspace.</p>
+      <form onSubmit={onSubmit} className="mt-4 grid gap-3">
         <label className="block">
           <span className="field-label">Email</span>
           <input
@@ -142,9 +155,9 @@ function InviteSection({
             value={role}
             onChange={(e) => setRole(e.target.value as TenantRole)}
           >
-            <option value="admin">admin</option>
-            <option value="agent">agent</option>
-            <option value="viewer">viewer</option>
+            <option value="admin">Admin — manages settings and team</option>
+            <option value="agent">Agent — works leads and chats</option>
+            <option value="viewer">Viewer — read only</option>
           </select>
         </label>
         <button type="submit" disabled={submitting} className="btn-primary">
@@ -161,13 +174,14 @@ function InviteSection({
       )}
 
       {invites.length > 0 && (
-        <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">
+          <p className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Pending invites</p>
           {invites.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="text-slate-700">{inv.email}</span>
-              <span className="text-slate-500">
-                {inv.role} · pending, expires {new Date(inv.expiresAt).toLocaleDateString()}
-              </span>
+            <div key={inv.id} className="px-4 py-3 text-sm">
+              <p className="truncate font-semibold text-slate-700">{inv.email}</p>
+              <p className="text-xs text-slate-500">
+                <span className="capitalize">{inv.role}</span> · expires {new Date(inv.expiresAt).toLocaleDateString("en-IN")}
+              </p>
             </div>
           ))}
         </div>

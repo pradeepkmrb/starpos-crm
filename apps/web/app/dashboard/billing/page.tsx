@@ -11,6 +11,9 @@ import {
   me,
   startCheckout,
 } from "../../../lib/api";
+import { PageSkeleton } from "../../../components/PageSkeleton";
+import { PageHeader } from "../../../components/ui";
+import { CreditCardIcon } from "../../../components/icons";
 
 export default function BillingPage() {
   const router = useRouter();
@@ -41,7 +44,7 @@ export default function BillingPage() {
     })();
   }, [router]);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data || !role) return null;
 
@@ -59,13 +62,19 @@ export default function BillingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Plan &amp; Usage</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        You are on the <span className="font-medium text-slate-900">{data.currentPlan.name}</span> plan
-        {data.subscription?.currentPeriodEnd &&
-          ` · renews ${new Date(data.subscription.currentPeriodEnd).toLocaleDateString()}`}
-        {data.subscription?.cancelAtPeriodEnd && " · cancels at period end"}
-      </p>
+      <PageHeader
+        icon={CreditCardIcon}
+        tone="violet"
+        title="Plan and usage"
+        subtitle={
+          <>
+            You are on the <span className="font-semibold text-slate-900">{data.currentPlan.name}</span> plan
+            {data.subscription?.currentPeriodEnd &&
+              ` · renews ${new Date(data.subscription.currentPeriodEnd).toLocaleDateString("en-IN")}`}
+            {data.subscription?.cancelAtPeriodEnd && " · cancels at period end"}
+          </>
+        }
+      />
 
       {data.overLimit && (
         <p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">

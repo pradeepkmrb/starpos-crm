@@ -16,18 +16,25 @@ import {
   updateProduct,
 } from "../../../lib/api";
 import { formatMoney } from "../../../lib/money";
-import { BoxIcon, LinkIcon, ShareIcon } from "../../../components/icons";
+import { BoxIcon, LinkIcon, PlusIcon, SearchIcon, ShareIcon } from "../../../components/icons";
+import { PageSkeleton } from "../../../components/PageSkeleton";
+import { useToast } from "../../../components/Toaster";
+import { EmptyState, PageHeader } from "../../../components/ui";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD"];
 
 export default function CataloguePage() {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
   const [tenant, setTenant] = useState<AuthTenant | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const setNotice = (message: string | null) => {
+    if (message) toast(message);
+  };
+  const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -65,16 +72,22 @@ export default function CataloguePage() {
     return `${window.location.origin}/catalogue/${tenant.slug}`;
   }, [tenant]);
 
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter((c): c is string => !!c))].sort(),
+    [products],
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
+    const inCategory = category ? products.filter((p) => p.category === category) : products;
+    if (!q) return inCategory;
+    return inCategory.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.sku ?? "").toLowerCase().includes(q) ||
         (p.category ?? "").toLowerCase().includes(q),
     );
-  }, [products, search]);
+  }, [products, search, category]);
 
   async function onCopyLink() {
     setError(null);
@@ -108,156 +121,161 @@ export default function CataloguePage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading catalogue…</p>;
+  if (loading) return <PageSkeleton />;
+
+  const openAdd = () => {
+    setEditing(null);
+    setAdding(true);
+  };
 
   return (
-    <div>
-      <section className="card overflow-hidden bg-brand-800 p-6 text-white">
-        <h1 className="text-2xl font-semibold">Product Catalogue</h1>
-        <p className="mt-1 text-sm text-brand-50/90">
-          {products.length} {products.length === 1 ? "product" : "products"}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={onCopyLink} className="btn-secondary">
-            <LinkIcon className="h-4 w-4" />
-            Copy Link
-          </button>
-          <button type="button" onClick={onShare} className="btn-secondary">
-            <ShareIcon className="h-4 w-4" />
-            Share Catalogue
-          </button>
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setAdding(true);
-              }}
-              className="btn-secondary"
-            >
-              + Add Product
+    <div className="space-y-6">
+      <PageHeader
+        icon={BoxIcon}
+        title="Catalogue"
+        subtitle="Products and prices you can share as a link, and pick from when building a quotation."
+        actions={
+          canManage && (
+            <button type="button" onClick={openAdd} className="btn-primary">
+              <PlusIcon className="h-4 w-4" />
+              Add product
             </button>
-          )}
+          )
+        }
+      />
+
+      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 p-6 text-white shadow-brand">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-48 w-48 rounded-full bg-white/10" />
+        <div className="relative flex flex-wrap items-center gap-5">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-brand-100">Your public catalogue</p>
+            <p className="mt-1 text-2xl font-extrabold tracking-tight">
+              {products.length} {products.length === 1 ? "product" : "products"}
+              {categories.length > 0 && <span className="text-lg font-semibold text-brand-100"> in {categories.length} {categories.length === 1 ? "category" : "categories"}</span>}
+            </p>
+            {shareUrl && <p className="mt-2 truncate rounded-lg bg-black/15 px-3 py-1.5 font-mono text-xs text-brand-50">{shareUrl}</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={onCopyLink} className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25">
+              <LinkIcon className="h-4 w-4" />
+              Copy link
+            </button>
+            <button type="button" onClick={onShare} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">
+              <ShareIcon className="h-4 w-4" />
+              Share on WhatsApp
+            </button>
+          </div>
         </div>
       </section>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {notice && <p className="mt-3 break-all text-sm text-slate-600">{notice}</p>}
-
-      {products.length > 0 && (
-        <div className="mt-6 flex justify-end">
-          <input
-            className="input w-64"
-            placeholder="Search products…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      {products.length === 0 ? (
+        <div className="card">
+          <EmptyState
+            icon={BoxIcon}
+            title="No products yet"
+            text="Add what you sell — then share the catalogue on WhatsApp or pick items straight into a quotation."
+            action={
+              canManage && (
+                <button type="button" onClick={openAdd} className="btn-primary">
+                  <PlusIcon className="h-4 w-4" />
+                  Add your first product
+                </button>
+              )
+            }
           />
         </div>
-      )}
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            {categories.length > 0 &&
+              [null, ...categories].map((c) => (
+                <button
+                  key={c ?? "all"}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                    category === c ? "bg-brand-600 text-white" : "bg-white text-slate-600 shadow-card hover:text-slate-900"
+                  }`}
+                >
+                  {c ?? "All"}
+                </button>
+              ))}
+            <div className="relative ml-auto w-full sm:w-64">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="input py-2 pl-9" placeholder="Search products" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </div>
 
-      <section className="mt-3">
-        {products.length === 0 ? (
-          <div className="card flex flex-col items-center gap-3 px-6 py-16 text-center">
-            <BoxIcon className="h-12 w-12 text-slate-300" />
-            <h2 className="text-lg font-semibold text-slate-900">No products yet</h2>
-            <p className="max-w-sm text-sm text-slate-500">
-              Add products to your catalogue to share them over WhatsApp.
-            </p>
-            {canManage && (
-              <button type="button" onClick={() => setAdding(true)} className="btn-primary">
-                + Add Product
-              </button>
-            )}
-          </div>
-        ) : visible.length === 0 ? (
-          <p className="text-sm text-slate-500">No products match “{search}”.</p>
-        ) : (
-          <div className="card overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3 font-semibold">Product</th>
-                  <th className="px-4 py-3 font-semibold">SKU</th>
-                  <th className="px-4 py-3 font-semibold">Category</th>
-                  <th className="px-4 py-3 font-semibold">Price</th>
-                  <th className="px-4 py-3 font-semibold">Tax</th>
-                  <th className="px-4 py-3 font-semibold">Stock</th>
-                  {canManage && <th className="px-4 py-3 text-right font-semibold">Action</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visible.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {p.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={p.imageUrl}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                            <BoxIcon className="h-5 w-5 text-slate-400" />
-                          </span>
-                        )}
-                        <div>
-                          <p className="font-medium text-slate-900">{p.name}</p>
-                          {p.description && (
-                            <p className="line-clamp-1 max-w-xs text-xs text-slate-500">{p.description}</p>
-                          )}
-                        </div>
+          {visible.length === 0 ? (
+            <div className="card">
+              <EmptyState icon={SearchIcon} tone="slate" title="Nothing matches" text={`No products match “${search}”.`} compact />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {visible.map((p) => (
+                <article key={p.id} className="card card-hover group flex flex-col overflow-hidden">
+                  <div className="relative aspect-[2/1] bg-gradient-to-br from-brand-50 to-slate-100">
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <BoxIcon className="h-12 w-12 text-brand-300" />
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{p.sku ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.category ?? "—"}</td>
-                    <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-900">
-                      {formatMoney(p.price, p.currency)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                      {p.taxPercent > 0 ? `${p.taxName ?? "Tax"} ${p.taxPercent}%` : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {p.stock === null ? (
-                        <span className="badge badge-neutral">Not tracked</span>
-                      ) : p.stock === 0 ? (
-                        <span className="badge badge-danger">Out of stock</span>
-                      ) : (
-                        p.stock
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdding(false);
-                              setEditing(p);
-                            }}
-                            className="btn-secondary"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDelete(p)}
-                            disabled={deletingId === p.id}
-                            className="btn-danger"
-                          >
-                            {deletingId === p.id ? "Removing…" : "Remove"}
-                          </button>
-                        </div>
-                      </td>
                     )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                    {p.category && (
+                      <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-bold text-slate-700 shadow-sm">
+                        {p.category}
+                      </span>
+                    )}
+                    {p.stock === 0 && (
+                      <span className="absolute right-3 top-3 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white">Out of stock</span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col p-4">
+                    <p className="font-bold text-slate-900">{p.name}</p>
+                    {p.description && <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{p.description}</p>}
+                    <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+                      <div>
+                        <p className="text-xl font-extrabold text-slate-900">{formatMoney(p.price, p.currency)}</p>
+                        <p className="text-xs text-slate-500">
+                          {p.taxPercent > 0 ? `+ ${p.taxName ?? "Tax"} ${p.taxPercent}%` : "No tax"}
+                          {p.sku && ` · ${p.sku}`}
+                          {p.stock !== null && p.stock > 0 && ` · ${p.stock} in stock`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {canManage && (
+                    <div className="flex border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdding(false);
+                          setEditing(p);
+                        }}
+                        className="flex-1 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(p)}
+                        disabled={deletingId === p.id}
+                        className="flex-1 border-l border-slate-100 py-2.5 text-sm font-semibold text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      >
+                        {deletingId === p.id ? "Removing…" : "Remove"}
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {canManage && (adding || editing) && (
         <ProductForm
@@ -362,12 +380,12 @@ function ProductForm({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4"
+      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4"
       onClick={onCancel}
       role="presentation"
     >
       <div
-        className="card my-8 w-full max-w-2xl p-6"
+        className="my-8 w-full max-w-2xl animate-toast-in rounded-3xl bg-white p-6 shadow-pop"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -375,7 +393,7 @@ function ProductForm({
       >
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-900">
-            {product ? `Edit “${product.name}”` : "Add Product"}
+            {product ? `Edit “${product.name}”` : "Add product"}
           </h2>
           <button
             type="button"

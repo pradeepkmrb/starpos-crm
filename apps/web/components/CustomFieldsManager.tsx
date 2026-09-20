@@ -23,6 +23,8 @@ import {
   reorderCustomFields,
   updateCustomField,
 } from "../lib/api";
+import { PageHeader } from "./ui";
+import { SlidersIcon as SlidersHeaderIcon } from "./icons";
 
 /** What changes between the two builders is wording, not behaviour. */
 const COPY: Record<
@@ -188,19 +190,21 @@ export function CustomFieldsManager({ entity }: { entity: CustomFieldEntity }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading fields…</p>;
+  if (loading) return <div className="skeleton h-64 rounded-2xl" />;
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{copy.title}</h1>
-          <p className="mt-1 text-sm text-slate-500">{copy.intro}</p>
-        </div>
-        <Link href={copy.backHref} className="btn-secondary">
-          {copy.backLabel}
-        </Link>
-      </div>
+      <PageHeader
+        icon={SlidersHeaderIcon}
+        tone="slate"
+        title={copy.title}
+        subtitle={copy.intro}
+        actions={
+          <Link href={copy.backHref} className="btn-secondary">
+            {copy.backLabel}
+          </Link>
+        }
+      />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {notice && <p className="mt-3 text-sm text-slate-600">{notice}</p>}

@@ -23,6 +23,11 @@ model User {
   invitesSent TenantInvite[]     @relation("InvitedBy")
   assignedContacts Contact[]     @relation("AssignedAgent")
   ownedLeads       Lead[]         @relation("LeadOwner")
+  ownedActivities   Activity[]    @relation("ActivityOwner")
+  createdActivities Activity[]    @relation("ActivityCreator")
+  createdQuotations Quotation[]   @relation("QuotationCreator")
+  collectedPayments Payment[]     @relation("PaymentCollector")
+  salesTargets      SalesTarget[]
   connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
 }
 
@@ -33,6 +38,10 @@ model Tenant {
   planId              String
   status             TenantStatus @default(active)
   timezone           String   @default("Asia/Kolkata")
+  /// Last quotation number handed out; the next quote is QT-(this + 1).
+  quotationSeq       Int      @default(1000)
+  /// Legal name, address, GSTIN, contact details and terms for quotation PDFs.
+  businessProfileJson Json?
   razorpayCustomerId String?
   overLimit          Boolean  @default(false)
   createdAt          DateTime @default(now())
@@ -55,10 +64,14 @@ model Tenant {
   messageLogs        MessageLog[]
   automationWorkflows AutomationWorkflow[]
   leads              Lead[]
+  activities         Activity[]
   customFields       CustomField[]
   metaLeadForms      MetaLeadForm[]
   integrations       TenantIntegration[]
   products           Product[]
+  quotations         Quotation[]
+  payments           Payment[]
+  salesTargets       SalesTarget[]
 }
 
 enum TenantStatus {
@@ -560,6 +573,18 @@ model Lead {
   /// The teammate working this lead; null means unclaimed.
   ownerUserId String?
 
+  /// Where a field rep visits the lead. Coordinates come from the phone's GPS
+  /// ("use current location") or a geocoded address, and power nearby search.
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  /// A rep's "hot" flag — a priority marker independent of the stage.
+  isHot           Boolean   @default(false)
+  expectedCloseAt DateTime?
+  /// Stamped when the lead reaches won or lost, so closings can be counted by
+  /// month; cleared if it is reopened.
+  closedAt        DateTime?
+
   /// Answers to the tenant's custom lead fields, keyed by CustomField.key.
   customFieldsJson Json?
 
@@ -578,6 +603,9 @@ model Lead {
   // leads they happened to be working.
   owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   metaFormLink MetaLeadForm? @relation(fields: [metaFormLinkId], references: [id], onDelete: SetNull)
+  activities   Activity[]
+  quotations   Quotation[]
+  payments     Payment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -587,9 +615,77 @@ model Lead {
 enum LeadStatus {
   new
   contacted
+  interested
   qualified
+  demo_scheduled
+  proposal
   won
   lost
+}
+
+/// One entry on a lead's timeline: a call, visit, demo, follow-up or note.
+/// Scheduled ones are the rep's to-do list; completing one records the outcome.
+model Activity {
+  id       String @id @default(cuid())
+  tenantId String
+  leadId   String
+
+  type   ActivityType
+  status ActivityStatus @default(scheduled)
+  title  String?
+  notes  String?
+  /// What happened, e.g. "connected" or "not_interested" for a call.
+  outcome String?
+
+  /// Who is doing it; null means unassigned.
+  ownerUserId     String?
+  createdByUserId String?
+
+  scheduledAt     DateTime?
+  /// Visit check-in time; completedAt is check-out.
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationSeconds Int?
+
+  /// Where the rep was when checking in to a visit.
+  latitude       Float?
+  longitude      Float?
+  /// How far the check-in was from the lead's pinned location.
+  distanceMeters Int?
+  /// The phone's reported GPS accuracy at check-in.
+  accuracyMeters Int?
+  /// Where the rep was at check-out.
+  endLatitude    Float?
+  endLongitude   Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead      Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // SetNull: removing a teammate keeps the history of what they did.
+  owner     User?  @relation("ActivityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ActivityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, ownerUserId, status, scheduledAt])
+  @@index([tenantId, completedAt])
+  @@index([leadId])
+}
+
+enum ActivityType {
+  call
+  visit
+  demo
+  follow_up
+  note
+}
+
+enum ActivityStatus {
+  scheduled
+  /// A visit between check-in and check-out.
+  in_progress
+  completed
+  cancelled
 }
 
 /// A tenant-defined extra question on an entry screen. One builder serves
@@ -756,7 +852,8 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotationItems QuotationItem[]
 
   // Postgres counts NULLs as distinct, so products without a SKU don't
   // collide with each other while real SKUs stay unique per tenant.
@@ -764,3 +861,124 @@ model Product {
   @@index([tenantId])
 }
 
+
+/// A priced offer to a lead. Amounts are in paise, like Lead.valuePaise, and
+/// are stored as computed when the quote was saved so a later price change in
+/// the catalogue never rewrites a quote the customer already has.
+model Quotation {
+  id       String @id @default(cuid())
+  tenantId String
+  leadId   String
+  /// Per-workspace number, e.g. "QT-1001".
+  number   String
+  status   QuotationStatus @default(draft)
+  currency String          @default("INR")
+
+  subtotalPaise Int
+  discountPaise Int @default(0)
+  taxPaise      Int
+  totalPaise    Int
+
+  validUntil DateTime?
+  notes      String?
+  /// Unguessable id for the public PDF link WhatsApp fetches the document from.
+  shareToken String @unique
+
+  createdByUserId String?
+  sentAt          DateTime?
+  /// When it was accepted or rejected.
+  respondedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead      Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation("QuotationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items     QuotationItem[]
+  payments  Payment[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([leadId])
+}
+
+enum QuotationStatus {
+  draft
+  sent
+  accepted
+  rejected
+}
+
+/// One line on a quotation. Name, price and tax are copied from the product
+/// at the time, so the line reads the same even if the product changes.
+model QuotationItem {
+  id             String  @id @default(cuid())
+  quotationId    String
+  productId      String?
+  name           String
+  description    String?
+  quantity       Int
+  unitPricePaise Int
+  taxPercent     Decimal @default(0) @db.Decimal(5, 2)
+  position       Int     @default(0)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+}
+
+/// Money received from a lead, optionally against a quotation.
+model Payment {
+  id                String      @id @default(cuid())
+  tenantId          String
+  leadId            String
+  quotationId       String?
+  amountPaise       Int
+  mode              PaymentMode
+  /// UPI transaction id, cheque number or bank reference.
+  reference         String?
+  notes             String?
+  receivedAt        DateTime
+  collectedByUserId String?
+  createdAt         DateTime    @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  collectedBy User?      @relation("PaymentCollector", fields: [collectedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, receivedAt])
+  @@index([leadId])
+  @@index([quotationId])
+}
+
+enum PaymentMode {
+  cash
+  upi
+  cheque
+  bank_transfer
+  card
+  other
+}
+
+/// A monthly sales target — for one rep, or for the whole team when userId
+/// is null. Progress is the value of leads won that month.
+model SalesTarget {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  /// "YYYY-MM" in the workspace's time zone.
+  month       String
+  amountPaise Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Postgres treats NULL userIds as distinct, so the one-team-target rule is
+  // enforced in SalesTargetsService rather than by this constraint.
+  @@unique([tenantId, userId, month])
+  @@index([tenantId, month])
+}

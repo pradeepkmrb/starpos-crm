@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Digitell",
+    "slug": "digitel",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.touch4bill.digitel"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#128C7E",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.touch4bill.digitel"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Digitell uses your location to check you in at a lead and to show leads near you."
+        }
+      ]
+    ],
+    "scheme": "digitel",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a413a0f4-f110-4b7b-8d3e-68be4cf019bd"
+      }
+    },
+    "owner": "touch4bill"
+  }
+}

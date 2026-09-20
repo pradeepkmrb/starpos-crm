@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ApiError, getAccessToken, me } from "../../../lib/api";
+import { PageSkeleton } from "../../../components/PageSkeleton";
 
 const TABS = [
   { href: "/dashboard/platform-admin", label: "Meta Setup" },
@@ -39,12 +40,12 @@ export default function PlatformAdminLayout({ children }: { children: React.Reac
       .finally(() => setChecked(true));
   }, [router]);
 
-  if (!checked) return <p className="text-slate-500">Loading…</p>;
+  if (!checked) return <PageSkeleton />;
   if (!authorized) return null;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900">Agency Console</h1>
+      <h1 className="page-title">Agency Console</h1>
       <p className="mt-1 text-sm text-slate-500">
         Manage the shared Meta App credentials, customers, connections, and billing across the whole
         agency.

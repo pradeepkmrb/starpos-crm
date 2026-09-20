@@ -1,11 +1,15 @@
 import type {
+  ActivityStatus,
+  ActivityType,
   ChannelType,
   CustomFieldEntity,
   CustomFieldType,
   IntegrationFieldSpec,
   IntegrationStatus,
   LeadStatus,
+  PaymentMode,
   PlanCode,
+  QuotationStatus,
   TenantRole,
 } from "@digitel/shared";
 
@@ -23,7 +27,37 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Access tokens last 15 minutes. On a 401 the refresh token buys a new pair
+// and the request is retried once, so people aren't bounced to the login
+// page mid-task. Concurrent 401s share a single refresh call.
+let refreshing: Promise<boolean> | null = null;
+
+/** Sign-in calls, where a 401 means wrong credentials rather than an expired session. */
+const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/register", "/auth/refresh", "/auth/accept-invite"]);
+
+async function refreshTokens(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  refreshing ??= (async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      storeTokens(await res.json());
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
   const token = getAccessToken();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -33,6 +67,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   });
+  if (res.status === 401 && !retried && !NO_REFRESH_PATHS.has(path) && (await refreshTokens())) {
+    return request<T>(path, options, true);
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new ApiError(res.status, body.message ?? `Request failed (${res.status})`);
@@ -490,6 +527,7 @@ export interface Campaign {
   id: string;
   status: "draft" | "scheduled" | "sending" | "completed" | "failed";
   createdAt: string;
+  template?: { name: string; language: string };
   channel: { displayPhoneNumber: string | null };
   targetList: { name: string };
   recipientStats?: Record<string, number>;
@@ -518,7 +556,6 @@ export function launchCampaign(input: {
   channelId: string;
   targetListId: string;
   templateName: string;
-  languageCode?: string;
 }) {
   return request<CampaignDetail>("/campaigns", { method: "POST", body: JSON.stringify(input) });
 }
@@ -713,7 +750,12 @@ export function updatePlatformSettings(input: {
   });
 }
 
-export function completeEmbeddedSignup(input: { code: string; wabaId: string; phoneNumberId: string }) {
+export function completeEmbeddedSignup(input: {
+  code: string;
+  wabaId: string;
+  phoneNumberId?: string;
+  coexistence?: boolean;
+}) {
   return request<Channel>("/channels/embedded-signup", {
     method: "POST",
     body: JSON.stringify(input),
@@ -957,6 +999,12 @@ export interface Lead {
   metaLeadId: string | null;
   metaAdId: string | null;
   metaFormLink: { id: string; formId: string; formName: string | null; pageName: string | null } | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isHot: boolean;
+  expectedCloseAt: string | null;
+  closedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -977,13 +1025,22 @@ export interface LeadInput {
   notes?: string | null;
   ownerUserId?: string | null;
   customFields?: Record<string, string | number | boolean>;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isHot?: boolean;
+  expectedCloseAt?: string | null;
 }
 
-export function listLeads(params: { status?: string; q?: string; limit?: number } = {}) {
+export function listLeads(
+  params: { status?: string; q?: string; limit?: number; owner?: string; hot?: boolean } = {},
+) {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.q) query.set("q", params.q);
   if (params.limit) query.set("limit", String(params.limit));
+  if (params.owner) query.set("owner", params.owner);
+  if (params.hot) query.set("hot", "true");
   const suffix = query.toString();
   return request<Lead[]>(`/leads${suffix ? `?${suffix}` : ""}`);
 }
@@ -1002,6 +1059,113 @@ export function updateLead(leadId: string, input: Partial<LeadInput>) {
 
 export function deleteLead(leadId: string) {
   return request<{ id: string; deleted: boolean }>(`/leads/${leadId}`, { method: "DELETE" });
+}
+
+// --- Field sales: activities (calls, visits, demos, follow-ups, notes) ---
+
+export interface Activity {
+  id: string;
+  leadId: string;
+  type: ActivityType;
+  status: ActivityStatus;
+  title: string | null;
+  notes: string | null;
+  outcome: string | null;
+  ownerUserId: string | null;
+  owner: LeadOwner | null;
+  createdByUserId: string | null;
+  scheduledAt: string | null;
+  /** Visit check-in time; completedAt is check-out. */
+  startedAt: string | null;
+  completedAt: string | null;
+  durationSeconds: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  distanceMeters: number | null;
+  accuracyMeters: number | null;
+  endLatitude: number | null;
+  endLongitude: number | null;
+  createdAt: string;
+  lead: {
+    id: string;
+    name: string;
+    company: string | null;
+    phone: string | null;
+    status: LeadStatus;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+}
+
+export interface ActivityInput {
+  leadId: string;
+  type: ActivityType;
+  /** in_progress is set only by a visit check-in. */
+  status?: Exclude<ActivityStatus, "in_progress">;
+  title?: string | null;
+  notes?: string | null;
+  outcome?: string | null;
+  ownerUserId?: string | null;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+}
+
+export function listActivities(
+  params: {
+    leadId?: string;
+    owner?: string;
+    status?: ActivityStatus;
+    type?: ActivityType;
+    from?: string;
+    to?: string;
+    startedFrom?: string;
+    startedTo?: string;
+    limit?: number;
+  } = {},
+) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.toString();
+  return request<Activity[]>(`/activities${suffix ? `?${suffix}` : ""}`);
+}
+
+export interface FieldSummary {
+  scope: "me" | "team";
+  activeVisit: Activity | null;
+  today: Activity[];
+  overdueCount: number;
+  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number; collectedPaise: number };
+  openPipeline: { count: number; valuePaise: number };
+  targetMonth: string;
+  /** This month's target for the viewer (or the team, in team scope); null when none is set. */
+  targetPaise: number | null;
+}
+
+/** Today's plan and this month's numbers; day and month bounds are the viewer's local ones. */
+export function getFieldSummary(scope: "me" | "team" = "me", now = new Date()) {
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const params = new URLSearchParams({
+    dayStart: dayStart.toISOString(),
+    dayEnd: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString(),
+    monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+    scope,
+  });
+  return request<FieldSummary>(`/field/summary?${params}`);
+}
+
+export function createActivity(input: ActivityInput) {
+  return request<Activity>("/activities", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateActivity(activityId: string, input: Partial<Omit<ActivityInput, "leadId">>) {
+  return request<Activity>(`/activities/${activityId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteActivity(activityId: string) {
+  return request<{ id: string; deleted: boolean }>(`/activities/${activityId}`, { method: "DELETE" });
 }
 
 // --- Custom fields (the same builder behind the lead and contact forms) ---
@@ -1238,3 +1402,167 @@ export function regenerateApiKey(name?: string) {
     body: JSON.stringify(name ? { name } : {}),
   });
 }
+
+// --- Sales: quotations, payments, targets ---
+
+export interface QuotationItem {
+  id: string;
+  productId: string | null;
+  name: string;
+  description: string | null;
+  quantity: number;
+  unitPricePaise: number;
+  taxPercent: number;
+  position: number;
+}
+
+export interface Quotation {
+  id: string;
+  leadId: string;
+  number: string;
+  status: QuotationStatus;
+  currency: string;
+  subtotalPaise: number;
+  discountPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  validUntil: string | null;
+  notes: string | null;
+  shareToken: string;
+  pdfUrl: string;
+  sentAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  paidPaise: number;
+  balancePaise: number;
+  lead: { id: string; name: string; company: string | null; phone: string | null; email: string | null; address: string | null; status: LeadStatus };
+  createdBy: { id: string; name: string | null; email: string } | null;
+  items: QuotationItem[];
+}
+
+export interface QuotationItemInput {
+  productId?: string;
+  name?: string;
+  description?: string;
+  quantity: number;
+  unitPricePaise?: number;
+  taxPercent?: number;
+}
+
+export interface QuotationInput {
+  leadId: string;
+  items: QuotationItemInput[];
+  discountPaise?: number;
+  validUntil?: string | null;
+  notes?: string | null;
+}
+
+export type SendQuotationResult =
+  | { delivered: true; quotation: Quotation }
+  | {
+      delivered: false;
+      reason: "no_phone" | "no_whatsapp_channel" | "window_closed";
+      message: string;
+      pdfUrl: string;
+      shareLink: string | null;
+    };
+
+export interface BusinessProfile {
+  legalName?: string;
+  address?: string;
+  gstin?: string;
+  phone?: string;
+  email?: string;
+  terms?: string;
+  validityDays?: number;
+}
+
+export function listQuotations(params: { leadId?: string; status?: QuotationStatus } = {}) {
+  const query = new URLSearchParams();
+  if (params.leadId) query.set("leadId", params.leadId);
+  if (params.status) query.set("status", params.status);
+  const suffix = query.toString();
+  return request<Quotation[]>(`/quotations${suffix ? `?${suffix}` : ""}`);
+}
+
+export const getQuotation = (id: string) => request<Quotation>(`/quotations/${id}`);
+
+export const createQuotation = (input: QuotationInput) =>
+  request<Quotation>("/quotations", { method: "POST", body: JSON.stringify(input) });
+
+export const updateQuotation = (
+  id: string,
+  input: Partial<Omit<QuotationInput, "leadId">> & { status?: QuotationStatus },
+) => request<Quotation>(`/quotations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+
+export const deleteQuotation = (id: string) =>
+  request<{ id: string; deleted: boolean }>(`/quotations/${id}`, { method: "DELETE" });
+
+export const sendQuotation = (id: string) =>
+  request<SendQuotationResult>(`/quotations/${id}/send`, { method: "POST" });
+
+export const getBusinessProfile = () => request<BusinessProfile>("/quotations/settings");
+
+export const saveBusinessProfile = (input: BusinessProfile) =>
+  request<BusinessProfile>("/quotations/settings", { method: "PUT", body: JSON.stringify(input) });
+
+export interface Payment {
+  id: string;
+  leadId: string;
+  quotationId: string | null;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference: string | null;
+  notes: string | null;
+  receivedAt: string;
+  createdAt: string;
+  lead: { id: string; name: string; company: string | null };
+  quotation: { id: string; number: string; totalPaise: number } | null;
+  collectedBy: { id: string; name: string | null; email: string } | null;
+}
+
+export interface PaymentInput {
+  leadId: string;
+  quotationId?: string;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference?: string;
+  notes?: string;
+  receivedAt?: string;
+}
+
+export function listPayments(params: { leadId?: string; collector?: string; from?: string; to?: string } = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  const suffix = query.toString();
+  return request<Payment[]>(`/payments${suffix ? `?${suffix}` : ""}`);
+}
+
+export const createPayment = (input: PaymentInput) =>
+  request<Payment>("/payments", { method: "POST", body: JSON.stringify(input) });
+
+export const deletePayment = (id: string) =>
+  request<{ id: string; deleted: boolean }>(`/payments/${id}`, { method: "DELETE" });
+
+export interface TargetRow {
+  amountPaise: number | null;
+  achievedPaise: number;
+  closings: number;
+  collectedPaise: number;
+}
+
+export interface TargetsBoard {
+  month: string;
+  timeZone: string;
+  team: TargetRow;
+  reps: (TargetRow & { user: { id: string; name: string | null; email: string }; role: TenantRole })[];
+}
+
+export const getTargets = (month?: string) =>
+  request<TargetsBoard>(`/targets${month ? `?month=${month}` : ""}`);
+
+export const setTarget = (input: { month: string; userId: string | null; amountPaise: number }) =>
+  request<{ month: string; userId: string | null; amountPaise: number | null }>("/targets", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });

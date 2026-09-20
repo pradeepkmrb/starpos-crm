@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, getPlatformTenants, type PlatformTenant } from "../../../../lib/api";
+import { PageSkeleton } from "../../../../components/PageSkeleton";
 
 export default function PlatformSubscriptionsPage() {
   const [loading, setLoading] = useState(true);
@@ -15,7 +16,7 @@ export default function PlatformSubscriptionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
+  if (loading) return <PageSkeleton />;
   if (error) return <p className="text-red-600">{error}</p>;
 
   return (
