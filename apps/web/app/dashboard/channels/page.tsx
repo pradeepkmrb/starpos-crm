@@ -21,6 +21,15 @@ import { MessengerCard } from "./MessengerCard";
 import { InstagramCard } from "./InstagramCard";
 import { EmailCard } from "./EmailCard";
 import { PageSkeleton } from "../../../components/PageSkeleton";
+import { PageHeader } from "../../../components/ui";
+import { CameraIcon, ChatIcon, MailIcon, MessengerIcon, PlugIcon } from "../../../components/icons";
+
+const CHANNEL_TILES: { type: ChannelType; title: string; blurb: string; icon: typeof ChatIcon; tint: string }[] = [
+  { type: "whatsapp", title: "WhatsApp", blurb: "Broadcasts, chats and flows", icon: ChatIcon, tint: "bg-brand-50 text-brand-600" },
+  { type: "facebook", title: "Messenger", blurb: "Your Facebook Page inbox", icon: MessengerIcon, tint: "bg-sky-50 text-sky-600" },
+  { type: "instagram", title: "Instagram", blurb: "Direct messages", icon: CameraIcon, tint: "bg-rose-50 text-rose-600" },
+  { type: "email", title: "Email", blurb: "Your support mailbox", icon: MailIcon, tint: "bg-amber-50 text-amber-600" },
+];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -35,6 +44,7 @@ export default function ChannelsPage() {
   const [connections, setConnections] = useState<ChannelConnection[]>([]);
   const [platformConfig, setPlatformConfig] = useState<PlatformPublicConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<ChannelType>("whatsapp");
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -83,33 +93,59 @@ export default function ChannelsPage() {
   const canManage = roleAtLeast(role, "admin");
   const connectedTypes = connections.filter((c) => c.status === "active").map((c) => c.type);
 
+  const isConnected = (type: ChannelType) =>
+    type === "whatsapp" ? channels.some((c) => c.status === "active") : connectedTypes.includes(type);
+
   return (
-    <div>
-      <h1 className="page-title">Connections</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Connect WhatsApp, Facebook Messenger, Instagram DMs and your support mailbox. Everything you connect
-        lands in one shared Inbox.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        icon={PlugIcon}
+        title="Connections"
+        subtitle="Connect WhatsApp, Messenger, Instagram and your support mailbox — everything lands in one shared Inbox."
+      />
 
-      {connectedTypes.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {connectedTypes.map((type) => (
-            <span key={type} className="badge badge-success">
-              {CHANNEL_LABELS[type]} connected
-            </span>
-          ))}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {CHANNEL_TILES.map((t) => {
+          const on = isConnected(t.type);
+          const active = tab === t.type;
+          return (
+            <button
+              key={t.type}
+              type="button"
+              onClick={() => setTab(t.type)}
+              aria-pressed={active}
+              className={`card card-hover flex flex-col items-start p-5 text-left ring-2 transition-all ${active ? "ring-brand-500" : "ring-transparent"}`}
+            >
+              <div className="flex w-full items-start justify-between">
+                <span className={`icon-chip h-11 w-11 rounded-2xl ${t.tint}`}>
+                  <t.icon className="h-5 w-5" />
+                </span>
+                <span className={`badge ${on ? "badge-success" : "badge-neutral"}`}>
+                  {on && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />}
+                  {on ? "Connected" : "Not connected"}
+                </span>
+              </div>
+              <p className="mt-4 font-bold text-slate-900">{t.title}</p>
+              <p className="text-sm text-slate-500">{t.blurb}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "whatsapp" && (
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">{CHANNEL_LABELS.whatsapp}</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            A WhatsApp Business Cloud API number to send and receive messages.
+          </p>
         </div>
-      )}
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold text-slate-900">WhatsApp</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Connect a Meta WhatsApp Business Cloud API phone number to send and receive messages.
-        </p>
-
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           {channels.length === 0 && (
-            <p className="text-sm text-slate-500">No WhatsApp number connected yet.</p>
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-sm text-slate-500">
+              No WhatsApp number connected yet.
+            </p>
           )}
           {channels.map((channel) => (
             <ChannelCard key={channel.id} channel={channel} canManage={canManage} />
@@ -117,7 +153,7 @@ export default function ChannelsPage() {
         </div>
 
         {canManage && platformConfig?.configured && (
-          <div className="card mt-4 p-6">
+          <div className="card p-6">
             <h3 className="text-base font-semibold text-slate-900">Connect a WhatsApp channel</h3>
             <p className="mt-1 text-sm text-slate-500">
               Connect your WhatsApp Business account through Meta — no credentials to copy.
@@ -149,14 +185,17 @@ export default function ChannelsPage() {
           <ConnectChannelForm onConnected={(channel) => setChannels((prev) => [...prev, channel])} />
         )}
       </section>
+      )}
 
-      <div className="mt-8 space-y-6">
+      {tab === "facebook" && (
         <MessengerCard
           connection={byType.get("facebook") ?? null}
           webhookUrl={META_WEBHOOK_URL}
           canManage={canManage}
           onSaved={upsertConnection}
         />
+      )}
+      {tab === "instagram" && (
         <InstagramCard
           connection={byType.get("instagram") ?? null}
           messengerConnection={byType.get("facebook") ?? null}
@@ -164,15 +203,17 @@ export default function ChannelsPage() {
           canManage={canManage}
           onSaved={upsertConnection}
         />
+      )}
+      {tab === "email" && (
         <EmailCard
           connection={byType.get("email") ?? null}
           canManage={canManage}
           onSaved={upsertConnection}
         />
-      </div>
+      )}
 
       {!canManage && (
-        <p className="mt-6 text-sm text-slate-500">
+        <p className="text-sm text-slate-500">
           Your role can see connections but not change them.
         </p>
       )}

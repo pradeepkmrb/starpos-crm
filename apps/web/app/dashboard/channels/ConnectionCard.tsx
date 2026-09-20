@@ -33,11 +33,11 @@ export function ConnectionCard({
     <section className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${iconClassName}`}>
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
             {icon}
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
             <p className="mt-0.5 max-w-md text-sm text-slate-500">{description}</p>
           </div>
         </div>
@@ -75,36 +75,47 @@ export function ConnectionCard({
 /** The grey "How to get these" panel every card ends with. */
 export function SetupSteps({ title, steps }: { title: string; steps: ReactNode[] }) {
   return (
-    <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-600">
+    <details className="group mt-5 rounded-2xl border border-slate-200 bg-slate-50/70">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800">
+        {title.replace(/:$/, "")}
+        <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <ol className="space-y-2 px-4 pb-4 text-sm text-slate-600">
         {steps.map((step, i) => (
-          <li key={i}>{step}</li>
+          <li key={i} className="flex gap-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
         ))}
       </ol>
-    </div>
+    </details>
   );
 }
 
 /** Blue panel for the webhook details an operator only needs with their own Meta app. */
 export function WebhookNote({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/60 p-4">
-      <p className="text-sm font-semibold text-brand-900">{title}</p>
-      <div className="mt-1.5 space-y-2 text-sm text-slate-600">{children}</div>
-    </div>
+    <details className="group mt-3 rounded-2xl border border-brand-100 bg-brand-50/50">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-900">
+        {title}
+        <span className="text-brand-400 transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="space-y-2 px-4 pb-4 text-sm text-slate-600">{children}</div>
+    </details>
   );
 }
 
 /** Monospaced value with a copy button — used for webhook URLs and field lists. */
 export function CopyableValue({ value }: { value: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+    <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
       <code className="min-w-0 flex-1 break-all font-mono text-xs text-slate-700">{value}</code>
       <button
         type="button"
         onClick={() => void navigator.clipboard?.writeText(value)}
-        className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+        className="shrink-0 rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
       >
         Copy
       </button>

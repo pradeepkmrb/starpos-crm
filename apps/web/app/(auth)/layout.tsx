@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <Link href="/" className="relative flex items-center gap-2.5">
           <BrandMark className="h-10 w-10" />
-          <span className="text-2xl font-extrabold tracking-tight">Digitel</span>
+          <span className="text-2xl font-extrabold tracking-tight">Digitell</span>
         </Link>
 
         <div className="relative mt-auto max-w-md">
@@ -53,7 +53,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex flex-col items-center justify-center bg-canvas px-4 py-12">
         <Link href="/" className="mb-8 flex items-center gap-2.5 lg:hidden">
           <BrandMark className="h-9 w-9" />
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">Digitel</span>
+          <span className="text-xl font-extrabold tracking-tight text-slate-900">Digitell</span>
         </Link>
         <div className="card w-full max-w-md p-8 sm:p-10">{children}</div>
       </div>

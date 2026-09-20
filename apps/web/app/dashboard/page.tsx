@@ -36,6 +36,7 @@ import {
   PhoneIcon,
   PlusIcon,
   PresentationIcon,
+  ReceiptIcon,
   TrendUpIcon,
   TrophyIcon,
   UsersIcon,
@@ -118,6 +119,8 @@ export default function DashboardPage() {
   const pipelineTotal = field.month.wonValuePaise + field.openPipeline.valuePaise;
   const wonShare = pipelineTotal > 0 ? field.month.wonValuePaise / pipelineTotal : 0;
   const scopeLabel = field.scope === "team" ? "Your team" : "You";
+  const target = field.targetPaise;
+  const targetPct = target ? Math.round((field.month.wonValuePaise / target) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -135,6 +138,10 @@ export default function DashboardPage() {
           <Link href="/dashboard/leads?new=1" className="btn-secondary">
             <PlusIcon className="h-4 w-4" />
             Add lead
+          </Link>
+          <Link href="/dashboard/quotations?new=1" className="btn-secondary">
+            <ReceiptIcon className="h-4 w-4" />
+            New quotation
           </Link>
           <Link href="/dashboard/campaigns" className="btn-primary">
             <MegaphoneIcon className="h-4 w-4" />
@@ -157,19 +164,45 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-brand-100">
               {field.month.closings} {field.month.closings === 1 ? "deal" : "deals"} closed
             </p>
-            <div className="mt-6">
-              <div className="flex justify-between text-xs font-medium text-brand-100">
-                <span>Won vs open pipeline</span>
-                <span>{Math.round(wonShare * 100)}%</span>
+            {target ? (
+              <div className="mt-6">
+                <div className="flex justify-between text-xs font-medium text-brand-100">
+                  <span>Target {rupees(target)}</span>
+                  <span>{targetPct}%</span>
+                </div>
+                <div className="mt-2 h-2.5 rounded-full bg-white/20">
+                  <div className="h-2.5 rounded-full bg-white" style={{ width: `${Math.max(2, Math.min(100, targetPct))}%` }} />
+                </div>
+                <p className="mt-2 text-sm">
+                  {field.month.wonValuePaise >= target ? (
+                    <span className="font-semibold">Target hit — well done</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold">{rupees(target - field.month.wonValuePaise)}</span>
+                      <span className="text-brand-100"> to go · </span>
+                    </>
+                  )}
+                  <span className="text-brand-100">
+                    {field.month.wonValuePaise >= target ? " · " : ""}
+                    {rupees(field.month.collectedPaise)} collected
+                  </span>
+                </p>
               </div>
-              <div className="mt-2 h-2.5 rounded-full bg-white/20">
-                <div className="h-2.5 rounded-full bg-white" style={{ width: `${Math.max(2, wonShare * 100)}%` }} />
+            ) : (
+              <div className="mt-6">
+                <div className="flex justify-between text-xs font-medium text-brand-100">
+                  <span>Won vs open pipeline</span>
+                  <span>{Math.round(wonShare * 100)}%</span>
+                </div>
+                <div className="mt-2 h-2.5 rounded-full bg-white/20">
+                  <div className="h-2.5 rounded-full bg-white" style={{ width: `${Math.max(2, wonShare * 100)}%` }} />
+                </div>
+                <p className="mt-2 text-sm">
+                  <span className="font-semibold">{rupees(field.openPipeline.valuePaise)}</span>
+                  <span className="text-brand-100"> still open across {field.openPipeline.count} leads</span>
+                </p>
               </div>
-              <p className="mt-2 text-sm">
-                <span className="font-semibold">{rupees(field.openPipeline.valuePaise)}</span>
-                <span className="text-brand-100"> still open across {field.openPipeline.count} leads</span>
-              </p>
-            </div>
+            )}
           </div>
         </div>
 

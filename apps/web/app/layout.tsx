@@ -9,7 +9,7 @@ const body = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Digitel — WhatsApp Marketing and Sales CRM",
+  title: "Digitell — WhatsApp Marketing and Sales CRM",
   description: "Bring your own WhatsApp API, run broadcasts, and manage your field sales team.",
 };
 

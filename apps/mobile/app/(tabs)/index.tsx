@@ -40,6 +40,8 @@ export default function HomeScreen() {
   const won = summary?.month.wonValuePaise ?? 0;
   const open = summary?.openPipeline.valuePaise ?? 0;
   const share = won + open > 0 ? won / (won + open) : 0;
+  const target = summary?.targetPaise ?? null;
+  const targetShare = target ? won / target : 0;
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
@@ -105,13 +107,38 @@ export default function HomeScreen() {
               <Text style={styles.heroSub}>
                 {summary.month.closings} {summary.month.closings === 1 ? "deal" : "deals"} closed
               </Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${Math.max(3, share * 100)}%` }]} />
-              </View>
-              <Text style={styles.heroFoot}>
-                <Text style={{ fontWeight: "800", color: "#fff" }}>{formatRupees(open)}</Text> still open across{" "}
-                {summary.openPipeline.count} {summary.openPipeline.count === 1 ? "lead" : "leads"}
-              </Text>
+              {target ? (
+                <>
+                  <View style={styles.targetRow}>
+                    <Text style={styles.heroFoot}>Target {formatRupees(target)}</Text>
+                    <Text style={[styles.heroFoot, { fontWeight: "800", color: "#fff" }]}>{Math.round(targetShare * 100)}%</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(3, targetShare * 100))}%` }]} />
+                  </View>
+                  <Text style={styles.heroFoot}>
+                    {won >= target ? (
+                      <Text style={{ fontWeight: "800", color: "#fff" }}>Target hit — well done</Text>
+                    ) : (
+                      <>
+                        <Text style={{ fontWeight: "800", color: "#fff" }}>{formatRupees(target - won)}</Text> to go
+                      </>
+                    )}
+                    {" · "}
+                    {formatRupees(summary.month.collectedPaise)} collected
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.max(3, share * 100)}%` }]} />
+                  </View>
+                  <Text style={styles.heroFoot}>
+                    <Text style={{ fontWeight: "800", color: "#fff" }}>{formatRupees(open)}</Text> still open across{" "}
+                    {summary.openPipeline.count} {summary.openPipeline.count === 1 ? "lead" : "leads"}
+                  </Text>
+                </>
+              )}
             </GradientCard>
 
             <View style={styles.tiles}>
@@ -228,6 +255,7 @@ const styles = StyleSheet.create({
   heroLabel: { color: "#D1FAE5", fontSize: 13, fontWeight: "600" },
   heroValue: { color: "#fff", fontSize: 34, fontWeight: "800", marginTop: 6, letterSpacing: -0.5 },
   heroSub: { color: "#D1FAE5", fontSize: 13 },
+  targetRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, marginBottom: -8 },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", marginTop: space.lg },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: "#fff" },
   heroFoot: { color: "#D1FAE5", fontSize: 13, marginTop: space.sm },

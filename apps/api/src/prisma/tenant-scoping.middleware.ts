@@ -32,6 +32,9 @@ const TENANT_SCOPED_MODELS = new Set([
   "AutomationWorkflow",
   "Lead",
   "Activity",
+  "Quotation",
+  "Payment",
+  "SalesTarget",
   // Renamed from LeadCustomField when contacts gained the same builder.
   "CustomField",
   "MetaLeadForm",

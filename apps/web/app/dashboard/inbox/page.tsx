@@ -32,6 +32,10 @@ import {
   updateContact,
 } from "../../../lib/api";
 import { PageSkeleton } from "../../../components/PageSkeleton";
+import { EmptyState, PageHeader } from "../../../components/ui";
+import { ChatIcon, CheckIcon, PlugIcon, SearchIcon, SlidersIcon } from "../../../components/icons";
+import Link from "next/link";
+import { Avatar } from "../../../components/Avatar";
 
 /** Inbound messages arrive by webhook, so the list needs its own refresh. */
 const POLL_INTERVAL_MS = 15_000;
@@ -93,8 +97,33 @@ function displayName(c: { name: string | null; handle: string }): string {
 
 function ChannelChip({ type }: { type: ChannelType }) {
   return (
-    <span className={`rounded px-1 text-[10px] font-medium ${CHANNEL_CLASSES[type]}`}>
+    <span className={`rounded-md px-1.5 py-px text-[10px] font-semibold ${CHANNEL_CLASSES[type]}`}>
       {CHANNEL_SHORT_LABELS[type]}
+    </span>
+  );
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+
+function clock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+}
+
+/** WhatsApp-style ticks: one for sent, two for delivered, two green for read. */
+function Ticks({ status }: { status: string }) {
+  if (status === "failed") return <span className="font-semibold text-red-200">Failed</span>;
+  const double = status === "delivered" || status === "read";
+  return (
+    <span className={`inline-flex ${status === "read" ? "text-sky-200" : "text-white/70"}`} aria-label={status}>
+      <CheckIcon className="h-3.5 w-3.5" />
+      {double && <CheckIcon className="-ml-2 h-3.5 w-3.5" />}
     </span>
   );
 }
@@ -117,6 +146,7 @@ export default function InboxPage() {
   const [labels, setLabels] = useState<Label[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [editingContact, setEditingContact] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -329,126 +359,223 @@ export default function InboxPage() {
 
   const canReply = roleAtLeast(role, "agent");
 
-  return (
-    <div>
-      <h1 className="page-title">Inbox</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Every channel in one place — WhatsApp, Facebook Messenger, Instagram DMs and email. On the three Meta
-        channels, free-form replies are only possible within 24 hours of the contact&apos;s last message;
-        email threads never close.
-      </p>
+  const details = thread && (
+    <div className="space-y-5">
+      <div className="flex flex-col items-center text-center">
+        <Avatar name={thread.contact.name || thread.contact.handle} size="h-16 w-16 text-xl" />
+        <p className="mt-3 font-bold text-slate-900">{thread.contact.name || thread.contact.handle}</p>
+        <p className="text-sm text-slate-500">{thread.contact.handle}</p>
+        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+          <ChannelChip type={thread.contact.channelType} />
+          <span className={`badge ${thread.contact.optedIn ? "badge-success" : "badge-neutral"}`}>
+            {thread.contact.optedIn ? "Opted in" : "Opted out"}
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Contact since {new Date(thread.contact.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+        </p>
+      </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {canReply && (
+        <>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned to</p>
+            <select
+              className="input py-2"
+              value={thread.contact.assignedUserId ?? ""}
+              onChange={(e) => onAssign(e.target.value || null)}
+            >
+              <option value="">Unassigned</option>
+              {members.length === 0 && thread.contact.assignedUser && (
+                <option value={thread.contact.assignedUser.id}>{memberLabel(thread.contact.assignedUser)}</option>
+              )}
+              {members.map((m) => (
+                <option key={m.user.id} value={m.user.id}>
+                  {memberLabel(m.user)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Labels</p>
+            <LabelPicker
+              labels={labels}
+              applied={thread.contact.labels}
+              onToggle={onToggleLabel}
+              onCreate={onCreateLabel}
+              canCreate={roleAtLeast(role, "admin")}
+            />
+          </div>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+            <span>
+              <span className="block text-sm font-semibold text-slate-800">Reply bot</span>
+              <span className="block text-xs text-slate-500">Let flows answer this contact</span>
+            </span>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-brand-600"
+              checked={thread.contact.botEnabled}
+              onChange={(e) => onPatchContact({ botEnabled: e.target.checked })}
+            />
+          </label>
+          <div>
+            <button
+              type="button"
+              onClick={() => setEditingContact((v) => !v)}
+              className="btn-secondary w-full py-2"
+            >
+              {editingContact ? "Close" : "Edit contact"}
+            </button>
+            {editingContact && (
+              <ContactInfoForm
+                contact={thread.contact}
+                onSave={async (patch) => {
+                  await onPatchContact(patch);
+                  setEditingContact(false);
+                }}
+              />
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  let lastDay = "";
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        icon={ChatIcon}
+        title="Inbox"
+        subtitle="WhatsApp, Messenger, Instagram and email in one place. Meta channels allow free replies for 24 hours after the contact's last message."
+      />
+
+      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       {conversations.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">
-          No conversations yet. They appear here once someone messages a channel you have connected, or once
-          you send them a broadcast. Connect Messenger, Instagram or a mailbox on the Connections page.
-        </p>
+        <div className="card">
+          <EmptyState
+            icon={ChatIcon}
+            title="No conversations yet"
+            text="Chats appear here when someone messages a connected channel, or after you send them a broadcast."
+            action={
+              <Link href="/dashboard/channels" className="btn-primary">
+                <PlugIcon className="h-4 w-4" />
+                Connect a channel
+              </Link>
+            }
+          />
+        </div>
       ) : (
-        <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]">
-          <aside className="card overflow-hidden">
-            <div className="flex border-b border-slate-100">
-              {(["all", "mine", "unassigned"] as Tab[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={`flex-1 px-2 py-2 text-sm font-medium capitalize ${
-                    tab === t
-                      ? "border-b-2 border-brand-800 text-brand-800"
-                      : "text-slate-500 hover:text-slate-900"
-                  }`}
-                >
-                  {t} ({counts[t]})
-                </button>
-              ))}
-            </div>
-            {activeChannels.length > 1 && (
-              <div className="flex flex-wrap gap-1 border-b border-slate-100 px-3 py-2">
-                {(["all", ...activeChannels] as ChannelFilter[]).map((type) => (
+        <div className="card relative grid h-[calc(100vh-13rem)] min-h-[34rem] overflow-hidden lg:grid-cols-[21rem_1fr] xl:grid-cols-[21rem_1fr_18rem]">
+          <aside className="flex min-h-0 flex-col border-r border-slate-100">
+            <div className="space-y-3 border-b border-slate-100 p-3">
+              <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                {(["all", "mine", "unassigned"] as Tab[]).map((t) => (
                   <button
-                    key={type}
+                    key={t}
                     type="button"
-                    onClick={() => setChannelFilter(type)}
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      channelFilter === type
-                        ? "bg-brand-800 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    onClick={() => setTab(t)}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                      tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    {type === "all" ? "All channels" : CHANNEL_SHORT_LABELS[type]}
+                    {t} <span className="text-slate-400">{counts[t]}</span>
                   </button>
                 ))}
               </div>
-            )}
-            <div className="border-b border-slate-100 p-3">
-              <input
-                className="input"
-                placeholder="Search conversations…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="max-h-[32rem] overflow-y-auto divide-y divide-slate-100">
-              {visible.length === 0 && (
-                <p className="p-4 text-sm text-slate-500">No conversations match “{search}”.</p>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  className="input py-2 pl-9"
+                  placeholder="Search conversations"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              {activeChannels.length > 1 && (
+                <div className="flex flex-wrap gap-1">
+                  {(["all", ...activeChannels] as ChannelFilter[]).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setChannelFilter(type)}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        channelFilter === type ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {type === "all" ? "All channels" : CHANNEL_SHORT_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
               )}
-              {visible.map((c) => (
-                <button
-                  key={c.contactId}
-                  type="button"
-                  onClick={() => setActiveId(c.contactId)}
-                  className={`block w-full px-4 py-3 text-left hover:bg-slate-50 ${
-                    c.contactId === activeId ? "bg-brand-50" : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium text-slate-900">
-                      {c.name || c.handle}
-                    </span>
-                    <span className="shrink-0 text-xs text-slate-400">{relativeTime(c.lastMessageAt)}</span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">
-                    {c.lastMessageDirection === "outbound" && "You: "}
-                    {c.lastMessagePreview}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <ChannelChip type={c.channelType} />
-                    {c.labels.map((l) => (
-                      <span
-                        key={l.id}
-                        className={`rounded px-1 text-[10px] font-medium ${LABEL_CLASSES[l.color] ?? LABEL_CLASSES.slate}`}
-                      >
-                        {l.name}
-                      </span>
-                    ))}
-                    {c.assignedUser && (
-                      <span className="text-[10px] text-slate-500">@{memberLabel(c.assignedUser)}</span>
-                    )}
-                    {channelHasReplyWindow(c.channelType) && !c.windowOpen && (
-                      <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                        Window closed
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {visible.length === 0 && (
+                <p className="p-6 text-center text-sm text-slate-500">
+                  {search ? `No conversations match “${search}”.` : "Nothing here."}
+                </p>
+              )}
+              {visible.map((c) => {
+                const active = c.contactId === activeId;
+                return (
+                  <button
+                    key={c.contactId}
+                    type="button"
+                    onClick={() => setActiveId(c.contactId)}
+                    className={`flex w-full gap-3 border-l-[3px] px-3 py-3 text-left transition-colors ${
+                      active ? "border-brand-600 bg-brand-50/70" : "border-transparent hover:bg-slate-50"
+                    }`}
+                  >
+                    <Avatar name={c.name || c.handle} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-sm font-bold text-slate-900">{c.name || c.handle}</span>
+                        <span className="shrink-0 text-[11px] text-slate-400">{relativeTime(c.lastMessageAt)}</span>
+                      </div>
+                      <p className="mt-0.5 truncate text-sm text-slate-500">
+                        {c.lastMessageDirection === "outbound" && <span className="text-slate-400">You: </span>}
+                        {c.lastMessagePreview}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <ChannelChip type={c.channelType} />
+                        {c.labels.map((l) => (
+                          <span
+                            key={l.id}
+                            className={`rounded-md px-1.5 py-px text-[10px] font-semibold ${LABEL_CLASSES[l.color] ?? LABEL_CLASSES.slate}`}
+                          >
+                            {l.name}
+                          </span>
+                        ))}
+                        {c.assignedUser && <span className="text-[10px] text-slate-500">@{memberLabel(c.assignedUser)}</span>}
+                        {channelHasReplyWindow(c.channelType) && !c.windowOpen && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Closed</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </aside>
 
-          <section className="card flex min-h-[32rem] flex-col">
+          <section className="flex min-h-0 flex-col">
             {threadLoading || !thread ? (
-              <p className="p-6 text-sm text-slate-500">Loading conversation…</p>
+              <div className="space-y-3 p-6">
+                <div className="skeleton h-12 w-64" />
+                <div className="skeleton h-16 w-80" />
+                <div className="skeleton ml-auto h-16 w-72" />
+              </div>
             ) : (
               <>
-                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-                  <div>
-                    <p className="font-medium text-slate-900">{displayName(thread.contact)}</p>
-                    <p className="text-xs text-slate-500">
-                      {CHANNEL_LABELS[thread.contact.channelType]} ·{" "}
-                      {thread.contact.optedIn ? "Opted in" : "Opted out"} · contact since{" "}
-                      {new Date(thread.contact.createdAt).toLocaleDateString()}
+                <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+                  <Avatar name={thread.contact.name || thread.contact.handle} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-slate-900">{thread.contact.name || thread.contact.handle}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {CHANNEL_LABELS[thread.contact.channelType]} · {thread.contact.handle}
+                      {thread.contact.assignedUser && ` · assigned to ${memberLabel(thread.contact.assignedUser)}`}
                     </p>
                   </div>
                   {!channelHasReplyWindow(thread.contact.channelType) ? (
@@ -456,99 +583,66 @@ export default function InboxPage() {
                   ) : thread.windowOpen ? (
                     <span className="badge badge-success">{windowHint(thread.windowExpiresAt)}</span>
                   ) : (
-                    <span className="badge badge-warning">Reply window closed</span>
+                    <span className="badge badge-warning">Window closed</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails((v) => !v)}
+                    className="btn-ghost px-2 xl:hidden"
+                    aria-label="Contact details"
+                  >
+                    <SlidersIcon className="h-5 w-5" />
+                  </button>
                 </header>
 
-                {canReply && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-4 py-2">
-                    <label className="flex items-center gap-2 text-sm text-slate-600">
-                      Assigned to
-                      <select
-                        className="input w-auto py-1"
-                        value={thread.contact.assignedUserId ?? ""}
-                        onChange={(e) => onAssign(e.target.value || null)}
-                      >
-                        <option value="">Unassigned</option>
-                        {members.length === 0 && thread.contact.assignedUser && (
-                          <option value={thread.contact.assignedUser.id}>
-                            {memberLabel(thread.contact.assignedUser)}
-                          </option>
-                        )}
-                        {members.map((m) => (
-                          <option key={m.user.id} value={m.user.id}>
-                            {memberLabel(m.user)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <LabelPicker
-                      labels={labels}
-                      applied={thread.contact.labels}
-                      onToggle={onToggleLabel}
-                      onCreate={onCreateLabel}
-                      canCreate={roleAtLeast(role, "admin")}
-                    />
-                    <label className="flex items-center gap-2 text-sm text-slate-600">
-                      <input
-                        type="checkbox"
-                        checked={thread.contact.botEnabled}
-                        onChange={(e) => onPatchContact({ botEnabled: e.target.checked })}
-                      />
-                      Enable Reply Bot
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setEditingContact((v) => !v)}
-                      className="text-sm text-slate-600 underline hover:text-slate-900"
-                    >
-                      {editingContact ? "Close" : "Edit contact"}
-                    </button>
-                  </div>
-                )}
-
-                {canReply && editingContact && (
-                  <ContactInfoForm
-                    contact={thread.contact}
-                    onSave={async (patch) => {
-                      await onPatchContact(patch);
-                      setEditingContact(false);
-                    }}
-                  />
-                )}
-
-                <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
+                <div
+                  className="min-h-0 flex-1 space-y-1.5 overflow-y-auto bg-[#f2f5f3] px-4 py-5 sm:px-8"
+                  style={{ backgroundImage: "radial-gradient(rgba(5,150,105,0.07) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
+                >
                   {thread.messages.length === 0 && (
-                    <p className="text-sm text-slate-500">No messages in this conversation yet.</p>
+                    <p className="text-center text-sm text-slate-500">No messages in this conversation yet.</p>
                   )}
-                  {thread.messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-sm rounded-lg px-3 py-2 text-sm shadow-card ${
-                          m.direction === "outbound" ? "bg-brand-50 text-slate-900" : "bg-white text-slate-800"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{m.text}</p>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          {formatTime(m.createdAt)}
-                          {m.direction === "outbound" && ` · ${m.status}`}
-                        </p>
+                  {thread.messages.map((m) => {
+                    const day = dayLabel(m.createdAt);
+                    const showDay = day !== lastDay;
+                    lastDay = day;
+                    const out = m.direction === "outbound";
+                    return (
+                      <div key={m.id}>
+                        {showDay && (
+                          <div className="my-3 flex justify-center">
+                            <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
+                              {day}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
+                          <div
+                            className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
+                              out ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-800"
+                            }`}
+                            title={formatTime(m.createdAt)}
+                          >
+                            <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                            <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${out ? "text-white/70" : "text-slate-400"}`}>
+                              {clock(m.createdAt)}
+                              {out && <Ticks status={m.status} />}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <div ref={bottomRef} />
                 </div>
 
                 {canReply ? (
                   thread.windowOpen ? (
-                    <form onSubmit={onSend} className="flex items-end gap-2 border-t border-slate-100 p-3">
+                    <form onSubmit={onSend} className="flex items-end gap-2 border-t border-slate-100 bg-white p-3">
                       <textarea
-                        className="input flex-1"
-                        rows={2}
-                        placeholder={`Reply on ${CHANNEL_LABELS[thread.contact.channelType]}…`}
+                        className="input min-h-[44px] flex-1 resize-none rounded-2xl py-2.5"
+                        rows={1}
+                        placeholder={`Message on ${CHANNEL_LABELS[thread.contact.channelType]}…`}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -558,25 +652,41 @@ export default function InboxPage() {
                           }
                         }}
                       />
-                      <button type="submit" disabled={sending || !draft.trim()} className="btn-primary">
+                      <button type="submit" disabled={sending || !draft.trim()} className="btn-primary h-11 rounded-2xl px-5">
                         {sending ? "Sending…" : "Send"}
                       </button>
                     </form>
                   ) : (
-                    <p className="border-t border-slate-100 p-4 text-sm text-slate-500">
-                      You can&apos;t reply — they need to message you first to reopen the 24-hour window.
-                      {thread.contact.channelType === "whatsapp" &&
-                        " Send an approved template from Broadcasts to start the conversation again."}
-                    </p>
+                    <div className="border-t border-slate-100 bg-amber-50/60 p-4 text-sm text-amber-900">
+                      The 24-hour reply window is closed — they need to message you first.
+                      {thread.contact.channelType === "whatsapp" && (
+                        <>
+                          {" "}
+                          Or restart the chat with an approved template from{" "}
+                          <Link href="/dashboard/campaigns" className="font-semibold underline">
+                            Broadcasts
+                          </Link>
+                          .
+                        </>
+                      )}
+                    </div>
                   )
                 ) : (
-                  <p className="border-t border-slate-100 p-4 text-sm text-slate-500">
-                    Your role can read conversations but not reply.
-                  </p>
+                  <p className="border-t border-slate-100 p-4 text-sm text-slate-500">Your role can read conversations but not reply.</p>
                 )}
               </>
             )}
           </section>
+
+          {thread && (
+            <aside
+              className={`min-h-0 overflow-y-auto border-l border-slate-100 bg-white p-5 xl:block ${
+                showDetails ? "absolute inset-y-0 right-0 z-10 w-80 shadow-pop" : "hidden"
+              } xl:static xl:w-auto xl:shadow-none`}
+            >
+              {details}
+            </aside>
+          )}
         </div>
       )}
     </div>
@@ -606,14 +716,13 @@ function LabelPicker({
 
   return (
     <div className="relative flex flex-wrap items-center gap-2">
-      <span className="text-sm text-slate-600">Labels</span>
       {applied.map((l) => (
         <button
           key={l.id}
           type="button"
           onClick={() => onToggle(l)}
           title="Remove this label"
-          className={`rounded px-2 py-0.5 text-xs font-medium ${LABEL_CLASSES[l.color] ?? LABEL_CLASSES.slate}`}
+          className={`rounded-lg px-2 py-1 text-xs font-semibold ${LABEL_CLASSES[l.color] ?? LABEL_CLASSES.slate}`}
         >
           {l.name} ×
         </button>
@@ -621,13 +730,13 @@ function LabelPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-white"
+        className="rounded-lg border border-dashed border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-700"
       >
         + Label
       </button>
 
       {open && (
-        <div className="absolute left-0 top-8 z-10 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-card-hover">
+        <div className="absolute left-0 top-8 z-20 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-pop">
           <div className="max-h-48 overflow-y-auto">
             {labels.length === 0 && <p className="px-1 py-2 text-xs text-slate-500">No labels yet.</p>}
             {labels.map((l) => (
@@ -692,7 +801,7 @@ function ContactInfoForm({
           languageCode: languageCode.trim() || null,
         });
       }}
-      className="grid gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:grid-cols-4"
+      className="mt-3 grid gap-3 rounded-2xl bg-slate-50 p-3"
     >
       <label className="block">
         <span className="field-label">Name</span>
@@ -719,12 +828,9 @@ function ContactInfoForm({
           onChange={(e) => setLanguageCode(e.target.value)}
         />
       </label>
-      <div className="flex items-end gap-2">
-        <button type="submit" className="btn-primary">
-          Save
-        </button>
-        <span className="pb-2 text-xs text-slate-500">{contact.handle}</span>
-      </div>
+      <button type="submit" className="btn-primary">
+        Save contact
+      </button>
     </form>
   );
 }

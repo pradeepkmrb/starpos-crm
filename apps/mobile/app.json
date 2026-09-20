@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Digitel",
+    "name": "Digitell",
     "slug": "digitel",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,13 +30,20 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Digitel uses your location to check you in at a lead and to show leads near you."
+          "locationWhenInUsePermission": "Digitell uses your location to check you in at a lead and to show leads near you."
         }
       ]
     ],
     "scheme": "digitel",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a413a0f4-f110-4b7b-8d3e-68be4cf019bd"
+      }
+    },
+    "owner": "touch4bill"
   }
 }

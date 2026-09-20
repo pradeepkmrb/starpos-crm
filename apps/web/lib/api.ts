@@ -7,7 +7,9 @@ import type {
   IntegrationFieldSpec,
   IntegrationStatus,
   LeadStatus,
+  PaymentMode,
   PlanCode,
+  QuotationStatus,
   TenantRole,
 } from "@digitel/shared";
 
@@ -525,6 +527,7 @@ export interface Campaign {
   id: string;
   status: "draft" | "scheduled" | "sending" | "completed" | "failed";
   createdAt: string;
+  template?: { name: string; language: string };
   channel: { displayPhoneNumber: string | null };
   targetList: { name: string };
   recipientStats?: Record<string, number>;
@@ -553,7 +556,6 @@ export function launchCampaign(input: {
   channelId: string;
   targetListId: string;
   templateName: string;
-  languageCode?: string;
 }) {
   return request<CampaignDetail>("/campaigns", { method: "POST", body: JSON.stringify(input) });
 }
@@ -1135,8 +1137,11 @@ export interface FieldSummary {
   activeVisit: Activity | null;
   today: Activity[];
   overdueCount: number;
-  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number };
+  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number; collectedPaise: number };
   openPipeline: { count: number; valuePaise: number };
+  targetMonth: string;
+  /** This month's target for the viewer (or the team, in team scope); null when none is set. */
+  targetPaise: number | null;
 }
 
 /** Today's plan and this month's numbers; day and month bounds are the viewer's local ones. */
@@ -1397,3 +1402,167 @@ export function regenerateApiKey(name?: string) {
     body: JSON.stringify(name ? { name } : {}),
   });
 }
+
+// --- Sales: quotations, payments, targets ---
+
+export interface QuotationItem {
+  id: string;
+  productId: string | null;
+  name: string;
+  description: string | null;
+  quantity: number;
+  unitPricePaise: number;
+  taxPercent: number;
+  position: number;
+}
+
+export interface Quotation {
+  id: string;
+  leadId: string;
+  number: string;
+  status: QuotationStatus;
+  currency: string;
+  subtotalPaise: number;
+  discountPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  validUntil: string | null;
+  notes: string | null;
+  shareToken: string;
+  pdfUrl: string;
+  sentAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  paidPaise: number;
+  balancePaise: number;
+  lead: { id: string; name: string; company: string | null; phone: string | null; email: string | null; address: string | null; status: LeadStatus };
+  createdBy: { id: string; name: string | null; email: string } | null;
+  items: QuotationItem[];
+}
+
+export interface QuotationItemInput {
+  productId?: string;
+  name?: string;
+  description?: string;
+  quantity: number;
+  unitPricePaise?: number;
+  taxPercent?: number;
+}
+
+export interface QuotationInput {
+  leadId: string;
+  items: QuotationItemInput[];
+  discountPaise?: number;
+  validUntil?: string | null;
+  notes?: string | null;
+}
+
+export type SendQuotationResult =
+  | { delivered: true; quotation: Quotation }
+  | {
+      delivered: false;
+      reason: "no_phone" | "no_whatsapp_channel" | "window_closed";
+      message: string;
+      pdfUrl: string;
+      shareLink: string | null;
+    };
+
+export interface BusinessProfile {
+  legalName?: string;
+  address?: string;
+  gstin?: string;
+  phone?: string;
+  email?: string;
+  terms?: string;
+  validityDays?: number;
+}
+
+export function listQuotations(params: { leadId?: string; status?: QuotationStatus } = {}) {
+  const query = new URLSearchParams();
+  if (params.leadId) query.set("leadId", params.leadId);
+  if (params.status) query.set("status", params.status);
+  const suffix = query.toString();
+  return request<Quotation[]>(`/quotations${suffix ? `?${suffix}` : ""}`);
+}
+
+export const getQuotation = (id: string) => request<Quotation>(`/quotations/${id}`);
+
+export const createQuotation = (input: QuotationInput) =>
+  request<Quotation>("/quotations", { method: "POST", body: JSON.stringify(input) });
+
+export const updateQuotation = (
+  id: string,
+  input: Partial<Omit<QuotationInput, "leadId">> & { status?: QuotationStatus },
+) => request<Quotation>(`/quotations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+
+export const deleteQuotation = (id: string) =>
+  request<{ id: string; deleted: boolean }>(`/quotations/${id}`, { method: "DELETE" });
+
+export const sendQuotation = (id: string) =>
+  request<SendQuotationResult>(`/quotations/${id}/send`, { method: "POST" });
+
+export const getBusinessProfile = () => request<BusinessProfile>("/quotations/settings");
+
+export const saveBusinessProfile = (input: BusinessProfile) =>
+  request<BusinessProfile>("/quotations/settings", { method: "PUT", body: JSON.stringify(input) });
+
+export interface Payment {
+  id: string;
+  leadId: string;
+  quotationId: string | null;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference: string | null;
+  notes: string | null;
+  receivedAt: string;
+  createdAt: string;
+  lead: { id: string; name: string; company: string | null };
+  quotation: { id: string; number: string; totalPaise: number } | null;
+  collectedBy: { id: string; name: string | null; email: string } | null;
+}
+
+export interface PaymentInput {
+  leadId: string;
+  quotationId?: string;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference?: string;
+  notes?: string;
+  receivedAt?: string;
+}
+
+export function listPayments(params: { leadId?: string; collector?: string; from?: string; to?: string } = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  const suffix = query.toString();
+  return request<Payment[]>(`/payments${suffix ? `?${suffix}` : ""}`);
+}
+
+export const createPayment = (input: PaymentInput) =>
+  request<Payment>("/payments", { method: "POST", body: JSON.stringify(input) });
+
+export const deletePayment = (id: string) =>
+  request<{ id: string; deleted: boolean }>(`/payments/${id}`, { method: "DELETE" });
+
+export interface TargetRow {
+  amountPaise: number | null;
+  achievedPaise: number;
+  closings: number;
+  collectedPaise: number;
+}
+
+export interface TargetsBoard {
+  month: string;
+  timeZone: string;
+  team: TargetRow;
+  reps: (TargetRow & { user: { id: string; name: string | null; email: string }; role: TenantRole })[];
+}
+
+export const getTargets = (month?: string) =>
+  request<TargetsBoard>(`/targets${month ? `?month=${month}` : ""}`);
+
+export const setTarget = (input: { month: string; userId: string | null; amountPaise: number }) =>
+  request<{ month: string; userId: string | null; amountPaise: number | null }>("/targets", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });

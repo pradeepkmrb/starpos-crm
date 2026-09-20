@@ -6,3 +6,4 @@ export * from "./custom-fields";
 export * from "./crm";
 export * from "./integrations";
 export * from "./geo";
+export * from "./sales";

@@ -263,7 +263,7 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
 
 /** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
 /**
- * The Digitel mark: a chat bubble with a rising trend line — messaging that
+ * The Digitell mark: a chat bubble with a rising trend line — messaging that
  * grows sales — on an emerald tile. The gradient is built in, so it ignores
  * text colour; pass className for size only.
  */
@@ -424,4 +424,30 @@ export function AlertIcon(props: SVGProps<SVGSVGElement>) {
 
 export function FlameIcon(props: SVGProps<SVGSVGElement>) {
   return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M15.36 5.21A8.25 8.25 0 0112 21 8.25 8.25 0 016.04 7.05 8.29 8.29 0 009 9.6a8.98 8.98 0 013.36-6.87 8.25 8.25 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.5-7.47 4.5 4.5 0 00-2.5 3.47 2.25 2.25 0 01-.47-2.24A3.75 3.75 0 0012 18z" /></Icon>;
+}
+
+export function ReceiptIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.49V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.76c0-1.11.8-2.06 1.91-2.19a48.51 48.51 0 0111.18 0c1.1.13 1.91 1.08 1.91 2.19zM9.75 9h.01v.01h-.01V9zm.38 0a.38.38 0 11-.75 0 .38.38 0 01.75 0zm4.12 4.5h.01v.01h-.01v-.01zm.38 0a.38.38 0 11-.75 0 .38.38 0 01.75 0z" />
+    </Icon>
+  );
+}
+
+export function BanknotesIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.8 2.1c.73.2 1.45-.34 1.45-1.1V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.38c0-.62.5-1.12 1.13-1.12H20.25M2.25 6v9m18-10.5v.75c0 .41.34.75.75.75h.75m-1.5-1.5h.38c.62 0 1.12.5 1.12 1.13v9.75c0 .62-.5 1.12-1.13 1.12h-.37m1.5-1.5h-.75a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.38a1.13 1.13 0 01-1.12-1.13V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.01v.01H18v-.01zm-12 0h.01v.01H6v-.01z" />
+    </Icon>
+  );
+}
+
+export function TargetIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.25" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+    </Icon>
+  );
 }

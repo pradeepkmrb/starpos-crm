@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, PAYMENT_MODE_LABELS, type LeadStatus } from "@digitel/shared";
 import { ActivityRow } from "@/components/ActivityRow";
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   EmptyState,
   ErrorText,
   GradientCard,
+  IconChip,
   Loading,
   StageBadge,
 } from "@/components/ui";
@@ -21,22 +22,29 @@ import {
   getLead,
   listActivities,
   listLeadFields,
+  listPayments,
+  listQuotations,
   updateLead,
   type Activity,
   type CustomFieldDefinition,
   type Lead,
+  type Payment,
+  type Quotation,
 } from "@/lib/api";
+import { QUOTATION_COLORS, quotationLabel } from "@/lib/quotations";
 import { formatDate, formatRupees, openDialer, openMaps, openWhatsApp } from "@/lib/format";
 import { tap } from "@/lib/haptics";
 import { colors, radius, space } from "@/theme";
 
-type Tab = "info" | "activity";
+type Tab = "info" | "activity" | "deals";
 
 export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
+  const [quotes, setQuotes] = useState<Quotation[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [tab, setTab] = useState<Tab>("info");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,14 +52,18 @@ export default function LeadDetailScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [leadRes, activityRes, fieldRes] = await Promise.all([
+      const [leadRes, activityRes, fieldRes, quoteRes, paymentRes] = await Promise.all([
         getLead(id),
         listActivities({ leadId: id }),
         listLeadFields().catch(() => [] as CustomFieldDefinition[]),
+        listQuotations({ leadId: id }).catch(() => [] as Quotation[]),
+        listPayments(id).catch(() => [] as Payment[]),
       ]);
       setLead(leadRes);
       setActivities(activityRes);
       setFields(fieldRes);
+      setQuotes(quoteRes);
+      setPayments(paymentRes);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not load this lead");
@@ -172,11 +184,14 @@ export default function LeadDetailScreen() {
         <ChipRow>
           <Chip label="Info" active={tab === "info"} onPress={() => setTab("info")} />
           <Chip label={`Activity (${activities.length})`} active={tab === "activity"} onPress={() => setTab("activity")} />
+          <Chip label={`Deals (${quotes.length})`} active={tab === "deals"} onPress={() => setTab("deals")} />
         </ChipRow>
       </View>
       <ErrorText text={error} />
 
-      {tab === "info" ? (
+      {tab === "deals" ? (
+        <Deals lead={lead} quotes={quotes} payments={payments} />
+      ) : tab === "info" ? (
         <>
           <Card style={{ marginTop: space.md }}>
             <Text style={styles.sectionLabel}>Stage</Text>
@@ -257,6 +272,74 @@ export default function LeadDetailScreen() {
   );
 }
 
+function Deals({ lead, quotes, payments }: { lead: Lead; quotes: Quotation[]; payments: Payment[] }) {
+  const collected = payments.reduce((sum, p) => sum + p.amountPaise, 0);
+  return (
+    <>
+      <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
+        <Button title="New quotation" onPress={() => router.push(`/quotation/new?leadId=${lead.id}`)} style={{ flex: 1 }} />
+        <Button
+          title="Record payment"
+          variant="secondary"
+          onPress={() => router.push(`/payment/new?leadId=${lead.id}`)}
+          style={{ flex: 1 }}
+        />
+      </View>
+      <Card style={{ marginTop: space.md, paddingVertical: 0 }}>
+        {quotes.length === 0 ? (
+          <EmptyState text="No quotations yet." />
+        ) : (
+          quotes.map((q, i) => {
+            const look = QUOTATION_COLORS[q.status];
+            return (
+              <Pressable
+                key={q.id}
+                onPress={() => router.push(`/quotation/${q.id}`)}
+                style={({ pressed }) => [styles.dealRow, i > 0 && styles.dealDivider, pressed && { opacity: 0.7 }]}
+              >
+                <IconChip name="receipt-outline" fg={colors.brand} bg={colors.brandSoft} size={40} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dealTitle}>
+                    {q.number} <Text style={styles.dealMeta}>· {formatDate(q.createdAt)}</Text>
+                  </Text>
+                  <View style={{ flexDirection: "row", marginTop: 4 }}>
+                    <Badge label={quotationLabel(q.status)} fg={look.fg} bg={look.bg} />
+                  </View>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.dealTitle}>{formatRupees(q.totalPaise)}</Text>
+                  {q.status === "accepted" ? (
+                    <Text style={[styles.dealMeta, { color: q.balancePaise > 0 ? colors.warning : colors.brand, fontWeight: "700" }]}>
+                      {q.balancePaise > 0 ? `${formatRupees(q.balancePaise)} due` : "Paid"}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+      </Card>
+      {payments.length > 0 && (
+        <Card style={{ marginTop: space.md }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: space.sm }}>
+            <Text style={styles.sectionLabel}>Payments received</Text>
+            <Text style={[styles.dealTitle, { color: colors.brandDark }]}>{formatRupees(collected)}</Text>
+          </View>
+          {payments.map((p) => (
+            <View key={p.id} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
+              <Text style={styles.dealMeta}>
+                {formatDate(p.receivedAt)} · {PAYMENT_MODE_LABELS[p.mode]}
+                {p.quotation ? ` · ${p.quotation.number}` : ""}
+              </Text>
+              <Text style={{ fontWeight: "700", color: colors.ink }}>{formatRupees(p.amountPaise)}</Text>
+            </View>
+          ))}
+        </Card>
+      )}
+    </>
+  );
+}
+
 function Action({
   icon,
   label,
@@ -320,4 +403,8 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.muted, marginBottom: space.sm },
   infoLabel: { fontSize: 12, color: colors.muted },
   infoValue: { fontSize: 15, color: colors.ink, marginTop: 1 },
+  dealRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  dealDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  dealTitle: { fontSize: 15, fontWeight: "800", color: colors.ink },
+  dealMeta: { fontSize: 13, fontWeight: "500", color: colors.muted },
 });

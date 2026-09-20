@@ -37,6 +37,7 @@ import {
 } from "../../../components/icons";
 import { LeadForm } from "./LeadForm";
 import { LeadActivities } from "./LeadActivities";
+import { LeadDeals } from "../../../components/sales/LeadDeals";
 
 type View = "board" | "table";
 const VIEW_KEY = "digitel_leads_view";
@@ -695,6 +696,8 @@ function LeadPanel({
         ))}
         {lead.notes && <Detail label="Notes" value={lead.notes} wide />}
       </dl>
+
+      <LeadDeals leadId={lead.id} canEdit={canEdit} onLeadChanged={onChanged} />
 
       <LeadActivities leadId={lead.id} canEdit={canEdit} onLeadChanged={onChanged} />
 

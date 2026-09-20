@@ -32,7 +32,7 @@ export default function MoreScreen() {
       </Card>
 
       <Text style={[styles.muted, { textAlign: "center" }]}>
-        Digitel {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
+        Digitell {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
       </Text>
     </ScrollView>
   );

@@ -1,4 +1,4 @@
-# Digitel mobile (field sales)
+# Digitell mobile (field sales)
 
 The Expo (React Native) app field reps use: today's plan, leads, lead details
 with call / WhatsApp / directions, logging calls, visits, demos and notes, and

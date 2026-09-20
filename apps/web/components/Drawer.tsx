@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
 
@@ -26,9 +26,16 @@ export function Drawer({
   children: ReactNode;
   width?: string;
 }) {
+  const panel = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Drawers can stack (a quotation opened from a lead); Escape closes only the top one.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const dialogs = document.querySelectorAll("[data-drawer]");
+      if (dialogs[dialogs.length - 1] === panel.current) onClose();
+    };
     window.addEventListener("keydown", onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -46,6 +53,8 @@ export function Drawer({
     <div className="fixed inset-0 z-40">
       <div className="absolute inset-0 bg-ink-950/40" onClick={onClose} />
       <aside
+        ref={panel}
+        data-drawer=""
         className={`absolute inset-y-0 right-0 flex w-full ${width} animate-slide-in flex-col bg-white shadow-pop`}
         role="dialog"
         aria-modal="true"

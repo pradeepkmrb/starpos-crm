@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, Tabs } from "expo-router";
 import { Platform, Pressable, View, type ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brandShadow, colors } from "@/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -46,6 +47,8 @@ function QuickAddButton() {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -53,9 +56,10 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.faint,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarStyle: {
-          height: 68,
+          // Keep the tab actions above Android's gesture/navigation area.
+          height: 58 + Math.max(insets.bottom, 10),
           paddingTop: 6,
-          paddingBottom: 10,
+          paddingBottom: Math.max(insets.bottom, 10),
           borderTopWidth: 0,
           backgroundColor: colors.surface,
           shadowColor: "#0F172A",
@@ -64,6 +68,7 @@ export default function TabsLayout() {
           shadowOffset: { width: 0, height: -2 },
           elevation: 12,
         },
+        tabBarHideOnKeyboard: false,
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
         headerTitleStyle: { fontWeight: "800", fontSize: 20, color: colors.ink },

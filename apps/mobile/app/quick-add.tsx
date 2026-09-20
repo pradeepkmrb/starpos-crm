@@ -11,6 +11,7 @@ const ACTIONS: { title: string; subtitle: string; icon: keyof typeof Ionicons.gl
   { title: "Add a lead", subtitle: "Capture a new enquiry", icon: "person-add", fg: colors.brand, bg: colors.brandSoft, href: "/lead/edit" },
   { title: "Check in nearby", subtitle: "Start a visit at a lead near you", icon: "location", fg: colors.warning, bg: colors.warningSoft, href: "/map" },
   { title: "Log a call or note", subtitle: "Pick a lead, then log it", icon: "call", fg: colors.danger, bg: colors.dangerSoft, href: "/leads" },
+  { title: "Send a quotation", subtitle: "Pick a lead, then open Deals", icon: "receipt", fg: colors.info, bg: colors.infoSoft, href: "/leads" },
   { title: "Today's follow-ups", subtitle: "What's due and overdue", icon: "calendar", fg: colors.violet, bg: colors.violetSoft, href: "/follow-ups" },
 ];
 

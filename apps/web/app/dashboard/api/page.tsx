@@ -22,6 +22,8 @@ import {
   type HttpMethod,
 } from "./endpoints";
 import { PageSkeleton } from "../../../components/PageSkeleton";
+import { PageHeader } from "../../../components/ui";
+import { CodeIcon as CodeHeaderIcon } from "../../../components/icons";
 
 const PUBLIC_API_BASE = `${API_BASE_URL}/api/v1`;
 
@@ -119,13 +121,12 @@ export default function ApiDevelopersPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl bg-gradient-to-r from-brand-800 to-brand-600 px-6 py-8 shadow-card">
-        <h1 className="text-3xl font-semibold text-white">API &amp; Developers</h1>
-        <p className="mt-2 max-w-2xl text-sm text-brand-50">
-          Send WhatsApp messages, manage contacts and read your templates straight from your own
-          systems. One key, one base URL, no SDK required.
-        </p>
-      </div>
+      <PageHeader
+        icon={CodeHeaderIcon}
+        tone="slate"
+        title="API and developers"
+        subtitle="Send WhatsApp messages, manage contacts and read templates from your own systems. One key, one base URL, no SDK."
+      />
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>

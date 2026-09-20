@@ -5,6 +5,8 @@ import type {
   ActivityType,
   CustomFieldType,
   LeadStatus,
+  PaymentMode,
+  QuotationStatus,
   TenantRole,
 } from "@digitel/shared";
 
@@ -218,8 +220,11 @@ export interface FieldSummary {
   activeVisit: Activity | null;
   today: Activity[];
   overdueCount: number;
-  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number };
+  month: { calls: number; visits: number; demos: number; closings: number; wonValuePaise: number; collectedPaise: number };
   openPipeline: { count: number; valuePaise: number };
+  targetMonth: string;
+  /** This month's target for the rep (or the team, for managers); null when none is set. */
+  targetPaise: number | null;
 }
 
 export interface CustomFieldDefinition {
@@ -322,3 +327,102 @@ export function getFieldSummary(window: { dayStart: Date; dayEnd: Date; monthSta
   });
   return request<FieldSummary>(`/field/summary?${query}`);
 }
+
+// --- sales: catalogue, quotations, payments ---
+
+export interface Product {
+  id: string;
+  name: string;
+  /** Rupees, not paise. */
+  price: number;
+  taxPercent: number;
+  category: string | null;
+}
+
+export const listProducts = () => request<Product[]>("/products");
+
+export interface QuotationItem {
+  id: string;
+  productId: string | null;
+  name: string;
+  quantity: number;
+  unitPricePaise: number;
+  taxPercent: number;
+}
+
+export interface Quotation {
+  id: string;
+  leadId: string;
+  number: string;
+  status: QuotationStatus;
+  subtotalPaise: number;
+  discountPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  validUntil: string | null;
+  notes: string | null;
+  pdfUrl: string;
+  sentAt: string | null;
+  createdAt: string;
+  paidPaise: number;
+  balancePaise: number;
+  lead: { id: string; name: string; company: string | null; phone: string | null };
+  items: QuotationItem[];
+}
+
+export interface QuotationInput {
+  leadId: string;
+  items: { productId?: string; name?: string; quantity: number; unitPricePaise?: number; taxPercent?: number }[];
+  discountPaise?: number;
+  notes?: string | null;
+}
+
+export type SendQuotationResult =
+  | { delivered: true; quotation: Quotation }
+  | {
+      delivered: false;
+      reason: "no_phone" | "no_whatsapp_channel" | "window_closed";
+      message: string;
+      pdfUrl: string;
+      shareLink: string | null;
+    };
+
+export function listQuotations(params: { leadId?: string; status?: QuotationStatus } = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  return request<Quotation[]>(`/quotations?${query}`);
+}
+
+export const getQuotation = (id: string) => request<Quotation>(`/quotations/${id}`);
+
+export const createQuotation = (input: QuotationInput) =>
+  request<Quotation>("/quotations", { method: "POST", body: JSON.stringify(input) });
+
+export const updateQuotationStatus = (id: string, status: QuotationStatus) =>
+  request<Quotation>(`/quotations/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+
+export const sendQuotation = (id: string) =>
+  request<SendQuotationResult>(`/quotations/${id}/send`, { method: "POST" });
+
+export interface Payment {
+  id: string;
+  leadId: string;
+  quotationId: string | null;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference: string | null;
+  receivedAt: string;
+  quotation: { id: string; number: string } | null;
+}
+
+export const listPayments = (leadId: string) => request<Payment[]>(`/payments?leadId=${leadId}`);
+
+export const createPayment = (input: {
+  leadId: string;
+  quotationId?: string;
+  amountPaise: number;
+  mode: PaymentMode;
+  reference?: string;
+  notes?: string;
+  receivedAt?: string;
+}) => request<Payment>("/payments", { method: "POST", body: JSON.stringify(input) });

@@ -1,4 +1,5 @@
 import {
+  BanknotesIcon,
   BoltIcon,
   BoxIcon,
   CalendarIcon,
@@ -12,8 +13,10 @@ import {
   MapPinIcon,
   MegaphoneIcon,
   PlugIcon,
+  ReceiptIcon,
   ShieldIcon,
   SlidersIcon,
+  TargetIcon,
   UsersIcon,
 } from "./icons";
 
@@ -52,6 +55,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/leads", label: "Leads", icon: FunnelIcon, keywords: "pipeline deals kanban" },
       { href: "/dashboard/follow-ups", label: "Follow-ups", icon: CalendarIcon, keywords: "tasks today overdue" },
       { href: "/dashboard/visits", label: "Visits", icon: MapPinIcon, keywords: "field check-in team location" },
+      { href: "/dashboard/quotations", label: "Quotations", icon: ReceiptIcon, keywords: "quote estimate proposal gst pdf" },
+      { href: "/dashboard/payments", label: "Payments", icon: BanknotesIcon, keywords: "collections received cash upi" },
+      { href: "/dashboard/targets", label: "Targets", icon: TargetIcon, keywords: "goals quota leaderboard monthly" },
       { href: "/dashboard/lead-sources", label: "Meta ads", icon: MegaphoneIcon, keywords: "lead ads facebook forms" },
       { href: "/dashboard/lead-fields", label: "Lead fields", icon: SlidersIcon, keywords: "custom fields" },
     ],
@@ -81,6 +87,8 @@ export const AGENCY_NAV_ITEM: NavItem = {
 /** Things "+ New" and Ctrl+K can start directly. */
 export const QUICK_ACTIONS: NavItem[] = [
   { href: "/dashboard/leads?new=1", label: "New lead", icon: FunnelIcon, keywords: "add create" },
+  { href: "/dashboard/quotations?new=1", label: "New quotation", icon: ReceiptIcon, keywords: "quote estimate" },
+  { href: "/dashboard/payments?new=1", label: "Record payment", icon: BanknotesIcon, keywords: "collection received" },
   { href: "/dashboard/campaigns", label: "New broadcast", icon: MegaphoneIcon, keywords: "send campaign" },
   { href: "/dashboard/contacts", label: "Import contacts", icon: UsersIcon, keywords: "csv upload" },
   { href: "/dashboard/automations", label: "New flow", icon: BoltIcon, keywords: "automation" },
@@ -91,9 +99,25 @@ export const QUICK_ACTIONS: NavItem[] = [
  * query-string change alone would not re-run the page's mount logic.
  */
 export const NEW_LEAD_EVENT = "digitel:new-lead";
+export const NEW_QUOTATION_EVENT = "digitel:new-quotation";
+export const NEW_PAYMENT_EVENT = "digitel:new-payment";
+
+const QUICK_ACTION_EVENTS: Record<string, string> = {
+  "/dashboard/leads?new=1": NEW_LEAD_EVENT,
+  "/dashboard/quotations?new=1": NEW_QUOTATION_EVENT,
+  "/dashboard/payments?new=1": NEW_PAYMENT_EVENT,
+};
 
 export function announceQuickAction(href: string) {
-  if (href.startsWith("/dashboard/leads?new=1")) window.dispatchEvent(new Event(NEW_LEAD_EVENT));
+  const event = QUICK_ACTION_EVENTS[href];
+  if (event) window.dispatchEvent(new Event(event));
+}
+
+/** True when the page was opened by a "?new=1" quick action; clears the flag from the address bar. */
+export function consumeNewFlag(): boolean {
+  if (new URLSearchParams(window.location.search).get("new") !== "1") return false;
+  window.history.replaceState(null, "", window.location.pathname);
+  return true;
 }
 
 export function isNavActive(pathname: string | null, href: string): boolean {

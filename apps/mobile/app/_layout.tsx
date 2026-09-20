@@ -35,6 +35,9 @@ function RootNavigator() {
         <Stack.Screen name="visit/check-in" options={{ title: "Check in" }} />
         <Stack.Screen name="visit/[id]" options={{ title: "Visit in progress" }} />
         <Stack.Screen name="map" options={{ title: "Nearby leads" }} />
+        <Stack.Screen name="quotation/new" options={{ title: "New quotation", presentation: "modal" }} />
+        <Stack.Screen name="quotation/[id]" options={{ title: "Quotation" }} />
+        <Stack.Screen name="payment/new" options={{ title: "Record payment", presentation: "modal" }} />
         <Stack.Screen
           name="quick-add"
           options={{ presentation: "transparentModal", animation: "fade", headerShown: false }}

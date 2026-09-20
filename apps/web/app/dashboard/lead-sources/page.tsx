@@ -21,6 +21,8 @@ import {
 } from "../../../lib/api";
 import { FieldMappingEditor } from "./FieldMappingEditor";
 import { PageSkeleton } from "../../../components/PageSkeleton";
+import { PageHeader } from "../../../components/ui";
+import { MegaphoneIcon as MegaphoneHeaderIcon } from "../../../components/icons";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -203,23 +205,22 @@ export default function LeadSourcesPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="page-title">Meta lead ads</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Link an instant-form lead ad and every submission lands on the Leads screen, mapped onto your
-            own fields.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn-primary" onClick={() => setFormOpen((open) => !open)}>
-            {formOpen ? "Close" : "Link a form"}
-          </button>
-          <Link href="/dashboard/leads" className="btn-secondary">
-            Back to leads
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        icon={MegaphoneHeaderIcon}
+        tone="sky"
+        title="Meta lead ads"
+        subtitle="Link an instant-form lead ad and every submission lands on the Leads screen, mapped onto your own fields."
+        actions={
+          <>
+            <Link href="/dashboard/leads" className="btn-secondary">
+              Back to leads
+            </Link>
+            <button type="button" className="btn-primary" onClick={() => setFormOpen((open) => !open)}>
+              {formOpen ? "Close" : "Link a form"}
+            </button>
+          </>
+        }
+      />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {notice && <p className="mt-3 text-sm text-slate-600">{notice}</p>}

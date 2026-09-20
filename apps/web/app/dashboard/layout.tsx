@@ -175,7 +175,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <MenuIcon className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-bold text-slate-900">{current?.label ?? "Digitel"}</p>
+                <p className="truncate text-base font-bold text-slate-900">{current?.label ?? "Digitell"}</p>
                 {tenant && <p className="hidden truncate text-xs text-slate-500 sm:block">{tenant.name}</p>}
               </div>
 
@@ -309,7 +309,7 @@ function Sidebar({
     <>
       <Link href="/dashboard" className={`flex items-center gap-2.5 py-5 ${collapsed ? "justify-center px-0" : "px-5"}`}>
         <BrandMark className="h-9 w-9 shrink-0" />
-        {!collapsed && <span className="text-xl font-extrabold tracking-tight text-white">Digitel</span>}
+        {!collapsed && <span className="text-xl font-extrabold tracking-tight text-white">Digitell</span>}
       </Link>
 
       <nav className={`flex-1 overflow-y-auto pb-4 ${collapsed ? "px-3" : "px-3"}`}>
