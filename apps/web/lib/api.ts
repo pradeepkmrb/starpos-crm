@@ -934,11 +934,25 @@ export function deleteTemplate(templateId: string) {
 
 // --- Platform admin: cross-tenant directory ---
 
+export interface PlatformPlan {
+  id: string;
+  code: string;
+  name: string;
+  priceInPaise: number;
+  maxChannels: number;
+  maxContacts: number;
+  maxAutomations: number;
+  maxTeamSeats: number;
+  maxApiRequestsPerMonth: number;
+}
+
 export interface PlatformTenant {
   id: string;
   name: string;
   slug: string;
   createdAt: string;
+  /** True when what they already hold exceeds their plan — new records are blocked until they are back under. */
+  overLimit: boolean;
   plan: { name: string; code: string; priceInPaise: number };
   subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
   memberships: { user: { email: string; name: string | null } }[];
@@ -962,6 +976,18 @@ export function createPlatformTenant(input: {
   return request<{ user: AuthUser; tenant: AuthTenant }>("/platform/tenants", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function getPlatformPlans() {
+  return request<PlatformPlan[]>("/platform/plans");
+}
+
+/** Moves a customer onto another plan by hand — the agency bills them outside the app. */
+export function setPlatformTenantPlan(tenantId: string, planCode: string) {
+  return request<PlatformTenant>(`/platform/tenants/${tenantId}/plan`, {
+    method: "PATCH",
+    body: JSON.stringify({ planCode }),
   });
 }
 

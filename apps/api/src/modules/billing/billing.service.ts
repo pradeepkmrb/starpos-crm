@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
+import { exceedsPlanLimits } from "../entitlements/plan-limits";
 import { PAYMENT_PROVIDER, type PaymentProvider } from "./payment-provider.interface";
 
 interface RazorpaySubscriptionEntity {
@@ -215,11 +216,7 @@ export class BillingService {
           // Data is never deleted on downgrade — the tenant is just flagged
           // so the UI can prompt them and new creates get blocked until
           // they're back under the free limits.
-          overLimit:
-            usage.contacts > freePlan.maxContacts ||
-            usage.channels > freePlan.maxChannels ||
-            usage.automations > freePlan.maxAutomations ||
-            usage.teamSeats > freePlan.maxTeamSeats,
+          overLimit: exceedsPlanLimits(usage, freePlan),
         },
       });
       this.logger.log(`Tenant ${subscription.tenantId} downgraded to free (subscription expired)`);
