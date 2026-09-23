@@ -14,26 +14,31 @@ import {
 import {
   ApiError,
   type AuthUser,
+  type Contact,
   type InboxConversation,
   type InboxThread,
   type Label,
   type LabelColor,
   type Member,
+  type MessageTemplate,
   assignConversation,
   createLabel,
   getAccessToken,
   getConversation,
+  listContacts,
   listConversations,
   listLabels,
   listMembers,
+  listTemplates,
   me,
   replyToConversation,
+  sendConversationTemplate,
   setConversationLabels,
   updateContact,
 } from "../../../lib/api";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { EmptyState, PageHeader } from "../../../components/ui";
-import { ChatIcon, CheckIcon, PlugIcon, SearchIcon, SlidersIcon } from "../../../components/icons";
+import { ChatIcon, CheckIcon, CloseIcon, PlugIcon, PlusIcon, SearchIcon, SlidersIcon } from "../../../components/icons";
 import Link from "next/link";
 import { Avatar } from "../../../components/Avatar";
 
@@ -147,7 +152,16 @@ export default function InboxPage() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [editingContact, setEditingContact] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [reopenTemplateId, setReopenTemplateId] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const approvedTemplates = useMemo(
+    () => templates.filter((t) => t.status === "approved"),
+    [templates],
+  );
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -168,6 +182,8 @@ export default function InboxPage() {
         setActiveId((prev) => prev ?? convosRes[0]?.contactId ?? null);
         // Only admins can read the member list; agents still get the rest.
         listMembers().then(setMembers).catch(() => undefined);
+        // Needed to reopen a closed window or start a new chat — not fatal if it fails.
+        listTemplates().then(setTemplates).catch(() => undefined);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
@@ -194,6 +210,7 @@ export default function InboxPage() {
   useEffect(() => {
     if (!activeId) return;
     setThread(null);
+    setReopenTemplateId("");
     void refreshThread(activeId, true);
   }, [activeId, refreshThread]);
 
@@ -354,6 +371,29 @@ export default function InboxPage() {
     }
   }
 
+  async function onReopenWithTemplate() {
+    if (!activeId || !reopenTemplateId) return;
+    setError(null);
+    setReopening(true);
+    try {
+      await sendConversationTemplate(activeId, reopenTemplateId);
+      setReopenTemplateId("");
+      await refreshThread(activeId, false);
+      listConversations().then(setConversations).catch(() => undefined);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to send the template");
+    } finally {
+      setReopening(false);
+    }
+  }
+
+  async function onStartConversation(contactId: string, templateId: string) {
+    await sendConversationTemplate(contactId, templateId);
+    setShowNewChat(false);
+    setActiveId(contactId);
+    listConversations().then(setConversations).catch(() => undefined);
+  }
+
   if (loading) return <PageSkeleton />;
   if (!role) return null;
 
@@ -449,7 +489,24 @@ export default function InboxPage() {
         icon={ChatIcon}
         title="Inbox"
         subtitle="WhatsApp, Messenger, Instagram and email in one place. Meta channels allow free replies for 24 hours after the contact's last message."
+        actions={
+          canReply && (
+            <button type="button" onClick={() => setShowNewChat(true)} className="btn-primary">
+              <PlusIcon className="h-4 w-4" />
+              New chat
+            </button>
+          )
+        }
       />
+
+      {showNewChat && (
+        <NewChatModal
+          templates={approvedTemplates}
+          existingContactIds={new Set(conversations.map((c) => c.contactId))}
+          onClose={() => setShowNewChat(false)}
+          onStart={onStartConversation}
+        />
+      )}
 
       {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
@@ -658,16 +715,42 @@ export default function InboxPage() {
                     </form>
                   ) : (
                     <div className="border-t border-slate-100 bg-amber-50/60 p-4 text-sm text-amber-900">
-                      The 24-hour reply window is closed — they need to message you first.
-                      {thread.contact.channelType === "whatsapp" && (
-                        <>
-                          {" "}
-                          Or restart the chat with an approved template from{" "}
-                          <Link href="/dashboard/campaigns" className="font-semibold underline">
-                            Broadcasts
-                          </Link>
-                          .
-                        </>
+                      <p>The 24-hour reply window is closed — they need to message you first, or you can restart the chat with an approved template.</p>
+                      {thread.contact.channelType === "whatsapp" ? (
+                        approvedTemplates.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <select
+                              className="input py-2 text-sm"
+                              value={reopenTemplateId}
+                              onChange={(e) => setReopenTemplateId(e.target.value)}
+                            >
+                              <option value="">Choose a template…</option>
+                              {approvedTemplates.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name} ({t.language})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={!reopenTemplateId || reopening}
+                              onClick={onReopenWithTemplate}
+                              className="btn-primary py-2"
+                            >
+                              {reopening ? "Sending…" : "Send template"}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="mt-2">
+                            No approved templates yet — create one in the{" "}
+                            <Link href="/dashboard/campaigns" className="font-semibold underline">
+                              Message library
+                            </Link>
+                            .
+                          </p>
+                        )
+                      ) : (
+                        <p className="mt-1">They need to message you again before you can reply here.</p>
                       )}
                     </div>
                   )
@@ -775,6 +858,169 @@ function LabelPicker({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Starting a conversation is only possible with an approved WhatsApp
+ * template — Meta rejects free text to a contact who hasn't messaged in yet.
+ * Only WhatsApp contacts with no conversation yet are worth listing here;
+ * everyone else already has a row in the Inbox to reopen from.
+ */
+function NewChatModal({
+  templates,
+  existingContactIds,
+  onClose,
+  onStart,
+}: {
+  templates: MessageTemplate[];
+  existingContactIds: Set<string>;
+  onClose: () => void;
+  onStart: (contactId: string, templateId: string) => Promise<void>;
+}) {
+  const [contacts, setContacts] = useState<Contact[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listContacts(1000)
+      .then(setContacts)
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load contacts"));
+  }, []);
+
+  const candidates = useMemo(() => {
+    if (!contacts) return [];
+    const q = search.trim().toLowerCase();
+    return contacts
+      .filter((c) => c.channelType === "whatsapp" && !existingContactIds.has(c.id))
+      .filter(
+        (c) =>
+          !q ||
+          (c.name ?? "").toLowerCase().includes(q) ||
+          (c.whatsappNumber ?? "").toLowerCase().includes(q) ||
+          (c.externalId ?? "").toLowerCase().includes(q),
+      )
+      .slice(0, 50);
+  }, [contacts, search, existingContactIds]);
+
+  async function handleStart() {
+    if (!contactId || !templateId) return;
+    setError(null);
+    setStarting(true);
+    try {
+      await onStart(contactId, templateId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to start the conversation");
+      setStarting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="my-8 w-full max-w-md animate-toast-in rounded-3xl bg-white p-6 shadow-pop"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Start a new chat"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900">New chat</h2>
+          <button type="button" onClick={onClose} className="btn-ghost p-1.5" aria-label="Close">
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Reach a WhatsApp contact who hasn't messaged you yet — Meta only allows this with an approved template.
+        </p>
+
+        {error && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {loadError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>}
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <p className="field-label mb-1">Contact</p>
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className="input py-2 pl-9"
+                placeholder="Search contacts by name or number"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-slate-100">
+              {contacts === null && !loadError && (
+                <p className="p-3 text-center text-sm text-slate-500">Loading contacts…</p>
+              )}
+              {contacts !== null && candidates.length === 0 && (
+                <p className="p-3 text-center text-sm text-slate-500">
+                  No WhatsApp contacts without an existing chat match that search.
+                </p>
+              )}
+              {candidates.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setContactId(c.id)}
+                  className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${
+                    contactId === c.id ? "bg-brand-50" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <Avatar name={c.name || c.whatsappNumber || c.externalId || "?"} size="h-8 w-8 text-xs" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-slate-800">
+                      {c.name || c.whatsappNumber || c.externalId}
+                    </span>
+                    {c.name && <span className="block truncate text-xs text-slate-500">{c.whatsappNumber ?? c.externalId}</span>}
+                  </span>
+                  {contactId === c.id && <CheckIcon className="h-4 w-4 shrink-0 text-brand-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="field-label mb-1">Template</p>
+            {templates.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No approved templates yet — create one in the{" "}
+                <Link href="/dashboard/campaigns" className="font-semibold underline">
+                  Message library
+                </Link>
+                .
+              </p>
+            ) : (
+              <select className="input py-2" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+                <option value="">Choose a template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.language})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={!contactId || !templateId || starting}
+            onClick={handleStart}
+            className="btn-primary w-full py-2.5"
+          >
+            {starting ? "Starting…" : "Start conversation"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

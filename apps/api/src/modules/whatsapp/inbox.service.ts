@@ -273,6 +273,51 @@ export class InboxService {
   }
 
   /**
+   * Templates are the only way to message a contact outside the 24-hour
+   * window — including a contact who has never been messaged before, which
+   * is how a conversation gets started from the Inbox in the first place.
+   * Unlike `reply`, the channel comes from the template itself: a template
+   * only exists (and is only approved) on the specific WABA it was
+   * submitted to, so that is the channel it has to be sent from.
+   */
+  async sendTemplate(tenantId: string, contactId: string, templateId: string) {
+    const contact = await this.prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+    if (!contact) throw new NotFoundException("Contact not found");
+    if (contact.channelType !== "whatsapp") {
+      throw new BadRequestException("Templates are a WhatsApp feature — this contact is on a different channel");
+    }
+    if (!contactAddress(contact)) {
+      throw new BadRequestException("This contact has no WhatsApp number");
+    }
+
+    const template = await this.prisma.messageTemplate.findFirst({ where: { id: templateId, tenantId } });
+    if (!template) throw new NotFoundException("Template not found");
+    if (template.status !== "approved") {
+      throw new BadRequestException(`This template is ${template.status}. Meta only delivers approved templates.`);
+    }
+
+    const channel = await this.channelsService.getChannelWithCredentials(tenantId, template.channelId);
+    if (channel.status !== "active") {
+      throw new BadRequestException("The channel this template belongs to is not active");
+    }
+
+    const { externalMessageId, payload } = await this.dispatcher.sendTemplate(
+      channel,
+      contact,
+      template.name,
+      template.language,
+    );
+
+    return this.messageLogService.recordOutbound({
+      tenantId,
+      channelId: channel.id,
+      contactId: contact.id,
+      waMessageId: externalMessageId,
+      payload,
+    });
+  }
+
+  /**
    * Replies go out on whichever channel the conversation already used, and
    * never on a different one — a WhatsApp number cannot answer an Instagram DM.
    */

@@ -842,6 +842,17 @@ export function replyToConversation(contactId: string, body: string) {
   });
 }
 
+/**
+ * Sends an approved template — the only way to message a contact outside the
+ * 24-hour window, including one who has never been messaged before.
+ */
+export function sendConversationTemplate(contactId: string, templateId: string) {
+  return request<{ id: string }>(`/inbox/conversations/${contactId}/send-template`, {
+    method: "POST",
+    body: JSON.stringify({ templateId }),
+  });
+}
+
 /** Pass null to unassign. */
 export function assignConversation(contactId: string, userId: string | null) {
   return request<{ id: string; assignedUserId: string | null; assignedUser: AssignedUser | null }>(

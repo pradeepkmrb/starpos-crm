@@ -4,6 +4,7 @@ import { InboxService } from "./inbox.service";
 import { LabelsService } from "./labels.service";
 import { MetaApiExceptionFilter } from "./meta-api-exception.filter";
 import { ReplyMessageDto } from "./dto/reply-message.dto";
+import { SendTemplateDto } from "./dto/send-template.dto";
 import { AssignConversationDto } from "./dto/assign-conversation.dto";
 import { SetContactLabelsDto } from "./dto/set-contact-labels.dto";
 import { CreateLabelDto } from "./dto/create-label.dto";
@@ -36,6 +37,17 @@ export class InboxController {
   @Roles("agent")
   reply(@Req() req: Request, @Param("contactId") contactId: string, @Body() dto: ReplyMessageDto) {
     return this.inboxService.reply(req.tenantContext!.tenantId, contactId, dto.body);
+  }
+
+  /**
+   * Starts or re-opens a conversation with an approved template — the only
+   * way to message a contact outside the 24-hour window, including one who
+   * has no message history yet.
+   */
+  @Post("conversations/:contactId/send-template")
+  @Roles("agent")
+  sendTemplate(@Req() req: Request, @Param("contactId") contactId: string, @Body() dto: SendTemplateDto) {
+    return this.inboxService.sendTemplate(req.tenantContext!.tenantId, contactId, dto.templateId);
   }
 
   /** Agents can pick up and hand over conversations themselves. */
