@@ -5,6 +5,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { Request } from "express";
 import { PrismaService } from "../../prisma/prisma.service";
 import { withTimeout } from "../../common/with-timeout";
+import { PlatformSettingsService } from "../platform/platform-settings.service";
 import { MetaWebhookPayload } from "./webhook-payload.types";
 import { WEBHOOK_QUEUE } from "./whatsapp.constants";
 
@@ -12,6 +13,7 @@ import { WEBHOOK_QUEUE } from "./whatsapp.constants";
 export class WebhooksController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly platformSettings: PlatformSettingsService,
     @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue: Queue,
   ) {}
 
@@ -30,7 +32,7 @@ export class WebhooksController {
 
   @Post()
   async receive(@Req() req: RawBodyRequest<Request>, @Body() payload: MetaWebhookPayload) {
-    this.verifySignature(req);
+    await this.verifySignature(req);
 
     const externalEventId = createHash("sha256").update(req.rawBody ?? Buffer.from("")).digest("hex");
 
@@ -54,9 +56,15 @@ export class WebhooksController {
     return { received: true };
   }
 
-  private verifySignature(req: RawBodyRequest<Request>) {
+  /**
+   * The same app secret used for the Embedded Signup OAuth exchange — set
+   * once in Platform Admin and stored encrypted in the database, not as an
+   * env var, since it is a platform-wide credential the agency configures
+   * through the UI rather than at deploy time.
+   */
+  private async verifySignature(req: RawBodyRequest<Request>) {
     const signatureHeader = req.headers["x-hub-signature-256"];
-    const secret = process.env.META_APP_SECRET;
+    const secret = await this.platformSettings.getDecryptedAppSecret();
     if (!secret || typeof signatureHeader !== "string" || !req.rawBody) {
       throw new BadRequestException("Missing webhook signature");
     }

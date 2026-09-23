@@ -40,13 +40,16 @@ docker compose -f infra/docker/docker-compose.yml up --build
 
 | Var | Needed for |
 |---|---|
-| `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | Verifying inbound Meta webhooks |
+| `META_WEBHOOK_VERIFY_TOKEN` | Meta's one-time webhook subscription challenge |
 | `TOKEN_ENCRYPTION_KEY` | Encrypting stored WABA access tokens (32-byte hex) |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Billing checkout + subscription webhooks |
 | `SENTRY_DSN` | Error reporting (optional — app runs fine without it) |
 
 Connecting a WhatsApp channel itself (WABA ID, phone number ID, access
 token) happens per-tenant through the `/dashboard/channels` UI, not via env vars.
+So does the Meta App ID and App Secret (used for Embedded Signup and to
+verify inbound webhook signatures) — set those once as an admin in
+`/dashboard/platform-admin`, not in `.env`.
 
 ## Workspace layout
 
