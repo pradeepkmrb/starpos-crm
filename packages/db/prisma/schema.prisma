@@ -67,6 +67,8 @@ model Tenant {
   activities         Activity[]
   customFields       CustomField[]
   metaLeadForms      MetaLeadForm[]
+  metaLeadConnection MetaLeadConnection?
+  metaLeadPages      MetaLeadPage[]
   integrations       TenantIntegration[]
   products           Product[]
   quotations         Quotation[]
@@ -537,7 +539,10 @@ model PlatformSettings {
   metaAppId                  String?
   metaAppSecretEncrypted     String?
   metaEmbeddedSignupConfigId String?
-  createdAt                  DateTime @default(now())
+  /// Facebook Login for Business configuration used by "Connect with Meta" for
+  /// lead ads. Optional: without it the login asks for the permissions by scope.
+  metaLeadAdsConfigId        String?
+  createdAt                 DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 }
 
@@ -751,6 +756,10 @@ model MetaLeadForm {
   formName                 String?
   pageAccessTokenEncrypted String
   isActive                 Boolean @default(true)
+  /// Set when the form was found through "Connect with Meta" rather than linked by hand.
+  connectionId             String?
+  /// The form's questions as Meta last described them, so mapping screens need no Graph call.
+  questionsJson            Json?
 
   /// Meta question name -> "name" | "phone" | "email" | "company" | "notes" |
   /// "custom:<key>" | "ignore". Unmapped questions fall back to the defaults
@@ -766,13 +775,66 @@ model MetaLeadForm {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  leads  Lead[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection MetaLeadConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  leads      Lead[]
 
   @@unique([tenantId, formId])
   @@index([tenantId])
   // The leadgen webhook arrives with no tenant context, so the form id is the lookup key.
   @@index([formId])
+}
+
+/// A tenant's "Connect with Meta" login for lead ads. The long-lived user
+/// token is kept only to rediscover Pages and forms later; leads themselves
+/// are always fetched with the Page tokens on MetaLeadPage / MetaLeadForm.
+model MetaLeadConnection {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  fbUserId           String
+  fbUserName         String?
+  userTokenEncrypted String
+  connectedByUserId  String?
+
+  /// Applied to every form from this connection, underneath each form's own mapping.
+  defaultFieldMappingJson Json?
+  /// Status given to leads on forms discovered from now on.
+  defaultStatus           LeadStatus @default(new)
+
+  lastSyncAt DateTime?
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pages  MetaLeadPage[]
+  forms  MetaLeadForm[]
+}
+
+/// A Facebook Page reached through a MetaLeadConnection. Its token is what
+/// lets a form created after connecting be picked up from its first lead.
+model MetaLeadPage {
+  id           String @id @default(cuid())
+  tenantId     String
+  connectionId String
+
+  pageId                   String
+  pageName                 String?
+  pageAccessTokenEncrypted String
+  /// Whether the app is subscribed to this Page's leadgen webhook.
+  subscribed               Boolean @default(false)
+  lastError                String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection MetaLeadConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, pageId])
+  // Leadgen webhooks for an unknown form are matched back to tenants by page.
+  @@index([pageId])
 }
 
 // ---------- Tenant integrations (third-party services a tenant connects) ----------

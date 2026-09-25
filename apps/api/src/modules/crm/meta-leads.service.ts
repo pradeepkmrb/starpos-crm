@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@digitel/db";
 import { PrismaService } from "../../prisma/prisma.service";
+import { decryptToken } from "../../common/token-encryption";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { MetaLeadsClient } from "./meta-leads.client";
 import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
@@ -42,13 +43,15 @@ export class MetaLeadsService {
    */
   async ingestLeadgen(notification: LeadgenNotification): Promise<IngestOutcome> {
     const { leadgenId, formId, pageId } = notification;
-    const links = await this.prisma.metaLeadForm.findMany({
+    const links: LinkForIngest[] = await this.prisma.metaLeadForm.findMany({
       where: {
         isActive: true,
         ...(formId ? { formId } : {}),
         ...(formId ? {} : pageId ? { pageId } : {}),
       },
+      include: WITH_CONNECTION_MAPPING,
     });
+    if (formId && pageId) links.push(...(await this.autoLinkNewForm(formId, pageId)));
 
     if (links.length === 0) {
       this.logger.warn(`Leadgen ${leadgenId} arrived for form ${formId ?? "?"} with no active link`);
@@ -81,7 +84,10 @@ export class MetaLeadsService {
 
   /** Operator-triggered catch-up: pulls the form's recent leads and stores the new ones. */
   async syncForm(tenantId: string, linkId: string, limit = 50): Promise<IngestOutcome> {
-    const link = await this.prisma.metaLeadForm.findFirst({ where: { id: linkId, tenantId } });
+    const link = await this.prisma.metaLeadForm.findFirst({
+      where: { id: linkId, tenantId },
+      include: WITH_CONNECTION_MAPPING,
+    });
     if (!link) return { created: 0, skipped: 0 };
 
     const records = await this.client.fetchFormLeads(
@@ -106,18 +112,68 @@ export class MetaLeadsService {
     return outcome;
   }
 
+  /**
+   * A form created after "Connect with Meta" has no link yet, but its Page
+   * does. Every tenant holding that Page through a connection — and without
+   * this form linked at all (a paused link is a deliberate choice) — gets it
+   * linked here, so its very first lead is not lost.
+   */
+  private async autoLinkNewForm(formId: string, pageId: string): Promise<LinkForIngest[]> {
+    const pages = await this.prisma.metaLeadPage.findMany({
+      where: { pageId },
+      include: { connection: { select: { defaultStatus: true } } },
+    });
+    if (pages.length === 0) return [];
+
+    const alreadyLinked = new Set(
+      (
+        await this.prisma.metaLeadForm.findMany({
+          where: { formId, tenantId: { in: pages.map((page) => page.tenantId) } },
+          select: { tenantId: true },
+        })
+      ).map((link) => link.tenantId),
+    );
+
+    const created: LinkForIngest[] = [];
+    for (const page of pages) {
+      if (alreadyLinked.has(page.tenantId)) continue;
+
+      let details: { name: string | null; questions: unknown[] } = { name: null, questions: [] };
+      try {
+        details = await this.client.fetchFormWithPageToken(formId, decryptToken(page.pageAccessTokenEncrypted));
+      } catch (error) {
+        // The name is cosmetic; the lead itself still has to come in.
+        this.logger.warn(`Could not read new Meta form ${formId}: ${error instanceof Error ? error.message : error}`);
+      }
+
+      try {
+        created.push(
+          await this.prisma.metaLeadForm.create({
+            data: {
+              tenantId: page.tenantId,
+              connectionId: page.connectionId,
+              pageId,
+              pageName: page.pageName,
+              formId,
+              formName: details.name,
+              pageAccessTokenEncrypted: page.pageAccessTokenEncrypted,
+              defaultStatus: page.connection.defaultStatus,
+              questionsJson: details.questions as Prisma.InputJsonValue,
+            },
+            include: WITH_CONNECTION_MAPPING,
+          }),
+        );
+        this.logger.log(`Linked new Meta form ${formId} for tenant ${page.tenantId} from its first lead`);
+      } catch (error) {
+        // A concurrent webhook for the same form linked it first.
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+      }
+    }
+    return created;
+  }
+
   /** Writes one Meta lead, or skips it if this tenant already has it. */
-  private async ingestRecord(
-    link: {
-      id: string;
-      tenantId: string;
-      formId: string;
-      formName: string | null;
-      defaultStatus: string;
-      fieldMappingJson: Prisma.JsonValue;
-    },
-    record: MetaLeadRecord,
-  ): Promise<IngestOutcome> {
+  private async ingestRecord(link: LinkForIngest, record: MetaLeadRecord): Promise<IngestOutcome> {
     if (!record?.id) return { created: 0, skipped: 1 };
 
     const existing = await this.prisma.lead.findFirst({
@@ -127,7 +183,11 @@ export class MetaLeadsService {
     if (existing) return { created: 0, skipped: 1 };
 
     const definitions = await this.customFields.listDefinitions(link.tenantId, "lead");
-    const mapping = readMapping(link.fieldMappingJson);
+    // The connection's default mapping covers every form; a form's own wins.
+    const mapping = {
+      ...readMapping(link.connection?.defaultFieldMappingJson ?? null),
+      ...readMapping(link.fieldMappingJson),
+    };
     const mapped = mapMetaLead(
       record,
       mapping,
@@ -180,6 +240,22 @@ export class MetaLeadsService {
     return { created: 1, skipped: 0 };
   }
 }
+
+const WITH_CONNECTION_MAPPING = {
+  connection: { select: { defaultFieldMappingJson: true } },
+} satisfies Prisma.MetaLeadFormInclude;
+
+/** A linked form plus its connection's default mapping, as ingestion needs it. */
+type LinkForIngest = {
+  id: string;
+  tenantId: string;
+  formId: string;
+  formName: string | null;
+  defaultStatus: string;
+  fieldMappingJson: Prisma.JsonValue;
+  pageAccessTokenEncrypted: string;
+  connection: { defaultFieldMappingJson: Prisma.JsonValue } | null;
+};
 
 function readMapping(value: Prisma.JsonValue): Record<string, string> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;

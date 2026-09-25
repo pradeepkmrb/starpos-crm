@@ -15,6 +15,7 @@ export class PlatformSettingsService {
     return {
       metaAppId: settings?.metaAppId ?? null,
       embeddedSignupConfigId: settings?.metaEmbeddedSignupConfigId ?? null,
+      leadAdsConfigId: settings?.metaLeadAdsConfigId ?? null,
       configured: Boolean(settings?.metaAppId && settings?.metaAppSecretEncrypted && settings?.metaEmbeddedSignupConfigId),
     };
   }
@@ -24,6 +25,7 @@ export class PlatformSettingsService {
     return {
       metaAppId: settings?.metaAppId ?? null,
       embeddedSignupConfigId: settings?.metaEmbeddedSignupConfigId ?? null,
+      leadAdsConfigId: settings?.metaLeadAdsConfigId ?? null,
       hasSecret: Boolean(settings?.metaAppSecretEncrypted),
     };
   }
@@ -36,12 +38,14 @@ export class PlatformSettingsService {
         ...(dto.metaEmbeddedSignupConfigId !== undefined
           ? { metaEmbeddedSignupConfigId: dto.metaEmbeddedSignupConfigId }
           : {}),
+        ...(dto.metaLeadAdsConfigId !== undefined ? { metaLeadAdsConfigId: dto.metaLeadAdsConfigId || null } : {}),
         ...(dto.metaAppSecret ? { metaAppSecretEncrypted: encryptToken(dto.metaAppSecret) } : {}),
       },
       create: {
         id: SINGLETON_ID,
         metaAppId: dto.metaAppId,
         metaEmbeddedSignupConfigId: dto.metaEmbeddedSignupConfigId,
+        metaLeadAdsConfigId: dto.metaLeadAdsConfigId || null,
         metaAppSecretEncrypted: dto.metaAppSecret ? encryptToken(dto.metaAppSecret) : undefined,
       },
     });

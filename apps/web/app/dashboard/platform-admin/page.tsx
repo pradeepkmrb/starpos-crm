@@ -42,6 +42,7 @@ function SettingsForm({
   const [metaAppId, setMetaAppId] = useState(initial.metaAppId ?? "");
   const [metaAppSecret, setMetaAppSecret] = useState("");
   const [configId, setConfigId] = useState(initial.embeddedSignupConfigId ?? "");
+  const [leadAdsConfigId, setLeadAdsConfigId] = useState(initial.leadAdsConfigId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +56,7 @@ function SettingsForm({
       const updated = await updatePlatformSettings({
         metaAppId,
         metaEmbeddedSignupConfigId: configId,
+        metaLeadAdsConfigId: leadAdsConfigId.trim(),
         ...(metaAppSecret ? { metaAppSecret } : {}),
       });
       onSaved(updated);
@@ -94,6 +96,20 @@ function SettingsForm({
         <label className="block">
           <span className="field-label">Embedded Signup Configuration ID</span>
           <input required className="input" value={configId} onChange={(e) => setConfigId(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="field-label">Lead ads login configuration ID</span>
+          <input
+            className="input"
+            placeholder="Optional"
+            value={leadAdsConfigId}
+            onChange={(e) => setLeadAdsConfigId(e.target.value)}
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            A Facebook Login for Business configuration with pages_show_list, pages_read_engagement,
+            pages_manage_metadata, pages_manage_ads, leads_retrieval and business_management. Leave blank to
+            request those permissions directly.
+          </span>
         </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

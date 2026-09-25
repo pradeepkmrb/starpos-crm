@@ -722,12 +722,15 @@ export function getAnalyticsOverview(days = 14, channelId?: string) {
 export interface PlatformPublicConfig {
   metaAppId: string | null;
   embeddedSignupConfigId: string | null;
+  /** Facebook Login for Business config for "Connect with Meta" lead ads; optional. */
+  leadAdsConfigId: string | null;
   configured: boolean;
 }
 
 export interface PlatformSettings {
   metaAppId: string | null;
   embeddedSignupConfigId: string | null;
+  leadAdsConfigId: string | null;
   hasSecret: boolean;
 }
 
@@ -743,6 +746,7 @@ export function updatePlatformSettings(input: {
   metaAppId?: string;
   metaAppSecret?: string;
   metaEmbeddedSignupConfigId?: string;
+  metaLeadAdsConfigId?: string;
 }) {
   return request<PlatformSettings>("/platform/settings", {
     method: "PUT",
@@ -1289,6 +1293,10 @@ export interface MetaLeadFormLink {
   formId: string;
   formName: string | null;
   isActive: boolean;
+  /** Set when the form came from "Connect with Meta" rather than a hand-entered token. */
+  connectionId: string | null;
+  /** The form's questions as last read from Meta. */
+  questions: MetaFormQuestion[];
   /** Meta question name -> "name" | "phone" | "email" | "company" | "notes" | "custom:<key>" | "ignore". */
   fieldMapping: Record<string, string>;
   defaultStatus: LeadStatus;
@@ -1356,6 +1364,69 @@ export function syncMetaLeadForm(linkId: string, limit?: number) {
     `/lead-sources/meta/${linkId}/sync${limit ? `?limit=${limit}` : ""}`,
     { method: "POST" },
   );
+}
+
+// --- CRM: "Connect with Meta" for lead ads ---
+
+export interface MetaLeadPage {
+  pageId: string;
+  pageName: string | null;
+  /** Whether the app is subscribed to the Page's leadgen webhook. */
+  subscribed: boolean;
+  lastError: string | null;
+}
+
+export interface MetaLeadConnection {
+  fbUserId: string;
+  fbUserName: string | null;
+  /** Applies to every form; each form's own mapping wins over it. */
+  defaultFieldMapping: Record<string, string>;
+  defaultStatus: LeadStatus;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  pages: MetaLeadPage[];
+}
+
+export interface MetaLeadDiscovery {
+  pages: number;
+  forms: number;
+  newForms: number;
+}
+
+export function getMetaLeadConnection() {
+  return request<{ connection: MetaLeadConnection | null }>("/lead-sources/meta-connection");
+}
+
+/** Finishes "Connect with Meta": the API swaps the login for tokens and links every form it finds. */
+export function connectMetaLeads(input: { code?: string; accessToken?: string }) {
+  return request<{ connection: MetaLeadConnection | null; discovered: MetaLeadDiscovery }>(
+    "/lead-sources/meta-connection",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function refreshMetaLeadConnection() {
+  return request<{ connection: MetaLeadConnection | null; discovered: MetaLeadDiscovery }>(
+    "/lead-sources/meta-connection/refresh",
+    { method: "POST" },
+  );
+}
+
+export function updateMetaLeadConnection(input: {
+  defaultFieldMapping?: Record<string, string>;
+  defaultStatus?: LeadStatus;
+}) {
+  return request<{ connection: MetaLeadConnection | null }>("/lead-sources/meta-connection", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function disconnectMetaLeads() {
+  return request<{ disconnected: boolean; formsRemoved: number }>("/lead-sources/meta-connection", {
+    method: "DELETE",
+  });
 }
 
 // --- Integrations (per-tenant connections to third-party services) ---

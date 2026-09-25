@@ -58,7 +58,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/quotations", label: "Quotations", icon: ReceiptIcon, keywords: "quote estimate proposal gst pdf" },
       { href: "/dashboard/payments", label: "Payments", icon: BanknotesIcon, keywords: "collections received cash upi" },
       { href: "/dashboard/targets", label: "Targets", icon: TargetIcon, keywords: "goals quota leaderboard monthly" },
-      { href: "/dashboard/lead-sources", label: "Meta ads", icon: MegaphoneIcon, keywords: "lead ads facebook forms" },
       { href: "/dashboard/lead-fields", label: "Lead fields", icon: SlidersIcon, keywords: "custom fields" },
     ],
   },
@@ -70,7 +69,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/dashboard/team", label: "Team", icon: UsersIcon, keywords: "members invite roles workspace" },
-      { href: "/dashboard/integrations", label: "Integrations", icon: PlugIcon },
+      {
+        href: "/dashboard/integrations",
+        label: "Integrations",
+        icon: PlugIcon,
+        keywords: "meta lead ads facebook forms razorpay stripe",
+      },
       { href: "/dashboard/billing", label: "Plan and usage", icon: CreditCardIcon, keywords: "billing upgrade" },
       { href: "/dashboard/api", label: "API and developers", icon: CodeIcon, keywords: "keys webhooks docs" },
     ],

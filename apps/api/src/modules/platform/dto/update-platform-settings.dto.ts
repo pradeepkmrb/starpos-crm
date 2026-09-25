@@ -14,4 +14,9 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @IsString()
   metaEmbeddedSignupConfigId?: string;
+
+  /** Facebook Login for Business config for lead ads; an empty string clears it. */
+  @IsOptional()
+  @IsString()
+  metaLeadAdsConfigId?: string;
 }

@@ -15,6 +15,10 @@ export interface PublicMetaLeadForm {
   formId: string;
   formName: string | null;
   isActive: boolean;
+  /** Set when the form came from "Connect with Meta" rather than a hand-entered token. */
+  connectionId: string | null;
+  /** The form's questions as last read from Meta — may be empty for hand-linked forms. */
+  questions: MetaFormQuestion[];
   fieldMapping: Record<string, string>;
   defaultStatus: string;
   leadCount: number;
@@ -68,6 +72,7 @@ export class MetaLeadFormsService {
         isActive: dto.isActive ?? true,
         defaultStatus: dto.defaultStatus ?? "new",
         fieldMappingJson: dto.fieldMapping ?? Prisma.DbNull,
+        questionsJson: probe.questions.length > 0 ? (probe.questions as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
       },
     });
 
@@ -109,7 +114,15 @@ export class MetaLeadFormsService {
     if (!link) throw new NotFoundException("Linked form not found");
 
     const probe = await this.probeForm(tenantId, link.pageAccessTokenEncrypted, link.formId);
-    return { questions: probe.questions, warning: probe.warning };
+    if (probe.questions.length > 0) {
+      await this.prisma.metaLeadForm.update({
+        where: { id },
+        data: { questionsJson: probe.questions as unknown as Prisma.InputJsonValue },
+      });
+      return { questions: probe.questions };
+    }
+    // Meta could not be reached: the last known questions beat an empty editor.
+    return { questions: readQuestions(link.questionsJson), warning: probe.warning };
   }
 
   async sync(tenantId: string, id: string, limit?: number) {
@@ -144,6 +157,8 @@ function toPublic(link: {
   formId: string;
   formName: string | null;
   isActive: boolean;
+  connectionId: string | null;
+  questionsJson: Prisma.JsonValue;
   fieldMappingJson: Prisma.JsonValue;
   defaultStatus: string;
   leadCount: number;
@@ -165,6 +180,8 @@ function toPublic(link: {
     formId: link.formId,
     formName: link.formName,
     isActive: link.isActive,
+    connectionId: link.connectionId,
+    questions: readQuestions(link.questionsJson),
     fieldMapping: mapping,
     defaultStatus: link.defaultStatus,
     leadCount: link.leadCount,
@@ -172,4 +189,12 @@ function toPublic(link: {
     lastSyncAt: link.lastSyncAt,
     createdAt: link.createdAt,
   };
+}
+
+function readQuestions(value: Prisma.JsonValue): MetaFormQuestion[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is { key: string; label: string } =>
+      item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.key === "string",
+  ) as MetaFormQuestion[];
 }

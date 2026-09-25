@@ -6,6 +6,9 @@ import { MetaLeadFormsService } from "./meta-lead-forms.service";
 import { MetaLeadFormsController } from "./meta-lead-forms.controller";
 import { MetaLeadsService } from "./meta-leads.service";
 import { MetaLeadsClient } from "./meta-leads.client";
+import { MetaLeadConnectionService } from "./meta-lead-connection.service";
+import { MetaLeadConnectionController } from "./meta-lead-connection.controller";
+import { PlatformModule } from "../platform/platform.module";
 
 /**
  * The CRM: leads and the Meta lead-ads forms that feed them in
@@ -15,9 +18,15 @@ import { MetaLeadsClient } from "./meta-leads.client";
  * notifications to it.
  */
 @Module({
-  imports: [CustomFieldsModule],
-  controllers: [LeadsController, MetaLeadFormsController],
-  providers: [LeadsService, MetaLeadFormsService, MetaLeadsService, MetaLeadsClient],
+  imports: [CustomFieldsModule, PlatformModule],
+  controllers: [LeadsController, MetaLeadFormsController, MetaLeadConnectionController],
+  providers: [
+    LeadsService,
+    MetaLeadFormsService,
+    MetaLeadsService,
+    MetaLeadsClient,
+    MetaLeadConnectionService,
+  ],
   exports: [MetaLeadsService],
 })
 export class CrmModule {}
