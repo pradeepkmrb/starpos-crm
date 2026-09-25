@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   INTEGRATION_CATEGORY_LABELS,
@@ -11,15 +12,18 @@ import {
 import {
   ApiError,
   type Integration,
+  type MetaLeadConnection,
   connectIntegration,
   disconnectIntegration,
   getAccessToken,
+  getMetaLeadConnection,
   listIntegrations,
   me,
   setIntegrationActive,
   testIntegration,
 } from "../../../lib/api";
 import { IntegrationCard } from "./IntegrationCard";
+import { FacebookGlyph } from "./meta-lead-ads/ConnectMetaButton";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { PageHeader } from "../../../components/ui";
 import { PlugIcon as PlugHeaderIcon } from "../../../components/icons";
@@ -32,7 +36,8 @@ export default function IntegrationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<IntegrationCategory | "all">("all");
+  const [category, setCategory] = useState<IntegrationCategory | "lead_sources" | "all">("all");
+  const [metaLeads, setMetaLeads] = useState<MetaLeadConnection | null>(null);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
 
   const canManage = role ? roleAtLeast(role, "admin") : false;
@@ -47,6 +52,10 @@ export default function IntegrationsPage() {
         const [meRes, list] = await Promise.all([me(), listIntegrations()]);
         setRole(meRes.role);
         setIntegrations(list);
+        // Admin-only endpoint; everyone else just sees the card unconnected.
+        if (roleAtLeast(meRes.role, "admin")) {
+          setMetaLeads((await getMetaLeadConnection().catch(() => ({ connection: null }))).connection);
+        }
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
@@ -76,7 +85,12 @@ export default function IntegrationsPage() {
     });
   }, [integrations, search, category]);
 
-  const connectedCount = integrations.filter((i) => i.connection?.status === "connected").length;
+  const showMetaLeads =
+    (category === "all" || category === "lead_sources") &&
+    (!search.trim() || META_LEADS_SEARCH.includes(search.trim().toLowerCase()));
+
+  const connectedCount =
+    integrations.filter((i) => i.connection?.status === "connected").length + (metaLeads ? 1 : 0);
 
   function replace(updated: Integration) {
     setIntegrations((prev) => prev.map((i) => (i.provider === updated.provider ? updated : i)));
@@ -164,6 +178,11 @@ export default function IntegrationsPage() {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <FilterChip label="All" active={category === "all"} onClick={() => setCategory("all")} />
+        <FilterChip
+          label="Lead sources"
+          active={category === "lead_sources"}
+          onClick={() => setCategory("lead_sources")}
+        />
         {categories.map((value) => (
           <FilterChip
             key={value}
@@ -175,11 +194,12 @@ export default function IntegrationsPage() {
       </div>
 
       <p className="mt-4 text-sm text-slate-500">
-        {connectedCount} of {integrations.length} connected
+        {connectedCount} of {integrations.length + 1} connected
       </p>
 
       <section className="mt-3 grid gap-4 lg:grid-cols-2">
-        {visible.length === 0 ? (
+        {showMetaLeads && <MetaLeadAdsCard connection={metaLeads} canManage={canManage} />}
+        {category === "lead_sources" ? null : visible.length === 0 && !showMetaLeads ? (
           <p className="text-sm text-slate-500">No integrations match “{search}”.</p>
         ) : (
           visible.map((integration) => (
@@ -196,6 +216,50 @@ export default function IntegrationsPage() {
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+const META_LEADS_SEARCH = "meta lead ads facebook instagram forms lead sources";
+
+/** Meta lead ads connect by Facebook login rather than pasted keys, so they get their own card. */
+function MetaLeadAdsCard({ connection, canManage }: { connection: MetaLeadConnection | null; canManage: boolean }) {
+  return (
+    <div className="card flex flex-col p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1877F2] text-white">
+          <FacebookGlyph className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-900">Meta lead ads</h3>
+            {connection && <span className="badge badge-success">Connected</span>}
+          </div>
+          <p className="text-sm text-slate-500">Lead sources</p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-slate-600">
+        Log in with Facebook and every instant-form lead ad on your Pages sends its submissions straight to Leads,
+        mapped onto your own fields.
+      </p>
+      {connection && (
+        <p className="mt-3 text-sm text-slate-500">
+          {connection.fbUserName ?? "Facebook account"} · {connection.pages.length} Page
+          {connection.pages.length === 1 ? "" : "s"}
+        </p>
+      )}
+      <div className="mt-4">
+        {canManage ? (
+          <Link
+            href="/dashboard/integrations/meta-lead-ads"
+            className={connection ? "btn-secondary" : "btn-primary"}
+          >
+            {connection ? "Manage forms and mapping" : "Connect with Facebook"}
+          </Link>
+        ) : (
+          <p className="text-sm text-slate-500">Ask an admin or owner to connect Meta lead ads.</p>
+        )}
+      </div>
     </div>
   );
 }

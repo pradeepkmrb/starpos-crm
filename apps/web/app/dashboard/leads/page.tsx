@@ -321,7 +321,7 @@ export default function LeadsPage() {
                 Add lead
               </button>
             )}
-            <Link href="/dashboard/lead-sources" className="btn-secondary">
+            <Link href="/dashboard/integrations/meta-lead-ads" className="btn-secondary">
               Connect Meta ads
             </Link>
           </div>
