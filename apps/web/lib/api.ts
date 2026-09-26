@@ -811,6 +811,8 @@ export interface InboxMessage {
 }
 
 export interface InboxThread {
+  /** The channel of the latest message — the one replies go out on. Null before any message. */
+  channelId: string | null;
   contact: {
     id: string;
     channelType: ChannelType;
@@ -848,12 +850,13 @@ export function replyToConversation(contactId: string, body: string) {
 
 /**
  * Sends an approved template — the only way to message a contact outside the
- * 24-hour window, including one who has never been messaged before.
+ * 24-hour window, including one who has never been messaged before. `channelId`
+ * picks the WhatsApp number to send from; it must share the template's WABA.
  */
-export function sendConversationTemplate(contactId: string, templateId: string) {
+export function sendConversationTemplate(contactId: string, templateId: string, channelId?: string) {
   return request<{ id: string }>(`/inbox/conversations/${contactId}/send-template`, {
     method: "POST",
-    body: JSON.stringify({ templateId }),
+    body: JSON.stringify({ templateId, channelId }),
   });
 }
 

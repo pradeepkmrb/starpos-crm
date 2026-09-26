@@ -220,7 +220,16 @@ export class InboxService {
       };
     });
 
+    // Replies go out on the channel of the latest message (see resolveChannel),
+    // so the UI shows — and defaults template sends to — that number.
+    const lastLog = await this.prisma.messageLog.findFirst({
+      where: { tenantId, contactId },
+      orderBy: { createdAt: "desc" },
+      select: { channelId: true },
+    });
+
     return {
+      channelId: lastLog?.channelId ?? null,
       contact: {
         id: contact.id,
         channelType: contact.channelType,
@@ -276,11 +285,12 @@ export class InboxService {
    * Templates are the only way to message a contact outside the 24-hour
    * window — including a contact who has never been messaged before, which
    * is how a conversation gets started from the Inbox in the first place.
-   * Unlike `reply`, the channel comes from the template itself: a template
-   * only exists (and is only approved) on the specific WABA it was
-   * submitted to, so that is the channel it has to be sent from.
+   * Unlike `reply`, the number is picked here: a template only exists (and is
+   * only approved) on the WABA it was submitted to, so it can go out from any
+   * number on that WABA — the chosen one, or else the template's own. Later
+   * replies follow, since they reuse the conversation's latest channel.
    */
-  async sendTemplate(tenantId: string, contactId: string, templateId: string) {
+  async sendTemplate(tenantId: string, contactId: string, templateId: string, channelId?: string) {
     const contact = await this.prisma.contact.findFirst({ where: { id: contactId, tenantId } });
     if (!contact) throw new NotFoundException("Contact not found");
     if (contact.channelType !== "whatsapp") {
@@ -296,9 +306,21 @@ export class InboxService {
       throw new BadRequestException(`This template is ${template.status}. Meta only delivers approved templates.`);
     }
 
-    const channel = await this.channelsService.getChannelWithCredentials(tenantId, template.channelId);
+    const templateChannel = await this.channelsService.getChannelWithCredentials(tenantId, template.channelId);
+    const channel =
+      channelId && channelId !== templateChannel.id
+        ? await this.channelsService.getChannelWithCredentials(tenantId, channelId)
+        : templateChannel;
+    if (channel.type !== "whatsapp") {
+      throw new BadRequestException("Templates can only be sent from a WhatsApp number");
+    }
+    if (channel.wabaId !== templateChannel.wabaId) {
+      throw new BadRequestException(
+        "This template isn't approved on the selected number's WhatsApp Business Account — pick one of its own templates",
+      );
+    }
     if (channel.status !== "active") {
-      throw new BadRequestException("The channel this template belongs to is not active");
+      throw new BadRequestException("The number you're sending from is not active");
     }
 
     const { externalMessageId, payload } = await this.dispatcher.sendTemplate(

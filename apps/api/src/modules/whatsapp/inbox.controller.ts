@@ -47,7 +47,7 @@ export class InboxController {
   @Post("conversations/:contactId/send-template")
   @Roles("agent")
   sendTemplate(@Req() req: Request, @Param("contactId") contactId: string, @Body() dto: SendTemplateDto) {
-    return this.inboxService.sendTemplate(req.tenantContext!.tenantId, contactId, dto.templateId);
+    return this.inboxService.sendTemplate(req.tenantContext!.tenantId, contactId, dto.templateId, dto.channelId);
   }
 
   /** Agents can pick up and hand over conversations themselves. */
