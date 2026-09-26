@@ -451,3 +451,7 @@ export function TargetIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function SendIcon(props: SVGProps<SVGSVGElement>) {
+  return <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.27 3.13a59.77 59.77 0 0118.22 8.87 59.77 59.77 0 01-18.22 8.88L6 12zm0 0h7.5" /></Icon>;
+}

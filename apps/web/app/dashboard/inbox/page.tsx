@@ -14,6 +14,7 @@ import {
 import {
   ApiError,
   type AuthUser,
+  type Channel,
   type Contact,
   type InboxConversation,
   type InboxThread,
@@ -25,6 +26,7 @@ import {
   createLabel,
   getAccessToken,
   getConversation,
+  listChannels,
   listContacts,
   listConversations,
   listLabels,
@@ -37,8 +39,18 @@ import {
   updateContact,
 } from "../../../lib/api";
 import { PageSkeleton } from "../../../components/PageSkeleton";
-import { EmptyState, PageHeader } from "../../../components/ui";
-import { ChatIcon, CheckIcon, CloseIcon, PlugIcon, PlusIcon, SearchIcon, SlidersIcon } from "../../../components/icons";
+import { EmptyState } from "../../../components/ui";
+import {
+  ChatIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  PlugIcon,
+  PlusIcon,
+  SearchIcon,
+  SendIcon,
+  SlidersIcon,
+} from "../../../components/icons";
 import Link from "next/link";
 import { Avatar } from "../../../components/Avatar";
 
@@ -123,13 +135,40 @@ function clock(iso: string): string {
 
 /** WhatsApp-style ticks: one for sent, two for delivered, two green for read. */
 function Ticks({ status }: { status: string }) {
-  if (status === "failed") return <span className="font-semibold text-red-200">Failed</span>;
+  if (status === "failed") return <span className="font-semibold text-red-600">Failed</span>;
   const double = status === "delivered" || status === "read";
   return (
-    <span className={`inline-flex ${status === "read" ? "text-sky-200" : "text-white/70"}`} aria-label={status}>
+    <span className={`inline-flex ${status === "read" ? "text-wa-read" : "text-wa-muted"}`} aria-label={status}>
       <CheckIcon className="h-3.5 w-3.5" />
       {double && <CheckIcon className="-ml-2 h-3.5 w-3.5" />}
     </span>
+  );
+}
+
+/** The little corner that points a run of bubbles at its sender, as on WhatsApp. */
+function BubbleTail({ out }: { out: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 8 13"
+      className={`absolute top-0 h-[13px] w-2 ${out ? "-right-2 text-wa-out" : "-left-2 -scale-x-100 text-white"}`}
+      aria-hidden="true"
+    >
+      <path fill="currentColor" d="M0 0h8L1.5 9.5C.9 10.4 0 10 0 9V0z" />
+    </svg>
+  );
+}
+
+function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${
+        active ? "bg-[#d9fdd3] text-wa-green-dark" : "bg-wa-panel text-wa-muted hover:bg-wa-active"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -152,16 +191,26 @@ export default function InboxPage() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [editingContact, setEditingContact] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  /** Phones show one pane at a time, like the WhatsApp app: the list, or an open chat. */
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [reopenTemplateId, setReopenTemplateId] = useState("");
+  const [reopenChannelId, setReopenChannelId] = useState("");
   const [reopening, setReopening] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
+  /** Active WhatsApp numbers — a template can be sent from any of them. */
+  const [numbers, setNumbers] = useState<Channel[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const approvedTemplates = useMemo(
     () => templates.filter((t) => t.status === "approved"),
     [templates],
   );
+
+  // Defaults to the number the conversation is already on, so replies stay put.
+  const reopenNumber =
+    numbers.find((n) => n.id === reopenChannelId) ?? numbers.find((n) => n.id === thread?.channelId) ?? numbers[0];
+  const reopenTemplates = templatesForNumber(approvedTemplates, numbers, reopenNumber);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -184,6 +233,9 @@ export default function InboxPage() {
         listMembers().then(setMembers).catch(() => undefined);
         // Needed to reopen a closed window or start a new chat — not fatal if it fails.
         listTemplates().then(setTemplates).catch(() => undefined);
+        listChannels()
+          .then((cs) => setNumbers(cs.filter((c) => c.status === "active")))
+          .catch(() => undefined);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");
@@ -211,6 +263,7 @@ export default function InboxPage() {
     if (!activeId) return;
     setThread(null);
     setReopenTemplateId("");
+    setReopenChannelId("");
     void refreshThread(activeId, true);
   }, [activeId, refreshThread]);
 
@@ -376,8 +429,9 @@ export default function InboxPage() {
     setError(null);
     setReopening(true);
     try {
-      await sendConversationTemplate(activeId, reopenTemplateId);
+      await sendConversationTemplate(activeId, reopenTemplateId, reopenNumber?.id);
       setReopenTemplateId("");
+      setReopenChannelId("");
       await refreshThread(activeId, false);
       listConversations().then(setConversations).catch(() => undefined);
     } catch (err) {
@@ -387,8 +441,8 @@ export default function InboxPage() {
     }
   }
 
-  async function onStartConversation(contactId: string, templateId: string) {
-    await sendConversationTemplate(contactId, templateId);
+  async function onStartConversation(contactId: string, templateId: string, channelId?: string) {
+    await sendConversationTemplate(contactId, templateId, channelId);
     setShowNewChat(false);
     setActiveId(contactId);
     listConversations().then(setConversations).catch(() => undefined);
@@ -484,93 +538,103 @@ export default function InboxPage() {
   let lastDay = "";
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        icon={ChatIcon}
-        title="Inbox"
-        subtitle="WhatsApp, Messenger, Instagram and email in one place. Meta channels allow free replies for 24 hours after the contact's last message."
-        actions={
-          canReply && (
-            <button type="button" onClick={() => setShowNewChat(true)} className="btn-primary">
-              <PlusIcon className="h-4 w-4" />
-              New chat
-            </button>
-          )
-        }
-      />
-
+    <div className="relative flex h-[calc(100dvh-65px)] flex-col bg-wa-panel">
       {showNewChat && (
         <NewChatModal
           templates={approvedTemplates}
+          numbers={numbers}
           existingContactIds={new Set(conversations.map((c) => c.contactId))}
           onClose={() => setShowNewChat(false)}
           onStart={onStartConversation}
         />
       )}
 
-      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {error && (
+        <div className="absolute inset-x-0 top-0 z-30 flex items-center gap-3 bg-red-50 px-4 py-2.5 text-sm text-red-700 shadow">
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => setError(null)} className="rounded p-1 hover:bg-red-100" aria-label="Dismiss">
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {conversations.length === 0 ? (
-        <div className="card">
+        <div className="flex flex-1 items-center justify-center p-6">
           <EmptyState
             icon={ChatIcon}
             title="No conversations yet"
             text="Chats appear here when someone messages a connected channel, or after you send them a broadcast."
             action={
-              <Link href="/dashboard/channels" className="btn-primary">
-                <PlugIcon className="h-4 w-4" />
-                Connect a channel
-              </Link>
+              <div className="flex flex-wrap justify-center gap-2">
+                {canReply && (
+                  <button type="button" onClick={() => setShowNewChat(true)} className="btn-primary">
+                    <PlusIcon className="h-4 w-4" />
+                    New chat
+                  </button>
+                )}
+                <Link href="/dashboard/channels" className="btn-secondary">
+                  <PlugIcon className="h-4 w-4" />
+                  Connect a channel
+                </Link>
+              </div>
             }
           />
         </div>
       ) : (
-        <div className="card relative grid h-[calc(100vh-13rem)] min-h-[34rem] overflow-hidden lg:grid-cols-[21rem_1fr] xl:grid-cols-[21rem_1fr_18rem]">
-          <aside className="flex min-h-0 flex-col border-r border-slate-100">
-            <div className="space-y-3 border-b border-slate-100 p-3">
-              <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
-                {(["all", "mine", "unassigned"] as Tab[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTab(t)}
-                    className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                      tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    {t} <span className="text-slate-400">{counts[t]}</span>
-                  </button>
-                ))}
-              </div>
+        <div
+          className={`grid min-h-0 flex-1 lg:grid-cols-[minmax(20rem,30%)_1fr] ${
+            showDetails && thread ? "xl:grid-cols-[minmax(20rem,28%)_1fr_24rem]" : ""
+          }`}
+        >
+          {/* Chat list */}
+          <aside
+            className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 flex-col border-r border-wa-line bg-white lg:flex`}
+          >
+            <div className="flex h-16 shrink-0 items-center justify-between bg-wa-panel px-4">
+              <h1 className="text-xl font-bold text-wa-ink">Chats</h1>
+              {canReply && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewChat(true)}
+                  className="rounded-full p-2 text-wa-muted hover:bg-black/5"
+                  aria-label="New chat"
+                  title="New chat"
+                >
+                  <PlusIcon className="h-6 w-6" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2.5 border-b border-wa-line px-3 py-2.5">
               <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-wa-muted" />
                 <input
-                  className="input py-2 pl-9"
-                  placeholder="Search conversations"
+                  className="h-9 w-full rounded-lg border-0 bg-wa-panel pl-11 pr-3 text-sm text-wa-ink placeholder:text-wa-muted focus:outline-none focus:ring-2 focus:ring-wa-green/30"
+                  placeholder="Search or start a new chat"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              {activeChannels.length > 1 && (
-                <div className="flex flex-wrap gap-1">
-                  {(["all", ...activeChannels] as ChannelFilter[]).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setChannelFilter(type)}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        channelFilter === type ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
+              <div className="flex flex-wrap gap-1.5">
+                {(["all", "mine", "unassigned"] as Tab[]).map((t) => (
+                  <Pill key={t} active={tab === t} onClick={() => setTab(t)}>
+                    <span className="capitalize">{t}</span>
+                    <span className="ml-1 opacity-60">{counts[t]}</span>
+                  </Pill>
+                ))}
+                {activeChannels.length > 1 && <span className="mx-0.5 w-px self-stretch bg-wa-line" aria-hidden="true" />}
+                {activeChannels.length > 1 &&
+                  (["all", ...activeChannels] as ChannelFilter[]).map((type) => (
+                    <Pill key={`ch-${type}`} active={channelFilter === type} onClick={() => setChannelFilter(type)}>
                       {type === "all" ? "All channels" : CHANNEL_SHORT_LABELS[type]}
-                    </button>
+                    </Pill>
                   ))}
-                </div>
-              )}
+              </div>
             </div>
+
             <div className="min-h-0 flex-1 overflow-y-auto">
               {visible.length === 0 && (
-                <p className="p-6 text-center text-sm text-slate-500">
+                <p className="p-6 text-center text-sm text-wa-muted">
                   {search ? `No conversations match “${search}”.` : "Nothing here."}
                 </p>
               )}
@@ -580,22 +644,25 @@ export default function InboxPage() {
                   <button
                     key={c.contactId}
                     type="button"
-                    onClick={() => setActiveId(c.contactId)}
-                    className={`flex w-full gap-3 border-l-[3px] px-3 py-3 text-left transition-colors ${
-                      active ? "border-brand-600 bg-brand-50/70" : "border-transparent hover:bg-slate-50"
+                    onClick={() => {
+                      setActiveId(c.contactId);
+                      setMobileView("chat");
+                    }}
+                    className={`flex w-full items-center gap-3 pl-3 text-left transition-colors ${
+                      active ? "bg-wa-active" : "hover:bg-wa-panel"
                     }`}
                   >
-                    <Avatar name={c.name || c.handle} />
-                    <div className="min-w-0 flex-1">
+                    <Avatar name={c.name || c.handle} size="h-12 w-12 text-base" />
+                    <div className="min-w-0 flex-1 border-b border-wa-line py-3 pr-3">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-bold text-slate-900">{c.name || c.handle}</span>
-                        <span className="shrink-0 text-[11px] text-slate-400">{relativeTime(c.lastMessageAt)}</span>
+                        <span className="truncate text-[16px] text-wa-ink">{c.name || c.handle}</span>
+                        <span className="shrink-0 text-xs text-wa-muted">{relativeTime(c.lastMessageAt)}</span>
                       </div>
-                      <p className="mt-0.5 truncate text-sm text-slate-500">
-                        {c.lastMessageDirection === "outbound" && <span className="text-slate-400">You: </span>}
-                        {c.lastMessagePreview}
+                      <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-wa-muted">
+                        {c.lastMessageDirection === "outbound" && <CheckIcon className="h-4 w-4 shrink-0 text-wa-muted" />}
+                        <span className="truncate">{c.lastMessagePreview}</span>
                       </p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         <ChannelChip type={c.channelType} />
                         {c.labels.map((l) => (
                           <span
@@ -605,9 +672,9 @@ export default function InboxPage() {
                             {l.name}
                           </span>
                         ))}
-                        {c.assignedUser && <span className="text-[10px] text-slate-500">@{memberLabel(c.assignedUser)}</span>}
+                        {c.assignedUser && <span className="text-[10px] text-wa-muted">@{memberLabel(c.assignedUser)}</span>}
                         {channelHasReplyWindow(c.channelType) && !c.windowOpen && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Closed</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-wa-muted">Closed</span>
                         )}
                       </div>
                     </div>
@@ -617,74 +684,114 @@ export default function InboxPage() {
             </div>
           </aside>
 
-          <section className="flex min-h-0 flex-col">
+          {/* Conversation */}
+          <section className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 min-w-0 flex-col bg-wa-chat lg:flex`}>
             {threadLoading || !thread ? (
-              <div className="space-y-3 p-6">
-                <div className="skeleton h-12 w-64" />
-                <div className="skeleton h-16 w-80" />
-                <div className="skeleton ml-auto h-16 w-72" />
-              </div>
+              activeId ? (
+                <div className="flex-1 space-y-3 p-6">
+                  <div className="skeleton h-12 w-64" />
+                  <div className="skeleton h-16 w-80" />
+                  <div className="skeleton ml-auto h-16 w-72" />
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 border-b-[6px] border-wa-green bg-wa-panel p-8 text-center">
+                  <ChatIcon className="h-16 w-16 text-wa-muted/50" />
+                  <p className="text-2xl font-light text-wa-ink">Digitell Inbox</p>
+                  <p className="max-w-md text-sm text-wa-muted">
+                    Pick a chat on the left. WhatsApp, Messenger, Instagram and email all land here; Meta channels allow
+                    free replies for 24 hours after the contact&apos;s last message.
+                  </p>
+                </div>
+              )
             ) : (
               <>
-                <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-                  <Avatar name={thread.contact.name || thread.contact.handle} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-slate-900">{thread.contact.name || thread.contact.handle}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {CHANNEL_LABELS[thread.contact.channelType]} · {thread.contact.handle}
-                      {thread.contact.assignedUser && ` · assigned to ${memberLabel(thread.contact.assignedUser)}`}
-                    </p>
-                  </div>
+                <header className="flex h-16 shrink-0 items-center gap-3 border-l border-wa-line bg-wa-panel px-4">
+                  <button
+                    type="button"
+                    onClick={() => setMobileView("list")}
+                    className="-ml-2 rounded-full p-1.5 text-wa-muted hover:bg-black/5 lg:hidden"
+                    aria-label="Back to chats"
+                  >
+                    <ChevronRightIcon className="h-5 w-5 rotate-180" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails((v) => !v)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    title="Contact info"
+                  >
+                    <Avatar name={thread.contact.name || thread.contact.handle} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[16px] text-wa-ink">{thread.contact.name || thread.contact.handle}</span>
+                      <span className="block truncate text-xs text-wa-muted">
+                        {CHANNEL_LABELS[thread.contact.channelType]} · {thread.contact.handle}
+                        {numbers.length > 1 && thread.contact.channelType === "whatsapp" && (() => {
+                          const via = numbers.find((n) => n.id === thread.channelId);
+                          return via ? ` · via ${numberLabel(via)}` : null;
+                        })()}
+                        {thread.contact.assignedUser && ` · assigned to ${memberLabel(thread.contact.assignedUser)}`}
+                      </span>
+                    </span>
+                  </button>
                   {!channelHasReplyWindow(thread.contact.channelType) ? (
-                    <span className="badge badge-neutral">No reply window</span>
+                    <span className="badge badge-neutral hidden sm:inline-flex">No reply window</span>
                   ) : thread.windowOpen ? (
-                    <span className="badge badge-success">{windowHint(thread.windowExpiresAt)}</span>
+                    <span className="badge badge-success hidden sm:inline-flex">{windowHint(thread.windowExpiresAt)}</span>
                   ) : (
-                    <span className="badge badge-warning">Window closed</span>
+                    <span className="badge badge-warning hidden sm:inline-flex">Window closed</span>
                   )}
                   <button
                     type="button"
                     onClick={() => setShowDetails((v) => !v)}
-                    className="btn-ghost px-2 xl:hidden"
-                    aria-label="Contact details"
+                    className={`rounded-full p-2 text-wa-muted hover:bg-black/5 ${showDetails ? "bg-black/5" : ""}`}
+                    aria-label="Contact info"
+                    title="Contact info"
                   >
                     <SlidersIcon className="h-5 w-5" />
                   </button>
                 </header>
 
-                <div
-                  className="min-h-0 flex-1 space-y-1.5 overflow-y-auto bg-[#f2f5f3] px-4 py-5 sm:px-8"
-                  style={{ backgroundImage: "radial-gradient(rgba(5,150,105,0.07) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
-                >
+                <div className="wa-wallpaper min-h-0 flex-1 overflow-y-auto px-[4%] py-4 lg:px-[7%]">
                   {thread.messages.length === 0 && (
-                    <p className="text-center text-sm text-slate-500">No messages in this conversation yet.</p>
+                    <div className="mt-6 flex justify-center">
+                      <span className="rounded-lg bg-[#fff5c4] px-3 py-1.5 text-xs text-wa-ink shadow-sm">
+                        No messages in this conversation yet.
+                      </span>
+                    </div>
                   )}
-                  {thread.messages.map((m) => {
+                  {thread.messages.map((m, i) => {
                     const day = dayLabel(m.createdAt);
                     const showDay = day !== lastDay;
                     lastDay = day;
                     const out = m.direction === "outbound";
+                    // Like WhatsApp, only the first bubble of a run gets a tail.
+                    const first = showDay || i === 0 || thread.messages[i - 1]!.direction !== m.direction;
                     return (
                       <div key={m.id}>
                         {showDay && (
                           <div className="my-3 flex justify-center">
-                            <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
+                            <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium uppercase text-wa-muted shadow-sm">
                               {day}
                             </span>
                           </div>
                         )}
-                        <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
+                        <div className={`flex ${out ? "justify-end" : "justify-start"} ${first ? "mt-2" : "mt-0.5"}`}>
                           <div
-                            className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
-                              out ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-800"
-                            }`}
+                            className={`relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.2px] text-wa-ink shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] sm:max-w-[65%] ${
+                              out ? "bg-wa-out" : "bg-white"
+                            } ${first ? (out ? "rounded-tr-none" : "rounded-tl-none") : ""}`}
                             title={formatTime(m.createdAt)}
                           >
-                            <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
-                            <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${out ? "text-white/70" : "text-slate-400"}`}>
+                            {first && <BubbleTail out={out} />}
+                            <p className="whitespace-pre-wrap break-words leading-[19px]">
+                              {m.text}
+                              {/* Reserves room so the time never overlaps the last line. */}
+                              <span className={`inline-block ${out ? "w-[4.5rem]" : "w-12"}`} />
+                            </p>
+                            <span className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-wa-muted">
                               {clock(m.createdAt)}
                               {out && <Ticks status={m.status} />}
-                            </p>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -695,11 +802,11 @@ export default function InboxPage() {
 
                 {canReply ? (
                   thread.windowOpen ? (
-                    <form onSubmit={onSend} className="flex items-end gap-2 border-t border-slate-100 bg-white p-3">
+                    <form onSubmit={onSend} className="flex shrink-0 items-end gap-2 bg-wa-panel px-4 py-2.5">
                       <textarea
-                        className="input min-h-[44px] flex-1 resize-none rounded-2xl py-2.5"
+                        className="max-h-32 min-h-[42px] flex-1 resize-none rounded-lg border-0 bg-white px-4 py-2.5 text-[15px] text-wa-ink placeholder:text-wa-muted focus:outline-none focus:ring-0"
                         rows={1}
-                        placeholder={`Message on ${CHANNEL_LABELS[thread.contact.channelType]}…`}
+                        placeholder="Type a message"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -709,23 +816,51 @@ export default function InboxPage() {
                           }
                         }}
                       />
-                      <button type="submit" disabled={sending || !draft.trim()} className="btn-primary h-11 rounded-2xl px-5">
-                        {sending ? "Sending…" : "Send"}
+                      <button
+                        type="submit"
+                        disabled={sending || !draft.trim()}
+                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-wa-green text-white transition-opacity hover:bg-wa-green-dark disabled:opacity-50"
+                        aria-label="Send"
+                        title="Send"
+                      >
+                        <SendIcon className="h-5 w-5" />
                       </button>
                     </form>
                   ) : (
-                    <div className="border-t border-slate-100 bg-amber-50/60 p-4 text-sm text-amber-900">
-                      <p>The 24-hour reply window is closed — they need to message you first, or you can restart the chat with an approved template.</p>
+                    <div className="shrink-0 bg-wa-panel px-4 py-3 text-sm text-wa-ink">
+                      <p className="text-wa-muted">
+                        The 24-hour reply window is closed — they need to message you first, or you can restart the chat with an
+                        approved template.
+                      </p>
                       {thread.contact.channelType === "whatsapp" ? (
                         approvedTemplates.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            {numbers.length > 1 && reopenNumber && (
+                              <select
+                                className="h-[42px] rounded-lg border-0 bg-white px-3 text-sm text-wa-ink focus:ring-2 focus:ring-wa-green/30"
+                                aria-label="Send from"
+                                value={reopenNumber.id}
+                                onChange={(e) => {
+                                  setReopenChannelId(e.target.value);
+                                  setReopenTemplateId("");
+                                }}
+                              >
+                                {numbers.map((n) => (
+                                  <option key={n.id} value={n.id}>
+                                    From {numberLabel(n)}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                             <select
-                              className="input py-2 text-sm"
+                              className="h-[42px] min-w-0 flex-1 rounded-lg border-0 bg-white px-3 text-sm text-wa-ink focus:ring-2 focus:ring-wa-green/30"
                               value={reopenTemplateId}
                               onChange={(e) => setReopenTemplateId(e.target.value)}
                             >
-                              <option value="">Choose a template…</option>
-                              {approvedTemplates.map((t) => (
+                              <option value="">
+                                {reopenTemplates.length > 0 ? "Choose a template…" : "No approved templates for this number"}
+                              </option>
+                              {reopenTemplates.map((t) => (
                                 <option key={t.id} value={t.id}>
                                   {t.name} ({t.language})
                                 </option>
@@ -735,15 +870,16 @@ export default function InboxPage() {
                               type="button"
                               disabled={!reopenTemplateId || reopening}
                               onClick={onReopenWithTemplate}
-                              className="btn-primary py-2"
+                              className="flex h-[42px] shrink-0 items-center gap-2 rounded-full bg-wa-green px-5 text-sm font-semibold text-white hover:bg-wa-green-dark disabled:opacity-50"
                             >
+                              <SendIcon className="h-4 w-4" />
                               {reopening ? "Sending…" : "Send template"}
                             </button>
                           </div>
                         ) : (
                           <p className="mt-2">
                             No approved templates yet — create one in the{" "}
-                            <Link href="/dashboard/campaigns" className="font-semibold underline">
+                            <Link href="/dashboard/campaigns" className="font-semibold text-wa-green-dark underline">
                               Message library
                             </Link>
                             .
@@ -755,19 +891,27 @@ export default function InboxPage() {
                     </div>
                   )
                 ) : (
-                  <p className="border-t border-slate-100 p-4 text-sm text-slate-500">Your role can read conversations but not reply.</p>
+                  <p className="shrink-0 bg-wa-panel px-4 py-3 text-sm text-wa-muted">Your role can read conversations but not reply.</p>
                 )}
               </>
             )}
           </section>
 
-          {thread && (
-            <aside
-              className={`min-h-0 overflow-y-auto border-l border-slate-100 bg-white p-5 xl:block ${
-                showDetails ? "absolute inset-y-0 right-0 z-10 w-80 shadow-pop" : "hidden"
-              } xl:static xl:w-auto xl:shadow-none`}
-            >
-              {details}
+          {/* Contact info — slides over the chat below xl, its own column above */}
+          {thread && showDetails && (
+            <aside className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-wa-line bg-white shadow-pop xl:static xl:max-w-none xl:shadow-none">
+              <div className="flex h-16 shrink-0 items-center gap-4 bg-wa-panel px-4">
+                <button
+                  type="button"
+                  onClick={() => setShowDetails(false)}
+                  className="rounded-full p-1.5 text-wa-muted hover:bg-black/5"
+                  aria-label="Close contact info"
+                >
+                  <CloseIcon className="h-5 w-5" />
+                </button>
+                <p className="text-[16px] text-wa-ink">Contact info</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">{details}</div>
             </aside>
           )}
         </div>
@@ -862,6 +1006,21 @@ function LabelPicker({
   );
 }
 
+function numberLabel(n: Channel) {
+  return n.displayPhoneNumber || n.displayName || n.phoneNumberId || "WhatsApp number";
+}
+
+/**
+ * Templates are approved per WABA, so a number can send any template that
+ * belongs to a channel on its own WABA. With no number known, show them all.
+ */
+function templatesForNumber(templates: MessageTemplate[], numbers: Channel[], number: Channel | undefined) {
+  if (!number) return templates;
+  const sameWaba = new Set(numbers.filter((n) => n.wabaId === number.wabaId).map((n) => n.id));
+  sameWaba.add(number.id);
+  return templates.filter((t) => sameWaba.has(t.channelId));
+}
+
 /**
  * Starting a conversation is only possible with an approved WhatsApp
  * template — Meta rejects free text to a contact who hasn't messaged in yet.
@@ -869,21 +1028,26 @@ function LabelPicker({
  * everyone else already has a row in the Inbox to reopen from.
  */
 function NewChatModal({
-  templates,
+  templates: allTemplates,
+  numbers,
   existingContactIds,
   onClose,
   onStart,
 }: {
   templates: MessageTemplate[];
+  numbers: Channel[];
   existingContactIds: Set<string>;
   onClose: () => void;
-  onStart: (contactId: string, templateId: string) => Promise<void>;
+  onStart: (contactId: string, templateId: string, channelId?: string) => Promise<void>;
 }) {
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [contactId, setContactId] = useState<string | null>(null);
+  const [channelId, setChannelId] = useState("");
   const [templateId, setTemplateId] = useState("");
+  const number = numbers.find((n) => n.id === channelId) ?? numbers[0];
+  const templates = templatesForNumber(allTemplates, numbers, number);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -913,7 +1077,7 @@ function NewChatModal({
     setError(null);
     setStarting(true);
     try {
-      await onStart(contactId, templateId);
+      await onStart(contactId, templateId, number?.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to start the conversation");
       setStarting(false);
@@ -989,11 +1153,31 @@ function NewChatModal({
             </div>
           </div>
 
+          {numbers.length > 1 && number && (
+            <div>
+              <p className="field-label mb-1">Send from</p>
+              <select
+                className="input py-2"
+                value={number.id}
+                onChange={(e) => {
+                  setChannelId(e.target.value);
+                  setTemplateId("");
+                }}
+              >
+                {numbers.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {numberLabel(n)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <p className="field-label mb-1">Template</p>
             {templates.length === 0 ? (
               <p className="text-sm text-slate-500">
-                No approved templates yet — create one in the{" "}
+                No approved templates {allTemplates.length > 0 ? "for this number" : "yet"} — create one in the{" "}
                 <Link href="/dashboard/campaigns" className="font-semibold underline">
                   Message library
                 </Link>
