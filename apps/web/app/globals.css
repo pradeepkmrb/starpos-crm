@@ -89,3 +89,13 @@
     @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent;
   }
 }
+
+/* WhatsApp-style chat wallpaper: beige with a faint doodle-like dot pattern. */
+.wa-wallpaper {
+  background-color: #efeae2;
+  background-image:
+    radial-gradient(rgba(17, 27, 33, 0.045) 1.2px, transparent 1.2px),
+    radial-gradient(rgba(17, 27, 33, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px, 22px 22px;
+  background-position: 0 0, 11px 11px;
+}

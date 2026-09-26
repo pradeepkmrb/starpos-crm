@@ -36,6 +36,19 @@ const config: Config = {
         },
         // The soft mint page background behind white cards.
         canvas: "#f4f7f6",
+        // WhatsApp Web's palette, used only by the Inbox so chats feel familiar.
+        wa: {
+          panel: "#f0f2f5",
+          active: "#e9edef",
+          line: "#e9edef",
+          chat: "#efeae2",
+          out: "#d9fdd3",
+          ink: "#111b21",
+          muted: "#667781",
+          green: "#00a884",
+          "green-dark": "#008069",
+          read: "#53bdeb",
+        },
       },
       fontFamily: {
         sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],

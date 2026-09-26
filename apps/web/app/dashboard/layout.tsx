@@ -118,6 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const allPages = groups.flatMap((g) => g.items);
   const current = [...allPages].sort((a, b) => b.href.length - a.href.length).find((i) => isNavActive(pathname, i.href));
   const displayName = user?.name ?? user?.email ?? "";
+  const fullBleed = pathname?.startsWith("/dashboard/inbox") ?? false;
 
   function logout() {
     clearTokens();
@@ -278,7 +279,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </header>
 
-          <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</main>
+          {/* The Inbox is a full-bleed chat app, like WhatsApp Web; every other page is a centred column. */}
+          <main className={fullBleed ? "" : "mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8"}>{children}</main>
         </div>
 
         <CommandPalette
