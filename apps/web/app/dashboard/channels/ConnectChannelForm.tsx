@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { ApiError, type Channel, createChannel } from "../../../lib/api";
 
-export function ConnectChannelForm({ onConnected }: { onConnected: (channel: Channel) => void }) {
+export function ConnectChannelForm({
+  onConnected,
+  title = "Connect a WhatsApp channel",
+}: {
+  onConnected: (channel: Channel) => void;
+  title?: string;
+}) {
   const [form, setForm] = useState({
     wabaId: "",
     phoneNumberId: "",
@@ -30,7 +36,7 @@ export function ConnectChannelForm({ onConnected }: { onConnected: (channel: Cha
 
   return (
     <section className="card p-6">
-      <h2 className="text-lg font-semibold text-slate-900">Connect a WhatsApp channel</h2>
+      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
       <p className="mt-1 text-sm text-slate-500">
         Paste the WABA ID, phone number ID, and a system-user access token from your Meta app.
       </p>

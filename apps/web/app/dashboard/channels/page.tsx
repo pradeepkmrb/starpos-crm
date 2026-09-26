@@ -181,8 +181,12 @@ export default function ChannelsPage() {
           </div>
         )}
 
-        {canManage && !platformConfig?.configured && (
-          <ConnectChannelForm onConnected={(channel) => setChannels((prev) => [...prev, channel])} />
+        {/* Embedded Signup isn't mandatory for now: manual credentials always work too. */}
+        {canManage && (
+          <ConnectChannelForm
+            title={platformConfig?.configured ? "Or connect manually" : undefined}
+            onConnected={(channel) => setChannels((prev) => [...prev, channel])}
+          />
         )}
       </section>
       )}
