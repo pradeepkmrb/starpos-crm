@@ -270,6 +270,12 @@ export const updateMe = (input: { name?: string; avatarUrl?: string | null }) =>
 export const uploadImage = (input: { contentType: "image/jpeg" | "image/png" | "image/webp"; data: string }) =>
   request<{ id: string; url: string }>("/media/images", { method: "POST", body: JSON.stringify(input) });
 
+export const registerPushDevice = (input: { token: string; platform: "android" | "ios" }) =>
+  request<{ registered: boolean }>("/push/devices", { method: "POST", body: JSON.stringify(input) });
+
+export const unregisterPushDevice = (token: string) =>
+  request<{ unregistered: boolean }>("/push/devices/unregister", { method: "POST", body: JSON.stringify({ token }) });
+
 /** Stored photos are saved as API-relative paths; this makes them loadable. */
 export function mediaUrl(path: string | null | undefined): string | null {
   if (!path) return null;
