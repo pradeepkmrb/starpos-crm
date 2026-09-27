@@ -1,22 +1,23 @@
 import { useCallback, useState } from "react";
-import { Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, PAYMENT_MODE_LABELS, type LeadStatus } from "@digitel/shared";
 import { ActivityRow } from "@/components/ActivityRow";
-import {
-  Badge,
-  Button,
-  Card,
-  Chip,
-  ChipRow,
-  EmptyState,
-  ErrorText,
-  GradientCard,
-  IconChip,
-  Loading,
-  StageBadge,
-} from "@/components/ui";
+import { Badge, Button, Card, Chip, ChipRow, EmptyState, ErrorText, IconChip, Loading } from "@/components/ui";
 import {
   ApiError,
   getLead,
@@ -24,6 +25,7 @@ import {
   listLeadFields,
   listPayments,
   listQuotations,
+  mediaUrl,
   updateLead,
   type Activity,
   type CustomFieldDefinition,
@@ -34,12 +36,17 @@ import {
 import { QUOTATION_COLORS, quotationLabel } from "@/lib/quotations";
 import { formatDate, formatRupees, openDialer, openMaps, openWhatsApp } from "@/lib/format";
 import { tap } from "@/lib/haptics";
-import { colors, radius, space } from "@/theme";
+import { choosePhoto, PhotoError } from "@/lib/photos";
+import { brandShadow, colors, heroGradient, radius, shadow, space, STAGE_COLORS } from "@/theme";
 
-type Tab = "info" | "activity" | "deals";
+type Tab = "info" | "activities" | "followups" | "deals";
 
+const HERO_HEIGHT = 230;
+
+/** Lead details (mockup screen 4): photo header, quick actions, tabs. */
 export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
@@ -49,6 +56,7 @@ export default function LeadDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [savingStage, setSavingStage] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +84,11 @@ export default function LeadDetailScreen() {
     }, [load]),
   );
 
+  function showProblem(title: string, message: string) {
+    if (Platform.OS === "web") setError(message);
+    else Alert.alert(title, message);
+  }
+
   async function changeStage(status: LeadStatus) {
     if (!lead || status === lead.status) return;
     setSavingStage(true);
@@ -83,11 +96,28 @@ export default function LeadDetailScreen() {
       setLead(await updateLead(lead.id, { status }));
       tap();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Could not change the stage";
-      if (Platform.OS === "web") setError(message);
-      else Alert.alert("Couldn't update", message);
+      showProblem("Couldn't update", err instanceof ApiError ? err.message : "Could not change the stage");
     } finally {
       setSavingStage(false);
+    }
+  }
+
+  async function changePhoto() {
+    if (!lead) return;
+    try {
+      const picked = await choosePhoto({
+        aspect: [16, 10],
+        canRemove: !!lead.imageUrl,
+        title: "Lead photo",
+        onUploadStart: () => setUploading(true),
+      });
+      if (picked === undefined) return;
+      setUploading(true);
+      setLead(await updateLead(lead.id, { imageUrl: picked }));
+    } catch (err) {
+      showProblem("Photo not saved", err instanceof PhotoError || err instanceof ApiError ? err.message : "Couldn't update the photo");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -119,156 +149,200 @@ export default function LeadDetailScreen() {
 
   const answers = Object.entries(lead.customFieldsJson ?? {}).filter(([, v]) => v !== "" && v !== null);
   const labelFor = (key: string) => fields.find((f) => f.key === key)?.label ?? key;
+  const photo = mediaUrl(lead.imageUrl);
+  const followUps = activities.filter((a) => a.status === "scheduled");
+  const history = activities.filter((a) => a.status !== "scheduled");
+  const stage = STAGE_COLORS[lead.status];
+  const subtitle = [lead.company && lead.company !== lead.name ? lead.name : null, lead.address].filter(Boolean).join(" · ");
+
+  const activityRow = (activity: Activity) => (
+    <ActivityRow
+      key={activity.id}
+      activity={activity}
+      showLead={false}
+      onPress={
+        activity.status === "in_progress"
+          ? () => router.push(`/visit/${activity.id}`)
+          : activity.status === "scheduled"
+            ? () =>
+                router.push(
+                  activity.type === "visit"
+                    ? `/visit/check-in?leadId=${lead.id}&activityId=${activity.id}`
+                    : `/activity/new?leadId=${lead.id}&type=${activity.type}&completes=${activity.id}`,
+                )
+            : undefined
+      }
+    />
+  );
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={async () => {
-            setRefreshing(true);
-            await load();
-            setRefreshing(false);
-          }}
-        />
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* The photo runs under a see-through header, as in the mockup. */}
       <Stack.Screen
         options={{
-          title: lead.company || lead.name,
+          title: "",
+          headerTransparent: true,
+          headerTintColor: "#fff",
+          headerStyle: { backgroundColor: "transparent" },
           headerRight: () => (
-            <Pressable onPress={() => router.push(`/lead/edit?id=${lead.id}`)} hitSlop={10}>
-              <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 16 }}>Edit</Text>
+            <Pressable onPress={() => router.push(`/lead/edit?id=${lead.id}`)} hitSlop={10} style={styles.headerPill}>
+              <Ionicons name="create-outline" size={16} color="#fff" />
+              <Text style={styles.headerPillText}>Edit</Text>
             </Pressable>
           ),
         }}
       />
-
-      <GradientCard style={{ padding: space.lg }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <View style={styles.heroInitial}>
-            <Text style={styles.heroInitialText}>{(lead.company || lead.name).charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name} numberOfLines={1}>
-              {lead.company || lead.name}
-            </Text>
-            {lead.company && lead.company !== lead.name ? <Text style={styles.muted}>{lead.name}</Text> : null}
-          </View>
-        </View>
-        <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.md, flexWrap: "wrap" }}>
-          <StageBadge status={lead.status} />
-          {lead.isHot && <Badge label="Hot lead" fg={colors.danger} bg="#FEE2E2" />}
-          {lead.valuePaise ? <Badge label={formatRupees(lead.valuePaise)} fg={colors.brandDeep} bg="#D1FAE5" /> : null}
-        </View>
-        <View style={styles.actions}>
-          <Action icon="call" label="Call" disabled={!lead.phone} onPress={callLead} />
-          <Action icon="logo-whatsapp" label="WhatsApp" disabled={!lead.phone} onPress={() => void openWhatsApp(lead.phone!)} />
-          <Action
-            icon="navigate"
-            label="Directions"
-            disabled={!lead.address && lead.latitude === null}
-            onPress={() => void openMaps(lead)}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 96 + insets.bottom }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            progressViewOffset={insets.top + 40}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await load();
+              setRefreshing(false);
+            }}
           />
-          <Action icon={openVisit ? "radio-button-on" : "log-in-outline"} label={openVisit ? "On visit" : "Check in"} onPress={visitLead} />
-          <Action
-            icon="add-circle"
-            label="Log"
-            onPress={() => router.push(`/activity/new?leadId=${lead.id}`)}
-          />
+        }
+      >
+        <Pressable onPress={() => void changePhoto()} disabled={uploading} accessibilityLabel="Change lead photo">
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.hero} />
+          ) : (
+            <LinearGradient colors={heroGradient} style={[styles.hero, styles.heroEmpty]}>
+              <Ionicons name="storefront-outline" size={44} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.heroEmptyText}>Tap to add a photo</Text>
+            </LinearGradient>
+          )}
+          {/* Keeps the white back arrow readable on bright photos. */}
+          <LinearGradient colors={["rgba(15,23,42,0.55)", "transparent"]} style={styles.heroShade} pointerEvents="none" />
+          <View style={styles.cameraButton}>
+            {uploading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="camera" size={18} color="#fff" />}
+          </View>
+          {lead.isHot && (
+            <View style={styles.hotTag}>
+              <Ionicons name="flame" size={13} color="#fff" />
+              <Text style={styles.hotTagText}>Hot Lead</Text>
+            </View>
+          )}
+        </Pressable>
+
+        <View style={styles.sheet}>
+          <Text style={styles.name}>{lead.company || lead.name}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.sm, flexWrap: "wrap" }}>
+            <Badge label={LEAD_STATUS_LABELS[lead.status]} fg={stage.fg} bg={stage.bg} />
+            {lead.valuePaise ? <Badge label={formatRupees(lead.valuePaise)} fg={colors.brandDeep} bg="#D1FAE5" /> : null}
+          </View>
+
+          <View style={styles.actions}>
+            <Action icon="call" label="Call" color={colors.brand} disabled={!lead.phone} onPress={callLead} />
+            <Action icon="logo-whatsapp" label="WhatsApp" color="#16A34A" disabled={!lead.phone} onPress={() => void openWhatsApp(lead.phone!)} />
+            <Action
+              icon="navigate"
+              label="Location"
+              color={colors.info}
+              disabled={!lead.address && lead.latitude === null}
+              onPress={() => void openMaps(lead)}
+            />
+            <Action
+              icon={openVisit ? "radio-button-on" : "log-in-outline"}
+              label={openVisit ? "On visit" : "Check in"}
+              color={colors.warning}
+              onPress={visitLead}
+            />
+            <Action icon="ellipsis-horizontal" label="More" color={colors.muted} onPress={() => router.push(`/lead/edit?id=${lead.id}`)} />
+          </View>
+
+          <View style={styles.tabs}>
+            <TabButton label="Info" active={tab === "info"} onPress={() => setTab("info")} />
+            <TabButton label="Activities" count={history.length} active={tab === "activities"} onPress={() => setTab("activities")} />
+            <TabButton label="Follow-ups" count={followUps.length} active={tab === "followups"} onPress={() => setTab("followups")} />
+            <TabButton label="Deals" count={quotes.length} active={tab === "deals"} onPress={() => setTab("deals")} />
+          </View>
         </View>
-      </GradientCard>
 
-      <View style={{ marginTop: space.lg }}>
-        <ChipRow>
-          <Chip label="Info" active={tab === "info"} onPress={() => setTab("info")} />
-          <Chip label={`Activity (${activities.length})`} active={tab === "activity"} onPress={() => setTab("activity")} />
-          <Chip label={`Deals (${quotes.length})`} active={tab === "deals"} onPress={() => setTab("deals")} />
-        </ChipRow>
-      </View>
-      <ErrorText text={error} />
+        <View style={{ paddingHorizontal: space.lg }}>
+          <ErrorText text={error} />
 
-      {tab === "deals" ? (
-        <Deals lead={lead} quotes={quotes} payments={payments} />
-      ) : tab === "info" ? (
-        <>
-          <Card style={{ marginTop: space.md }}>
-            <Text style={styles.sectionLabel}>Stage</Text>
-            <ChipRow>
-              {LEAD_STATUSES.map((status) => (
-                <Chip
-                  key={status}
-                  label={LEAD_STATUS_LABELS[status]}
-                  active={lead.status === status}
-                  onPress={() => (savingStage ? undefined : void changeStage(status))}
+          {tab === "deals" ? (
+            <Deals lead={lead} quotes={quotes} payments={payments} />
+          ) : tab === "info" ? (
+            <>
+              <Card style={{ marginTop: space.md, gap: space.lg }}>
+                <InfoRow icon="person-outline" label="Contact person" value={lead.name} />
+                <InfoRow
+                  icon="call-outline"
+                  label="Mobile"
+                  value={lead.phone}
+                  accent={colors.brand}
+                  action={lead.phone ? { icon: "call", onPress: callLead } : undefined}
                 />
-              ))}
-            </ChipRow>
-          </Card>
+                <InfoRow icon="mail-outline" label="Email" value={lead.email} accent={colors.info} />
+                <InfoRow
+                  icon="location-outline"
+                  label="Address"
+                  value={lead.address}
+                  action={lead.address || lead.latitude !== null ? { icon: "navigate", onPress: () => void openMaps(lead) } : undefined}
+                  link={lead.address || lead.latitude !== null ? { label: "View on Map", onPress: () => void openMaps(lead) } : undefined}
+                />
+              </Card>
 
-          <Card style={{ marginTop: space.md, gap: space.md }}>
-            <InfoRow icon="call-outline" label="Mobile" value={lead.phone} />
-            <InfoRow icon="mail-outline" label="Email" value={lead.email} />
-            <InfoRow icon="location-outline" label="Address" value={lead.address} />
-            <InfoRow icon="cash-outline" label="Expected value" value={lead.valuePaise ? formatRupees(lead.valuePaise) : null} />
-            <InfoRow icon="calendar-outline" label="Expected close" value={lead.expectedCloseAt ? formatDate(lead.expectedCloseAt) : null} />
-            <InfoRow icon="megaphone-outline" label="Lead source" value={lead.source === "meta_ads" ? "Meta ad" : lead.source} />
-            <InfoRow icon="person-outline" label="Owner" value={lead.owner ? (lead.owner.name ?? lead.owner.email) : "Unassigned"} />
-            {answers.map(([key, value]) => (
-              <InfoRow
-                key={key}
-                icon="list-outline"
-                label={labelFor(key)}
-                value={typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+              <Card style={{ marginTop: space.md }}>
+                <Text style={styles.sectionLabel}>Stage</Text>
+                <ChipRow>
+                  {LEAD_STATUSES.map((status) => (
+                    <Chip
+                      key={status}
+                      label={LEAD_STATUS_LABELS[status]}
+                      active={lead.status === status}
+                      onPress={() => (savingStage ? undefined : void changeStage(status))}
+                    />
+                  ))}
+                </ChipRow>
+              </Card>
+
+              <Card style={{ marginTop: space.md, gap: space.lg }}>
+                <InfoRow icon="megaphone-outline" label="Lead source" value={lead.source === "meta_ads" ? "Meta ad" : lead.source} />
+                <InfoRow icon="cash-outline" label="Expected value" value={lead.valuePaise ? formatRupees(lead.valuePaise) : null} />
+                <InfoRow icon="calendar-outline" label="Expected close" value={lead.expectedCloseAt ? formatDate(lead.expectedCloseAt) : null} />
+                <InfoRow icon="person-circle-outline" label="Owner" value={lead.owner ? (lead.owner.name ?? lead.owner.email) : "Unassigned"} />
+                {answers.map(([key, value]) => (
+                  <InfoRow
+                    key={key}
+                    icon="list-outline"
+                    label={labelFor(key)}
+                    value={typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+                  />
+                ))}
+                {lead.notes ? <InfoRow icon="document-text-outline" label="Notes" value={lead.notes} /> : null}
+              </Card>
+            </>
+          ) : tab === "activities" ? (
+            <Card style={{ marginTop: space.md, paddingVertical: 0 }}>
+              {history.length === 0 ? <EmptyState text="Nothing logged yet." /> : history.map(activityRow)}
+            </Card>
+          ) : (
+            <>
+              <Button
+                title="Schedule a follow-up"
+                variant="secondary"
+                onPress={() => router.push(`/activity/new?leadId=${lead.id}&type=follow_up&mode=schedule`)}
+                style={{ marginTop: space.md }}
               />
-            ))}
-            {lead.notes ? <InfoRow icon="document-text-outline" label="Notes" value={lead.notes} /> : null}
-          </Card>
-        </>
-      ) : (
-        <>
-          <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
-            <Button
-              title="Log activity"
-              onPress={() => router.push(`/activity/new?leadId=${lead.id}`)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              title="Schedule"
-              variant="secondary"
-              onPress={() => router.push(`/activity/new?leadId=${lead.id}&type=follow_up&mode=schedule`)}
-              style={{ flex: 1 }}
-            />
-          </View>
-          <Card style={{ marginTop: space.md, paddingVertical: 0 }}>
-            {activities.length === 0 ? (
-              <EmptyState text="Nothing logged yet." />
-            ) : (
-              activities.map((activity) => (
-                <ActivityRow
-                  key={activity.id}
-                  activity={activity}
-                  showLead={false}
-                  onPress={
-                    activity.status === "in_progress"
-                      ? () => router.push(`/visit/${activity.id}`)
-                      : activity.status === "scheduled"
-                        ? () =>
-                            router.push(
-                              activity.type === "visit"
-                                ? `/visit/check-in?leadId=${lead.id}&activityId=${activity.id}`
-                                : `/activity/new?leadId=${lead.id}&type=${activity.type}&completes=${activity.id}`,
-                            )
-                        : undefined
-                  }
-                />
-              ))
-            )}
-          </Card>
-        </>
-      )}
-    </ScrollView>
+              <Card style={{ marginTop: space.md, paddingVertical: 0 }}>
+                {followUps.length === 0 ? <EmptyState text="No follow-ups scheduled." /> : followUps.map(activityRow)}
+              </Card>
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
+        <Button title="Add Activity" onPress={() => router.push(`/activity/new?leadId=${lead.id}`)} />
+      </View>
+    </View>
   );
 }
 
@@ -343,11 +417,13 @@ function Deals({ lead, quotes, payments }: { lead: Lead; quotes: Quotation[]; pa
 function Action({
   icon,
   label,
+  color,
   onPress,
   disabled,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  color: string;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -357,52 +433,144 @@ function Action({
       disabled={disabled}
       style={({ pressed }) => [styles.action, (pressed || disabled) && { opacity: disabled ? 0.35 : 0.7 }]}
     >
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={20} color={colors.brandDark} />
+      <View style={[styles.actionIcon, { backgroundColor: `${color}1A` }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string | null }) {
+function TabButton({ label, count, active, onPress }: { label: string; count?: number; active: boolean; onPress: () => void }) {
   return (
-    <View style={{ flexDirection: "row", gap: space.md }}>
+    <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive]} accessibilityState={{ selected: active }}>
+      <Text style={[styles.tabText, active && { color: colors.brand, fontWeight: "700" }]} numberOfLines={1}>
+        {label}
+        {count ? ` ${count}` : ""}
+      </Text>
+    </Pressable>
+  );
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+  accent,
+  action,
+  link,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string | null;
+  accent?: string;
+  action?: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void };
+  link?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
       <Ionicons name={icon} size={18} color={colors.muted} style={{ marginTop: 2 }} />
       <View style={{ flex: 1 }}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value || "—"}</Text>
+        <Text style={[styles.infoValue, value && accent ? { color: accent } : null]}>{value || "—"}</Text>
+        {link ? (
+          <Text style={styles.infoLink} onPress={link.onPress}>
+            {link.label}
+          </Text>
+        ) : null}
       </View>
+      {action ? (
+        <Pressable onPress={action.onPress} hitSlop={8} style={styles.infoAction}>
+          <Ionicons name={action.icon} size={16} color={colors.brand} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  name: { fontSize: 22, fontWeight: "800", color: "#fff" },
-  muted: { fontSize: 14, color: "#D1FAE5", marginTop: 2 },
-  heroInitial: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.2)",
+  hero: { width: "100%", height: HERO_HEIGHT },
+  heroEmpty: { alignItems: "center", justifyContent: "center", gap: space.sm },
+  heroEmptyText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  heroShade: { position: "absolute", top: 0, left: 0, right: 0, height: 110 },
+  cameraButton: {
+    position: "absolute",
+    right: space.lg,
+    bottom: space.xl + space.md,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(15,23,42,0.55)",
     alignItems: "center",
     justifyContent: "center",
   },
-  heroInitialText: { fontSize: 22, fontWeight: "800", color: "#fff" },
+  hotTag: {
+    position: "absolute",
+    right: space.lg,
+    top: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.danger,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  hotTagText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  headerPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  headerPillText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  sheet: {
+    marginTop: -space.xl,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    ...shadow,
+  },
+  name: { fontSize: 24, fontWeight: "800", color: colors.ink },
+  subtitle: { fontSize: 14, color: colors.muted, marginTop: 2 },
   actions: { flexDirection: "row", justifyContent: "space-between", marginTop: space.lg },
   action: { alignItems: "center", flex: 1 },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: "#fff",
+  actionIcon: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  actionLabel: { fontSize: 12, color: colors.text, fontWeight: "500", marginTop: 6 },
+  tabs: { flexDirection: "row", marginTop: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
+  tab: { flex: 1, alignItems: "center", paddingVertical: space.md, borderBottomWidth: 2, borderBottomColor: "transparent", marginBottom: -1 },
+  tabActive: { borderBottomColor: colors.brand },
+  tabText: { fontSize: 13, fontWeight: "500", color: colors.muted },
+  sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.muted, marginBottom: space.sm },
+  infoLabel: { fontSize: 12, color: colors.muted },
+  infoValue: { fontSize: 15, fontWeight: "500", color: colors.ink, marginTop: 1 },
+  infoLink: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 },
+  infoAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brandSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionLabel: { fontSize: 12, color: "#fff", fontWeight: "600", marginTop: 6 },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.muted, marginBottom: space.sm },
-  infoLabel: { fontSize: 12, color: colors.muted },
-  infoValue: { fontSize: 15, color: colors.ink, marginTop: 1 },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    ...brandShadow,
+    shadowOpacity: 0.08,
+  },
   dealRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
   dealDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   dealTitle: { fontSize: 15, fontWeight: "800", color: colors.ink },

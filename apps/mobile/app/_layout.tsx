@@ -1,14 +1,33 @@
+import { useEffect } from "react";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+  useFonts,
+} from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Loading } from "@/components/ui";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { INTER } from "@/components/AppText";
 import { colors } from "@/theme";
 
-function RootNavigator() {
+// Keep the splash up until the fonts and the saved session are ready, so the
+// first screen never flashes in the system font or the login form.
+void SplashScreen.preventAutoHideAsync();
+
+function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { loading, me } = useAuth();
-  if (loading) {
+  const ready = fontsReady && !loading;
+  useEffect(() => {
+    if (ready) SplashScreen.hide();
+  }, [ready]);
+  if (!ready) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
         <Loading />
@@ -20,7 +39,7 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerTintColor: colors.ink,
-        headerTitleStyle: { fontWeight: "800" },
+        headerTitleStyle: { fontFamily: INTER.bold },
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: colors.background },
@@ -51,11 +70,13 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // A font that fails to load falls back to the system font rather than blocking the app.
+  const [loaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold });
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <RootNavigator />
+        <RootNavigator fontsReady={loaded || !!fontError} />
       </AuthProvider>
     </SafeAreaProvider>
   );

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { Badge, Chip, ChipRow, EmptyState, ErrorText, Input, Loading, StageBadge } from "@/components/ui";
-import { formatDistance } from "@digitel/shared";
+import { LeadThumb } from "@/components/Photo";
+import { Chip, ChipRow, EmptyState, ErrorText, Input, Loading } from "@/components/ui";
+import { LEAD_STATUS_LABELS, formatDistance } from "@digitel/shared";
 import { ApiError, listLeads, listNearbyLeads, type Lead } from "@/lib/api";
 import { currentFix, LocationError } from "@/lib/location";
 import { formatRupees, openDialer } from "@/lib/format";
-import { colors, radius, shadow, space } from "@/theme";
+import { colors, radius, shadow, space, STAGE_COLORS } from "@/theme";
 
 type Filter = "all" | "mine" | "hot" | "nearby";
 const FILTERS: { key: Filter; label: string }[] = [
@@ -111,18 +113,17 @@ export default function LeadsScreen() {
 }
 
 function LeadCard({ lead }: { lead: Lead & { distanceMeters?: number } }) {
-  // Business first, like the web board; the contact and area underneath.
+  // Business first, like the web board; the area or contact underneath.
   const title = lead.company || lead.name;
-  const subtitle = [lead.company ? lead.name : null, lead.address].filter(Boolean).join(" · ");
+  const subtitle = lead.address || (lead.company ? lead.name : null);
+  const stage = STAGE_COLORS[lead.status];
   return (
     <Pressable
       onPress={() => router.push(`/lead/${lead.id}`)}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
     >
-      <View style={styles.initial}>
-        <Text style={styles.initialText}>{title.charAt(0).toUpperCase()}</Text>
-      </View>
-      <View style={{ flex: 1, gap: 4 }}>
+      <LeadThumb url={lead.imageUrl} size={64} radius={14} />
+      <View style={{ flex: 1, gap: 3 }}>
         <Text style={styles.name} numberOfLines={1}>
           {title}
         </Text>
@@ -131,11 +132,22 @@ function LeadCard({ lead }: { lead: Lead & { distanceMeters?: number } }) {
             {subtitle}
           </Text>
         ) : null}
-        <View style={{ flexDirection: "row", gap: space.xs, flexWrap: "wrap", alignItems: "center" }}>
-          <StageBadge status={lead.status} />
-          {lead.isHot && <Badge label="Hot" fg={colors.danger} bg={colors.dangerSoft} />}
-          {lead.valuePaise ? <Text style={styles.value}>{formatRupees(lead.valuePaise)}</Text> : null}
-          {lead.distanceMeters !== undefined ? <Text style={styles.value}>{formatDistance(lead.distanceMeters)}</Text> : null}
+        <View style={styles.metaRow}>
+          <View style={[styles.stagePill, { backgroundColor: stage.bg }]}>
+            <Text style={[styles.stageText, { color: stage.fg }]}>{LEAD_STATUS_LABELS[lead.status]}</Text>
+          </View>
+          {lead.isHot && (
+            <View style={[styles.stagePill, { backgroundColor: colors.dangerSoft }]}>
+              <Text style={[styles.stageText, { color: colors.danger }]}>● Hot</Text>
+            </View>
+          )}
+          {lead.distanceMeters !== undefined ? (
+            <Text style={styles.meta}>
+              <Ionicons name="location-outline" size={12} color={colors.muted} /> {formatDistance(lead.distanceMeters)}
+            </Text>
+          ) : lead.valuePaise ? (
+            <Text style={styles.meta}>{formatRupees(lead.valuePaise)}</Text>
+          ) : null}
         </View>
       </View>
       {lead.phone ? (
@@ -168,18 +180,12 @@ const styles = StyleSheet.create({
     padding: space.md,
     ...shadow,
   },
-  initial: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: colors.brandSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  initialText: { fontSize: 18, fontWeight: "800", color: colors.brand },
-  name: { fontSize: 16, fontWeight: "800", color: colors.ink },
+  name: { fontSize: 16, fontWeight: "700", color: colors.ink },
   subtitle: { fontSize: 13, color: colors.muted },
-  value: { fontSize: 13, fontWeight: "600", color: colors.text, marginLeft: space.xs },
+  metaRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 2 },
+  stagePill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  stageText: { fontSize: 11, fontWeight: "600" },
+  meta: { fontSize: 12, fontWeight: "500", color: colors.muted },
   callButton: {
     width: 40,
     height: 40,

@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { VISIT_CHECK_IN_RADIUS_METERS, VISIT_PURPOSES, distanceMeters, formatDistance } from "@digitel/shared";
 import { CheckInMap } from "@/components/MapViews";
+import { LeadThumb } from "@/components/Photo";
 import { Button, Card, Chip, ChipRow, ErrorText, Field, Loading } from "@/components/ui";
 import { ApiError, checkIn, getLead, type Lead } from "@/lib/api";
 import { currentFix, LocationError, type Fix } from "@/lib/location";
 import { success, warn } from "@/lib/haptics";
-import { colors, radius, space } from "@/theme";
+import { colors, radius, shadow, space } from "@/theme";
 
 /**
  * Check-in (mockup screen 9). The distance shown here is a preview — the
@@ -95,41 +97,61 @@ export default function CheckInScreen() {
   if (!lead) return error ? <ErrorText text={error} /> : <Loading />;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+    <ScrollView contentContainerStyle={{ paddingBottom: space.xl }}>
       <Stack.Screen options={{ title: "Check in" }} />
 
-      <CheckInMap lead={leadPoint} here={fix} />
-
-      <View style={[styles.banner, { backgroundColor: tone.bg }]}>
-        <Ionicons name={banner.icon} size={20} color={tone.fg} />
-        <Text style={[styles.bannerText, { color: tone.fg }]}>{banner.text}</Text>
+      <View>
+        <CheckInMap lead={leadPoint} here={fix} style={styles.map} />
+        <View style={[styles.banner, { backgroundColor: tone.bg }]}>
+          <Ionicons name={banner.icon} size={18} color={tone.fg} />
+          <Text style={[styles.bannerText, { color: tone.fg }]}>{banner.text}</Text>
+        </View>
+        <Pressable
+          accessibilityLabel="Refresh location"
+          onPress={() => void locate()}
+          disabled={locating}
+          style={styles.recenter}
+        >
+          <Ionicons name="locate" size={20} color={colors.ink} />
+        </Pressable>
       </View>
-      {fix?.accuracy ? <Text style={styles.muted}>GPS accuracy ±{Math.round(fix.accuracy)} m</Text> : null}
 
-      <Card>
-        <Text style={styles.name}>{lead.company || lead.name}</Text>
-        {lead.address ? <Text style={styles.muted}>{lead.address}</Text> : null}
-      </Card>
+      <View style={{ padding: space.lg, gap: space.md }}>
+        {fix?.accuracy ? <Text style={styles.muted}>GPS accuracy ±{Math.round(fix.accuracy)} m</Text> : null}
 
-      <Field label="Visit type">
-        <ChipRow>
-          {VISIT_PURPOSES.map((p) => (
-            <Chip key={p} label={p} active={purpose === p} onPress={() => setPurpose(p)} />
-          ))}
-        </ChipRow>
-      </Field>
+        <Card style={styles.leadCard}>
+          <LeadThumb url={lead.imageUrl} size={56} radius={12} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name} numberOfLines={1}>
+              {lead.company || lead.name}
+            </Text>
+            {lead.address ? (
+              <Text style={styles.muted} numberOfLines={2}>
+                {lead.address}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
 
-      <ErrorText text={error} />
-      {openVisitId ? (
-        <Button title="Go to my open visit" variant="secondary" onPress={() => router.replace(`/visit/${openVisitId}`)} />
-      ) : null}
-      <Button
-        title="Check in"
-        onPress={() => void onCheckIn()}
-        loading={busy}
-        disabled={!fix || locating || !withinRadius}
-      />
-      <Button title="Refresh location" variant="secondary" onPress={() => void locate()} disabled={locating} />
+        <Field label="Purpose">
+          <ChipRow>
+            {VISIT_PURPOSES.map((p) => (
+              <Chip key={p} label={p} active={purpose === p} onPress={() => setPurpose(p)} />
+            ))}
+          </ChipRow>
+        </Field>
+
+        <ErrorText text={error} />
+        {openVisitId ? (
+          <Button title="Go to my open visit" variant="secondary" onPress={() => router.replace(`/visit/${openVisitId}`)} />
+        ) : null}
+        <Button
+          title="Check In"
+          onPress={() => void onCheckIn()}
+          loading={busy}
+          disabled={!fix || locating || !withinRadius}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -142,8 +164,34 @@ const BANNER_TONES = {
 };
 
 const styles = StyleSheet.create({
-  banner: { flexDirection: "row", alignItems: "center", gap: space.sm, padding: space.md, borderRadius: radius.md },
-  bannerText: { flex: 1, fontWeight: "600" },
+  map: { height: 300, borderRadius: 0 },
+  banner: {
+    position: "absolute",
+    top: space.md,
+    left: space.lg,
+    right: space.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingVertical: 10,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    ...shadow,
+  },
+  bannerText: { flex: 1, fontWeight: "600", fontSize: 13 },
+  recenter: {
+    position: "absolute",
+    right: space.lg,
+    bottom: space.md,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow,
+  },
+  leadCard: { flexDirection: "row", alignItems: "center", gap: space.md },
   name: { fontSize: 18, fontWeight: "700", color: colors.ink },
   muted: { fontSize: 13, color: colors.muted, marginTop: 2 },
 });

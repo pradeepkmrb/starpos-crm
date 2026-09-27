@@ -3,13 +3,12 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type TextInputProps,
   type ViewStyle,
 } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";

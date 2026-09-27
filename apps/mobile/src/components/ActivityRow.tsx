@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { ACTIVITY_TYPE_LABELS, outcomeLabel, type ActivityType } from "@digitel/shared";
 import type { Activity } from "@/lib/api";
 import { formatWhen, isOverdue } from "@/lib/format";

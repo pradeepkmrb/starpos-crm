@@ -124,6 +124,8 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
+  /** A /media/images/:id path; turn it into a URL with mediaUrl(). */
+  avatarUrl?: string | null;
 }
 
 export interface Me {
@@ -136,6 +138,7 @@ export interface LeadOwner {
   id: string;
   name: string | null;
   email: string;
+  avatarUrl?: string | null;
 }
 
 export interface Lead {
@@ -155,6 +158,8 @@ export interface Lead {
   latitude: number | null;
   longitude: number | null;
   isHot: boolean;
+  /** Storefront photo, a /media/images/:id path. */
+  imageUrl: string | null;
   expectedCloseAt: string | null;
   createdAt: string;
 }
@@ -172,6 +177,7 @@ export interface LeadInput {
   latitude?: number | null;
   longitude?: number | null;
   isHot?: boolean;
+  imageUrl?: string | null;
   expectedCloseAt?: string | null;
   customFields?: Record<string, string | number | boolean>;
 }
@@ -201,6 +207,7 @@ export interface Activity {
     address: string | null;
     latitude: number | null;
     longitude: number | null;
+    imageUrl?: string | null;
   };
 }
 
@@ -256,6 +263,19 @@ export async function logout() {
 
 export const getMe = () => request<Me>("/auth/me");
 
+export const updateMe = (input: { name?: string; avatarUrl?: string | null }) =>
+  request<Me>("/auth/me", { method: "PATCH", body: JSON.stringify(input) });
+
+/** Stores a picture the phone already shrank; returns its /media/images/:id path. */
+export const uploadImage = (input: { contentType: "image/jpeg" | "image/png" | "image/webp"; data: string }) =>
+  request<{ id: string; url: string }>("/media/images", { method: "POST", body: JSON.stringify(input) });
+
+/** Stored photos are saved as API-relative paths; this makes them loadable. */
+export function mediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return /^https?:/.test(path) ? path : `${API_URL}${path}`;
+}
+
 export function listLeads(params: { owner?: string; hot?: boolean; q?: string } = {}) {
   const query = new URLSearchParams({ limit: "500" });
   if (params.owner) query.set("owner", params.owner);
@@ -290,6 +310,7 @@ export function listActivities(params: {
   leadId?: string;
   owner?: string;
   status?: ActivityStatus;
+  type?: ActivityType;
   from?: string;
   to?: string;
 }) {

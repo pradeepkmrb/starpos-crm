@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { PAYMENT_MODES, PAYMENT_MODE_LABELS, type PaymentMode } from "@digitel/shared";
 import { DateTimeField } from "@/components/DateTimeField";

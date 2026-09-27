@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { getMe, loadStoredTokens, login as apiLogin, logout as apiLogout, setSignedOutHandler, type Me } from "./api";
+import {
+  getMe,
+  loadStoredTokens,
+  login as apiLogin,
+  logout as apiLogout,
+  setSignedOutHandler,
+  updateMe,
+  type Me,
+} from "./api";
 
 interface AuthState {
   /** True until stored tokens have been checked on launch. */
@@ -7,6 +15,8 @@ interface AuthState {
   me: Me | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Saves the signed-in user's own name or photo and refreshes `me`. */
+  saveProfile: (input: { name?: string; avatarUrl?: string | null }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -39,7 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(null);
   }, []);
 
-  const value = useMemo(() => ({ loading, me, signIn, signOut }), [loading, me, signIn, signOut]);
+  const saveProfile = useCallback(async (input: { name?: string; avatarUrl?: string | null }) => {
+    setMe(await updateMe(input));
+  }, []);
+
+  const value = useMemo(() => ({ loading, me, signIn, signOut, saveProfile }), [loading, me, signIn, signOut, saveProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
