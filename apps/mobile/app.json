@@ -18,6 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "package": "com.touch4bill.digitel"
     },
     "web": {
