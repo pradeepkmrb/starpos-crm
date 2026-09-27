@@ -7,6 +7,7 @@ import { CreateLeadDto } from "./dto/create-lead.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { normalizeCustomFieldValues } from "../custom-fields/custom-field-values";
 import { closedAtForStatusChange } from "../field-sales/activity-rules";
+import { PushService } from "../push/push.service";
 
 export interface ListLeadsOptions {
   status?: string;
@@ -28,6 +29,7 @@ export class LeadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly customFields: CustomFieldsService,
+    private readonly push: PushService,
   ) {}
 
   list(tenantId: string, options: ListLeadsOptions = {}) {
@@ -108,12 +110,13 @@ export class LeadsService {
     return lead;
   }
 
-  async create(tenantId: string, dto: CreateLeadDto) {
+  /** `actorUserId` is who is saving; they are never notified about their own change. */
+  async create(tenantId: string, dto: CreateLeadDto, actorUserId?: string) {
     const definitions = await this.customFields.listDefinitions(tenantId, "lead");
     const customFields = normalizeCustomFieldValues(definitions, dto.customFields);
     const ownerUserId = await this.resolveOwner(tenantId, dto.ownerUserId);
 
-    return this.prisma.lead.create({
+    const lead = await this.prisma.lead.create({
       data: {
         tenantId,
         name: dto.name.trim(),
@@ -136,9 +139,11 @@ export class LeadsService {
       },
       include: LEAD_INCLUDE,
     });
+    this.notifyAssigned(tenantId, lead, actorUserId);
+    return lead;
   }
 
-  async update(tenantId: string, id: string, dto: UpdateLeadDto) {
+  async update(tenantId: string, id: string, dto: UpdateLeadDto, actorUserId?: string) {
     const lead = await this.prisma.lead.findFirst({ where: { id, tenantId } });
     if (!lead) throw new NotFoundException("Lead not found");
 
@@ -176,7 +181,23 @@ export class LeadsService {
       });
     }
 
-    return this.prisma.lead.update({ where: { id }, data, include: LEAD_INCLUDE });
+    const updated = await this.prisma.lead.update({ where: { id }, data, include: LEAD_INCLUDE });
+    if (updated.ownerUserId !== lead.ownerUserId) this.notifyAssigned(tenantId, updated, actorUserId);
+    return updated;
+  }
+
+  /** "New lead assigned" on the owner's phone — unless they assigned it to themselves. */
+  private notifyAssigned(
+    tenantId: string,
+    lead: { id: string; name: string; company: string | null; address: string | null; ownerUserId: string | null },
+    actorUserId?: string,
+  ) {
+    if (!lead.ownerUserId || lead.ownerUserId === actorUserId) return;
+    void this.push.notifyUsers(tenantId, [lead.ownerUserId], {
+      title: "New lead assigned",
+      body: [lead.company || lead.name, lead.address].filter(Boolean).join(" · "),
+      url: `/lead/${lead.id}`,
+    });
   }
 
   async remove(tenantId: string, id: string) {

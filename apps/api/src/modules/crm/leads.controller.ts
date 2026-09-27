@@ -72,13 +72,13 @@ export class LeadsController {
   @Post()
   @Roles("agent")
   create(@Req() req: Request, @Body() dto: CreateLeadDto) {
-    return this.leadsService.create(req.tenantContext!.tenantId, dto);
+    return this.leadsService.create(req.tenantContext!.tenantId, dto, req.tenantContext!.userId);
   }
 
   @Patch(":id")
   @Roles("agent")
   update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateLeadDto) {
-    return this.leadsService.update(req.tenantContext!.tenantId, id, dto);
+    return this.leadsService.update(req.tenantContext!.tenantId, id, dto, req.tenantContext!.userId);
   }
 
   @Delete(":id")

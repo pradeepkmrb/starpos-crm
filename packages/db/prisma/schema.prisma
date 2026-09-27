@@ -31,6 +31,7 @@ model User {
   collectedPayments Payment[]     @relation("PaymentCollector")
   salesTargets      SalesTarget[]
   connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
+  pushDevices       PushDevice[]
 }
 
 model Tenant {
@@ -77,6 +78,7 @@ model Tenant {
   payments           Payment[]
   salesTargets       SalesTarget[]
   storedImages       StoredImage[]
+  pushDevices        PushDevice[]
 }
 
 /// A small uploaded picture (profile photo, lead photo), kept in Postgres
@@ -672,6 +674,9 @@ model Activity {
   startedAt       DateTime?
   completedAt     DateTime?
   durationSeconds Int?
+  /// When the "due soon" push went out, so each scheduled activity is reminded once.
+  /// Cleared when it is rescheduled.
+  reminderSentAt  DateTime?
 
   /// Where the rep was when checking in to a visit.
   latitude       Float?
@@ -1064,4 +1069,22 @@ model SalesTarget {
   // enforced in SalesTargetsService rather than by this constraint.
   @@unique([tenantId, userId, month])
   @@index([tenantId, month])
+}
+
+/// A phone that receives push notifications for a user, via Expo's push
+/// service. Scoped to the workspace the app was signed in to when it registered.
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  /// ExponentPushToken[...] — one per app install.
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
 }

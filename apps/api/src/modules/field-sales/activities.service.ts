@@ -10,6 +10,7 @@ import { Prisma } from "@digitel/db";
 import {
   ACTIVITY_STATUSES,
   ACTIVITY_TYPES,
+  ACTIVITY_TYPE_LABELS,
   VISIT_CHECK_IN_RADIUS_METERS,
   formatDistance,
   roleAtLeast,
@@ -19,6 +20,7 @@ import {
 } from "@digitel/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
+import { PushService } from "../push/push.service";
 import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
 import {
   checkInDecision,
@@ -62,7 +64,10 @@ export const ACTIVITY_INCLUDE = {
 
 @Injectable()
 export class ActivitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly push: PushService,
+  ) {}
 
   async list(ctx: TenantRequestContext, options: ListActivitiesOptions = {}) {
     const scheduledAt: Prisma.DateTimeNullableFilter = {};
@@ -108,7 +113,7 @@ export class ActivitiesService {
         ? ctx.userId || null
         : await this.resolveOwner(ctx.tenantId, dto.ownerUserId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const activity = await tx.activity.create({
         data: {
           tenantId: ctx.tenantId,
@@ -131,6 +136,8 @@ export class ActivitiesService {
       await advanceLeadStage(tx, lead, { type: dto.type, status });
       return activity;
     });
+    this.notifyScheduledFor(ctx, created);
+    return created;
   }
 
   async update(ctx: TenantRequestContext, id: string, dto: UpdateActivityDto) {
@@ -146,7 +153,11 @@ export class ActivitiesService {
     if (dto.title !== undefined) data.title = emptyToNull(dto.title);
     if (dto.notes !== undefined) data.notes = emptyToNull(dto.notes);
     if (dto.outcome !== undefined) data.outcome = emptyToNull(dto.outcome);
-    if (dto.scheduledAt !== undefined) data.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    if (dto.scheduledAt !== undefined) {
+      data.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+      // Rescheduled work deserves a fresh "due soon" reminder.
+      if (data.scheduledAt?.valueOf() !== existing.scheduledAt?.valueOf()) data.reminderSentAt = null;
+    }
     if (dto.durationSeconds !== undefined) data.durationSeconds = dto.durationSeconds;
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
@@ -160,10 +171,35 @@ export class ActivitiesService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const activity = await tx.activity.update({ where: { id }, data, include: ACTIVITY_INCLUDE });
+    const activity = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.activity.update({ where: { id }, data, include: ACTIVITY_INCLUDE });
       await advanceLeadStage(tx, existing.lead, { type, status });
-      return activity;
+      return updated;
+    });
+    if (activity.ownerUserId !== existing.ownerUserId) this.notifyScheduledFor(ctx, activity);
+    return activity;
+  }
+
+  /** A manager booking work for a rep lands on the rep's phone. */
+  private notifyScheduledFor(
+    ctx: TenantRequestContext,
+    activity: {
+      type: ActivityType;
+      status: ActivityStatus;
+      title: string | null;
+      scheduledAt: Date | null;
+      ownerUserId: string | null;
+      lead: { id: string; name: string; company: string | null };
+    },
+  ) {
+    if (activity.status !== "scheduled" || !activity.ownerUserId || activity.ownerUserId === ctx.userId) return;
+    const when = activity.scheduledAt
+      ? ` · ${activity.scheduledAt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`
+      : "";
+    void this.push.notifyUsers(ctx.tenantId, [activity.ownerUserId], {
+      title: `${ACTIVITY_TYPE_LABELS[activity.type]} scheduled for you`,
+      body: `${activity.lead.company || activity.lead.name}${activity.title ? ` · ${activity.title}` : ""}${when}`,
+      url: `/lead/${activity.lead.id}`,
     });
   }
 
