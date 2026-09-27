@@ -195,11 +195,18 @@ export class AuthService {
       }),
     ]);
     return {
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl },
       tenant: { id: membership.tenant.id, name: membership.tenant.name, slug: membership.tenant.slug },
       role: membership.role,
       isPlatformAdmin: user.isPlatformAdmin,
     };
+  }
+
+  async updateProfile(userId: string, dto: { name?: string; avatarUrl?: string | null }) {
+    const data: { name?: string; avatarUrl?: string | null } = {};
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl;
+    await this.prisma.user.update({ where: { id: userId }, data });
   }
 
   private issueTokens(payload: TokenPayload) {

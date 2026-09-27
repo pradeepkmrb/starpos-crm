@@ -54,6 +54,7 @@ export const ACTIVITY_INCLUDE = {
       address: true,
       latitude: true,
       longitude: true,
+      imageUrl: true,
     },
   },
   owner: { select: { id: true, name: true, email: true } },

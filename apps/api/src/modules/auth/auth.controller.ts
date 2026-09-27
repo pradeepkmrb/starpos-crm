@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
@@ -6,6 +6,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 import { SwitchTenantDto } from "./dto/switch-tenant.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import "../../common/request-context";
 
@@ -43,6 +44,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() req: Request) {
     const { userId, tenantId } = req.tenantContext!;
+    return this.authService.me(userId, tenantId);
+  }
+
+  /** The signed-in user edits their own name and photo. */
+  @Patch("me")
+  @UseGuards(JwtAuthGuard)
+  async updateMe(@Req() req: Request, @Body() dto: UpdateProfileDto) {
+    const { userId, tenantId } = req.tenantContext!;
+    await this.authService.updateProfile(userId, dto);
     return this.authService.me(userId, tenantId);
   }
 }

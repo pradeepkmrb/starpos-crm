@@ -19,7 +19,7 @@ export interface ListLeadsOptions {
 
 /** What every lead response carries alongside the row itself. */
 const LEAD_INCLUDE = {
-  owner: { select: { id: true, name: true, email: true } },
+  owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
   metaFormLink: { select: { id: true, formId: true, formName: true, pageName: true } },
 } satisfies Prisma.LeadInclude;
 
@@ -130,6 +130,7 @@ export class LeadsService {
         latitude: dto.latitude ?? null,
         longitude: dto.longitude ?? null,
         isHot: dto.isHot ?? false,
+        imageUrl: dto.imageUrl ?? null,
         expectedCloseAt: dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : null,
         closedAt: closedAtForStatusChange("new", dto.status ?? "new") ?? null,
       },
@@ -157,6 +158,7 @@ export class LeadsService {
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (dto.isHot !== undefined) data.isHot = dto.isHot;
+    if (dto.imageUrl !== undefined) data.imageUrl = dto.imageUrl;
     if (dto.expectedCloseAt !== undefined) {
       data.expectedCloseAt = dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : null;
     }

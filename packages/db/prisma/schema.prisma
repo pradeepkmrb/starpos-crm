@@ -15,6 +15,8 @@ model User {
   email           String   @unique
   passwordHash    String
   name            String?
+  /// Profile photo, as a /media/images/:id path.
+  avatarUrl       String?
   isPlatformAdmin Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -74,6 +76,23 @@ model Tenant {
   quotations         Quotation[]
   payments           Payment[]
   salesTargets       SalesTarget[]
+  storedImages       StoredImage[]
+}
+
+/// A small uploaded picture (profile photo, lead photo), kept in Postgres
+/// because the phone shrinks it to ~100 KB first. Served publicly by its
+/// unguessable id at /media/images/:id.
+model StoredImage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  contentType String
+  bytes       Bytes
+  uploadedByUserId String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 enum TenantStatus {
@@ -585,6 +604,8 @@ model Lead {
   longitude       Float?
   /// A rep's "hot" flag — a priority marker independent of the stage.
   isHot           Boolean   @default(false)
+  /// Storefront / business photo, as a /media/images/:id path.
+  imageUrl        String?
   expectedCloseAt DateTime?
   /// Stamped when the lead reaches won or lost, so closings can be counted by
   /// month; cleared if it is reopened.
