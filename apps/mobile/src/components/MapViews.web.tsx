@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { distanceMeters, formatDistance, type LatLng } from "@digitel/shared";
 import { colors, radius, space } from "@/theme";
 import type { MapLead } from "./MapViews";
@@ -6,9 +7,9 @@ import type { MapLead } from "./MapViews";
 // Browser-preview stand-ins: react-native-maps has no web build, so these
 // show the same information as text. Phones use MapViews.tsx.
 
-export function CheckInMap({ lead, here }: { lead: LatLng | null; here: LatLng | null }) {
+export function CheckInMap({ lead, here, style }: { lead: LatLng | null; here: LatLng | null; style?: object }) {
   return (
-    <View style={styles.box}>
+    <View style={[styles.box, style]}>
       <Text style={styles.text}>
         {here ? `You: ${here.latitude.toFixed(5)}, ${here.longitude.toFixed(5)}` : "Your location: not available yet"}
       </Text>

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { StyleSheet } from "react-native";
+import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Text } from "@/components/AppText";
 import MapView, { Circle, Marker } from "react-native-maps";
 import { VISIT_CHECK_IN_RADIUS_METERS, type LatLng } from "@digitel/shared";
 import { colors } from "@/theme";
@@ -22,12 +23,31 @@ function regionAround(points: LatLng[]) {
   };
 }
 
-/** The rep, the lead's pin and the check-in radius around it. */
-export function CheckInMap({ lead, here }: { lead: LatLng | null; here: LatLng | null }) {
+/**
+ * The rep, the lead's pin and the check-in radius around it. Until the first
+ * GPS fix arrives (and the lead has no pin) there is nothing to centre on, so
+ * a placeholder holds the space instead of the map popping in later.
+ */
+export function CheckInMap({
+  lead,
+  here,
+  style,
+}: {
+  lead: LatLng | null;
+  here: LatLng | null;
+  style?: StyleProp<ViewStyle>;
+}) {
   const points = [lead, here].filter((p): p is LatLng => p !== null);
-  if (points.length === 0) return null;
+  if (points.length === 0) {
+    return (
+      <View style={[styles.checkIn, styles.placeholder, style]}>
+        <ActivityIndicator color={colors.brand} />
+        <Text style={styles.placeholderText}>Finding your location…</Text>
+      </View>
+    );
+  }
   return (
-    <MapView style={styles.checkIn} region={regionAround(points)} showsUserLocation>
+    <MapView style={[styles.checkIn, style]} region={regionAround(points)} showsUserLocation showsMyLocationButton={false}>
       {lead && (
         <>
           <Marker coordinate={lead} pinColor={colors.danger} title="Lead" />
@@ -87,4 +107,6 @@ export function NearbyMap({
 
 const styles = StyleSheet.create({
   checkIn: { height: 220, borderRadius: 12 },
+  placeholder: { alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E8EEF0" },
+  placeholderText: { fontSize: 13, color: colors.muted },
 });

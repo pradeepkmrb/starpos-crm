@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HealthModule } from "./modules/health/health.module";
+import { MediaModule } from "./modules/media/media.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { JwtCoreModule } from "./common/jwt-core.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
@@ -49,6 +50,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
     ProductsModule,
     ApiKeysModule,
     PublicApiModule,
+    MediaModule,
   ],
 })
 export class AppModule implements NestModule {

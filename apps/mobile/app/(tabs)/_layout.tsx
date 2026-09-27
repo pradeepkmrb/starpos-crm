@@ -4,6 +4,7 @@ import { router, Tabs } from "expo-router";
 import { Platform, Pressable, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brandShadow, colors } from "@/theme";
+import { INTER } from "@/components/AppText";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -54,7 +55,7 @@ export default function TabsLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.faint,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, fontFamily: INTER.semibold },
         tabBarStyle: {
           // Keep the tab actions above Android's gesture/navigation area.
           height: 58 + Math.max(insets.bottom, 10),
@@ -71,7 +72,7 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: false,
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
-        headerTitleStyle: { fontWeight: "800", fontSize: 20, color: colors.ink },
+        headerTitleStyle: { fontFamily: INTER.bold, fontSize: 20, color: colors.ink },
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

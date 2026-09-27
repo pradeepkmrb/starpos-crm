@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ActivityRow } from "@/components/ActivityRow";
 import { Button, Card, Chip, ChipRow, EmptyState, ErrorText, Loading } from "@/components/ui";

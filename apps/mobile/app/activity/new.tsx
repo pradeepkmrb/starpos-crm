@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AppState, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from "react-native";
+import { AppState, KeyboardAvoidingView, Platform, ScrollView, Switch, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import {
   ACTIVITY_TYPES,

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/components/AppText";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
 import { DateTimeField } from "@/components/DateTimeField";
+import { LeadThumb } from "@/components/Photo";
 import { Button, Chip, ChipRow, ErrorText, Field, Input, Loading } from "@/components/ui";
 import {
   ApiError,
@@ -15,6 +18,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { addressFor, currentFix, LocationError } from "@/lib/location";
+import { choosePhoto, PhotoError } from "@/lib/photos";
 import { colors, space } from "@/theme";
 
 type CustomValue = string | boolean;
@@ -37,6 +41,8 @@ export default function EditLeadScreen() {
   const [expectedClose, setExpectedClose] = useState<Date | null>(null);
   const [isHot, setIsHot] = useState(false);
   const [notes, setNotes] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [custom, setCustom] = useState<Record<string, CustomValue>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +69,7 @@ export default function EditLeadScreen() {
           setExpectedClose(lead.expectedCloseAt ? new Date(lead.expectedCloseAt) : null);
           setIsHot(lead.isHot);
           setNotes(lead.notes ?? "");
+          setImageUrl(lead.imageUrl);
           const answers: Record<string, CustomValue> = {};
           for (const [key, v] of Object.entries(lead.customFieldsJson ?? {})) {
             answers[key] = typeof v === "boolean" ? v : String(v);
@@ -95,6 +102,24 @@ export default function EditLeadScreen() {
     }
   }
 
+  async function pickPhoto() {
+    try {
+      const picked = await choosePhoto({
+        aspect: [16, 10],
+        canRemove: !!imageUrl,
+        title: "Lead photo",
+        onUploadStart: () => setUploading(true),
+      });
+      if (picked !== undefined) setImageUrl(picked);
+    } catch (err) {
+      const message = err instanceof PhotoError || err instanceof ApiError ? err.message : "Couldn't upload the photo";
+      if (Platform.OS === "web") setError(message);
+      else Alert.alert("Photo not saved", message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function save() {
     const rupees = value.trim() ? Number(value.trim()) : null;
     if (rupees !== null && !Number.isFinite(rupees)) {
@@ -112,6 +137,7 @@ export default function EditLeadScreen() {
       ...(pin ? { latitude: pin.latitude, longitude: pin.longitude } : {}),
       expectedCloseAt: expectedClose ? expectedClose.toISOString() : null,
       isHot,
+      imageUrl,
       notes: notes.trim() || null,
       customFields: custom,
     };
@@ -139,6 +165,13 @@ export default function EditLeadScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Stack.Screen options={{ title: id ? "Edit lead" : "Add new lead" }} />
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => void pickPhoto()} disabled={uploading} style={{ alignSelf: "center", marginBottom: space.lg, alignItems: "center" }}>
+          <LeadThumb url={imageUrl} size={96} radius={20} />
+          <View style={{ position: "absolute", right: -4, bottom: 18, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.background }}>
+            {uploading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="camera" size={15} color="#fff" />}
+          </View>
+          <Text style={{ marginTop: 6, fontSize: 13, fontWeight: "600", color: colors.brand }}>{imageUrl ? "Change photo" : "Add shop photo"}</Text>
+        </Pressable>
         <Field label="Contact person" required>
           <Input value={name} onChangeText={setName} placeholder="Enter contact person name" />
         </Field>
@@ -204,7 +237,7 @@ export default function EditLeadScreen() {
         </Field>
 
         <ErrorText text={error} />
-        <Button title={id ? "Save changes" : "Save lead"} onPress={() => void save()} loading={busy} disabled={!name.trim()} />
+        <Button title={id ? "Save changes" : "Save lead"} onPress={() => void save()} loading={busy} disabled={!name.trim() || uploading} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

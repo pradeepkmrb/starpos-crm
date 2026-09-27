@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { quoteTotals, type QuotationStatus } from "@digitel/shared";
 import { Badge, Button, Card, ErrorText, GradientCard, Loading } from "@/components/ui";

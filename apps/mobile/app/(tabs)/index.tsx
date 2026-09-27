@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { ActivityRow } from "@/components/ActivityRow";
+import { Avatar } from "@/components/Photo";
 import { Card, EmptyState, ErrorText, GradientCard, IconChip, Loading, SectionTitle } from "@/components/ui";
 import { ApiError, getFieldSummary, type FieldSummary } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -61,9 +62,9 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <LinearGradient colors={["#34D399", "#047857"]} style={styles.avatar}>
-            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
-          </LinearGradient>
+          <Pressable accessibilityLabel="Profile" onPress={() => router.push("/more")}>
+            <Avatar name={firstName} url={me?.user.avatarUrl} size={48} />
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.name}>{firstName}</Text>
@@ -211,8 +212,6 @@ function Tile({
 
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: space.md },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 20, fontWeight: "800", color: "#fff" },
   greeting: { fontSize: 13, color: colors.muted },
   name: { fontSize: 22, fontWeight: "800", color: colors.ink },
   date: { fontSize: 13, color: colors.muted, marginTop: space.sm, marginBottom: space.lg },

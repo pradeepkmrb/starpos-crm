@@ -9,6 +9,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -16,6 +17,7 @@ import {
   ValidateIf,
 } from "class-validator";
 import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { IMAGE_PATH_PATTERN } from "../../media/media.constants";
 
 export class CreateLeadDto {
   @IsString()
@@ -104,4 +106,10 @@ export class CreateLeadDto {
   @ValidateIf((_, value) => value !== null)
   @IsISO8601()
   expectedCloseAt?: string | null;
+
+  /** Storefront photo: a /media/images/:id path from POST /media/images; null removes it. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Matches(IMAGE_PATH_PATTERN, { message: "imageUrl must be an uploaded image" })
+  imageUrl?: string | null;
 }
