@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
+import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import {
   Inter_400Regular,
@@ -14,6 +15,7 @@ import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Loading } from "@/components/ui";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { routeFromNotification } from "@/lib/push";
 import { INTER } from "@/components/AppText";
 import { colors } from "@/theme";
 
@@ -27,6 +29,16 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   useEffect(() => {
     if (ready) SplashScreen.hide();
   }, [ready]);
+
+  // A tapped notification opens its lead — including the one that launched the app.
+  const lastResponse = Notifications.useLastNotificationResponse();
+  const signedIn = !!me;
+  useEffect(() => {
+    const route = routeFromNotification(lastResponse);
+    if (!ready || !signedIn || !route) return;
+    router.push(route as never);
+    void Notifications.clearLastNotificationResponseAsync();
+  }, [ready, signedIn, lastResponse]);
   if (!ready) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>

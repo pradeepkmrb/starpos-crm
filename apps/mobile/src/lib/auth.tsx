@@ -8,6 +8,7 @@ import {
   updateMe,
   type Me,
 } from "./api";
+import { registerForPush, unregisterForPush } from "./push";
 
 interface AuthState {
   /** True until stored tokens have been checked on launch. */
@@ -44,7 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe({ user: data.user, tenant: data.tenant, role: data.role });
   }, []);
 
+  // Once someone is signed in, make sure this phone gets their notifications.
+  const userId = me?.user.id;
+  useEffect(() => {
+    if (userId) registerForPush().catch(() => undefined);
+  }, [userId]);
+
   const signOut = useCallback(async () => {
+    // Unregister while the session still exists — the call needs it.
+    await unregisterForPush();
     await apiLogout();
     setMe(null);
   }, []);
