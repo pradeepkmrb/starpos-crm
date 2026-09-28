@@ -7,7 +7,7 @@ import { colors } from "@/theme";
 export const QUOTATION_COLORS: Record<QuotationStatus, { fg: string; bg: string }> = {
   draft: { fg: colors.muted, bg: "#F1F5F9" },
   sent: { fg: colors.info, bg: colors.infoSoft },
-  accepted: { fg: colors.brandDeep, bg: "#D1FAE5" },
+  accepted: { fg: colors.greenDark, bg: colors.greenSoft },
   rejected: { fg: colors.danger, bg: colors.dangerSoft },
 };
 

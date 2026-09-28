@@ -8,34 +8,48 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // "Emerald fresh": the brand green used for primary actions, active
-        // navigation and hero cards. Shared with the mobile app's theme.
+        // StarPOS blue, taken from the logo's star: primary actions, headers and
+        // hero cards. Shared with the mobile app's theme.
         brand: {
-          50: "#ecfdf5",
-          100: "#d1fae5",
-          200: "#a7f3d0",
-          300: "#6ee7b7",
-          400: "#34d399",
-          500: "#10b981",
-          600: "#059669", // primary
-          700: "#047857",
-          800: "#065f46", // links, text on brand-50
-          900: "#064e3b",
-          950: "#022c22",
+          50: "#eef5fc",
+          100: "#d8e7f7",
+          200: "#b3cfee",
+          300: "#7fade0",
+          400: "#4a86cf",
+          500: "#1a63b5",
+          600: "#034694", // primary — the logo blue
+          700: "#033a7a",
+          800: "#042f63", // links, text on brand-50
+          900: "#06284f",
+          950: "#041a35",
         },
-        // Deep navy for the sidebar shell, so structure reads apart from content.
+        // StarPOS green, taken from the logo's wordmark: active navigation,
+        // success states and highlights.
+        leaf: {
+          50: "#ebf9f0",
+          100: "#cff1dc",
+          200: "#a1e3ba",
+          300: "#64cf8c",
+          400: "#2bb962",
+          500: "#00a03a", // the logo green
+          600: "#008a32",
+          700: "#006e29",
+          800: "#055724",
+          900: "#064820",
+        },
+        // Deep StarPOS navy for the sidebar shell, so structure reads apart from content.
         ink: {
-          50: "#f8fafc",
-          200: "#cbd5e1",
-          300: "#94a3b8",
-          400: "#64748b",
-          700: "#1e293b",
-          800: "#152036",
-          900: "#0f172a",
-          950: "#0a1020",
+          50: "#f6f9fd",
+          200: "#c6d4e8",
+          300: "#93a9c9",
+          400: "#6581a8",
+          700: "#123565",
+          800: "#0a2a55",
+          900: "#062147",
+          950: "#031531",
         },
-        // The soft mint page background behind white cards.
-        canvas: "#f4f7f6",
+        // The soft blue-grey page background behind white cards.
+        canvas: "#f3f6fb",
         // WhatsApp Web's palette, used only by the Inbox so chats feel familiar.
         wa: {
           panel: "#f0f2f5",
@@ -60,7 +74,8 @@ const config: Config = {
       boxShadow: {
         card: "0 1px 2px 0 rgb(15 23 42 / 0.04), 0 2px 8px -2px rgb(15 23 42 / 0.06)",
         "card-hover": "0 10px 24px -8px rgb(15 23 42 / 0.14), 0 2px 6px -2px rgb(15 23 42 / 0.06)",
-        brand: "0 10px 24px -10px rgb(5 150 105 / 0.55)",
+        brand: "0 10px 24px -10px rgb(3 70 148 / 0.5)",
+        leaf: "0 10px 24px -10px rgb(0 160 58 / 0.55)",
         pop: "0 16px 40px -12px rgb(15 23 42 / 0.25)",
       },
       keyframes: {

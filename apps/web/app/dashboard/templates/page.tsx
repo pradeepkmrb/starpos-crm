@@ -124,7 +124,7 @@ function TemplateBubble({
   return (
     <div
       className="rounded-2xl bg-[#eef2ef] p-3"
-      style={{ backgroundImage: "radial-gradient(rgba(5,150,105,0.08) 1px, transparent 1px)", backgroundSize: "14px 14px" }}
+      style={{ backgroundImage: "radial-gradient(rgba(3,70,148,0.08) 1px, transparent 1px)", backgroundSize: "14px 14px" }}
     >
       <div className="max-w-[92%] rounded-xl rounded-tl-sm bg-white p-2.5 shadow-sm">
         {header &&

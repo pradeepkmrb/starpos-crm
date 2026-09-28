@@ -39,7 +39,7 @@
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
   .badge-success {
-    @apply bg-brand-50 text-brand-800 ring-1 ring-inset ring-brand-600/15;
+    @apply bg-leaf-50 text-leaf-800 ring-1 ring-inset ring-leaf-600/20;
   }
   .badge-neutral {
     @apply bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/10;
@@ -67,7 +67,7 @@
     @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-white/5 hover:text-white;
   }
   .nav-link-active {
-    @apply bg-brand-600 text-white shadow-brand hover:bg-brand-600;
+    @apply bg-leaf-500 text-white shadow-leaf hover:bg-leaf-500;
   }
   .nav-section-label {
     @apply px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-ink-400;

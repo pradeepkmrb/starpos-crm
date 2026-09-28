@@ -144,7 +144,7 @@ export default function ActiveVisitScreen() {
 const styles = StyleSheet.create({
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
   timer: { fontSize: 40, fontWeight: "800", color: "#fff", fontVariant: ["tabular-nums"] },
-  timerLabel: { color: "#D1FAE5", marginTop: space.xs, fontWeight: "600" },
+  timerLabel: { color: "#D8E7F7", marginTop: space.xs, fontWeight: "600" },
   icon: {
     width: 44,
     height: 44,

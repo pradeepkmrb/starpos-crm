@@ -14,6 +14,7 @@ import {
 } from "../../lib/api";
 import {
   BellIcon,
+  BrandLockupOnDark,
   BrandMark,
   ChevronDownIcon,
   CloseIcon,
@@ -310,8 +311,13 @@ function Sidebar({
   return (
     <>
       <Link href="/dashboard" className={`flex items-center gap-2.5 py-5 ${collapsed ? "justify-center px-0" : "px-5"}`}>
-        <BrandMark className="h-9 w-9 shrink-0" />
-        {!collapsed && <span className="text-xl font-extrabold tracking-tight text-white">StarPOS CRM</span>}
+        {collapsed ? (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white p-1">
+            <BrandMark className="h-full w-full" />
+          </span>
+        ) : (
+          <BrandLockupOnDark />
+        )}
       </Link>
 
       <nav className={`flex-1 overflow-y-auto pb-4 ${collapsed ? "px-3" : "px-3"}`}>

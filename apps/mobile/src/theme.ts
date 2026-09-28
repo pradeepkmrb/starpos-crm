@@ -2,38 +2,42 @@ import type { ViewStyle } from "react-native";
 import type { LeadStatus } from "@starpos-crm/shared";
 
 /**
- * "Emerald fresh" — the same palette as the web dashboard's tailwind `brand`
- * and `ink` scales, so both apps read as one product.
+ * StarPOS blue and green, taken from the logo — the same palette as the web
+ * dashboard's tailwind `brand`, `leaf` and `ink` scales, so both apps read
+ * as one product.
  */
 export const colors = {
-  brand: "#059669",
-  brandDark: "#047857",
-  brandDeep: "#065F46",
-  brandLight: "#34D399",
-  brandSoft: "#ECFDF5",
-  accent: "#6EE7B7",
+  brand: "#034694",
+  brandDark: "#033A7A",
+  brandDeep: "#042F63",
+  brandLight: "#4A86CF",
+  brandSoft: "#EEF5FC",
+  green: "#00A03A",
+  greenDark: "#006E29",
+  greenSoft: "#EBF9F0",
+  accent: "#2BB962",
   ink: "#0F172A",
-  navy: "#0F172A",
+  navy: "#062147",
   text: "#334155",
   muted: "#64748B",
   faint: "#94A3B8",
   border: "#E2E8F0",
   surface: "#FFFFFF",
-  background: "#F4F7F6",
+  background: "#F3F6FB",
   danger: "#DC2626",
   dangerSoft: "#FEF2F2",
   warning: "#D97706",
   warningSoft: "#FFFBEB",
-  success: "#059669",
-  successSoft: "#ECFDF5",
+  success: "#00A03A",
+  successSoft: "#EBF9F0",
   info: "#0284C7",
   infoSoft: "#F0F9FF",
   violet: "#7C3AED",
   violetSoft: "#F5F3FF",
 };
 
-/** Hero gradient: bright emerald to deep green. */
-export const heroGradient = ["#10B981", "#059669", "#065F46"] as const;
+/** Hero gradient: bright StarPOS blue to deep navy. */
+export const heroGradient = ["#1A63B5", "#034694", "#042F63"] as const;
 
 export const radius = { sm: 10, md: 16, lg: 20, xl: 24, pill: 999 };
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
@@ -48,7 +52,7 @@ export const shadow: ViewStyle = {
 };
 
 export const brandShadow: ViewStyle = {
-  shadowColor: "#059669",
+  shadowColor: "#034694",
   shadowOpacity: 0.35,
   shadowRadius: 14,
   shadowOffset: { width: 0, height: 8 },
@@ -62,6 +66,6 @@ export const STAGE_COLORS: Record<LeadStatus, { fg: string; bg: string }> = {
   qualified: { fg: "#0D9488", bg: "#F0FDFA" },
   demo_scheduled: { fg: colors.violet, bg: colors.violetSoft },
   proposal: { fg: colors.brandDark, bg: colors.brandSoft },
-  won: { fg: colors.brandDeep, bg: "#D1FAE5" },
+  won: { fg: colors.greenDark, bg: "#CFF1DC" },
   lost: { fg: colors.muted, bg: "#F1F5F9" },
 };

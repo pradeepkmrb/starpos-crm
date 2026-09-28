@@ -11,7 +11,7 @@ import type {
 } from "@starpos-crm/shared";
 
 /** Set EXPO_PUBLIC_API_URL to point a dev build at a local API. */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://api-production-9e49.up.railway.app";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://api-production-0efa.up.railway.app";
 
 export class ApiError extends Error {
   constructor(

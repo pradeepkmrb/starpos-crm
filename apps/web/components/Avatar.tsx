@@ -4,7 +4,7 @@ const AVATAR_COLORS = [
   "from-violet-400 to-violet-600",
   "from-amber-400 to-amber-600",
   "from-rose-400 to-rose-600",
-  "from-teal-400 to-cyan-600",
+  "from-leaf-400 to-leaf-600",
 ];
 
 /** Initials on a colour picked from the name, so the same person always looks the same. */

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrandMark, CheckIcon, TrendUpIcon } from "../../components/icons";
+import { BrandLockupOnDark, BrandLogo, CheckIcon, TrendUpIcon } from "../../components/icons";
 
 const POINTS = [
   "Broadcasts, inbox and flows on your own WhatsApp number",
@@ -10,13 +10,12 @@ const POINTS = [
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-500 via-brand-700 to-ink-900 p-12 text-white lg:flex lg:flex-col">
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-500 via-brand-700 to-ink-950 p-12 text-white lg:flex lg:flex-col">
         <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-leaf-500/20" />
 
-        <Link href="/" className="relative flex items-center gap-2.5">
-          <BrandMark className="h-10 w-10" />
-          <span className="text-2xl font-extrabold tracking-tight">StarPOS CRM</span>
+        <Link href="/" className="relative">
+          <BrandLockupOnDark markClassName="h-11 w-11" textClassName="text-2xl" />
         </Link>
 
         <div className="relative mt-auto max-w-md">
@@ -26,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <ul className="mt-8 space-y-3">
             {POINTS.map((point) => (
               <li key={point} className="flex items-start gap-3 text-brand-50">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-leaf-500">
                   <CheckIcon className="h-3.5 w-3.5" />
                 </span>
                 {point}
@@ -35,14 +34,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </ul>
 
           <div className="mt-10 flex items-center gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-brand-600">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-leaf-500">
               <TrendUpIcon className="h-6 w-6" />
             </span>
             <div>
               <p className="text-sm text-brand-100">Monthly target</p>
               <p className="text-xl font-bold">₹3,20,000 of ₹5,00,000</p>
               <div className="mt-2 h-1.5 w-56 rounded-full bg-white/20">
-                <div className="h-1.5 w-[64%] rounded-full bg-white" />
+                <div className="h-1.5 w-[64%] rounded-full bg-leaf-400" />
               </div>
             </div>
           </div>
@@ -51,9 +50,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       <div className="flex flex-col items-center justify-center bg-canvas px-4 py-12">
-        <Link href="/" className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <BrandMark className="h-9 w-9" />
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">StarPOS CRM</span>
+        <Link href="/" className="mb-8 lg:hidden">
+          <BrandLogo className="h-12" />
         </Link>
         <div className="card w-full max-w-md p-8 sm:p-10">{children}</div>
       </div>

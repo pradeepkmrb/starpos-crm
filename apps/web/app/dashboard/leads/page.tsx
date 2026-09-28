@@ -57,7 +57,7 @@ const STAGE_DOT: Record<LeadStatus, string> = {
   new: "bg-sky-400",
   contacted: "bg-indigo-400",
   interested: "bg-amber-400",
-  qualified: "bg-teal-400",
+  qualified: "bg-leaf-400",
   demo_scheduled: "bg-violet-400",
   proposal: "bg-brand-400",
   won: "bg-brand-600",

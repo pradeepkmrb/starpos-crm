@@ -11,7 +11,7 @@ export function Avatar({ name, url, size = 48 }: { name: string; url?: string | 
   const shape = { width: size, height: size, borderRadius: size / 2 };
   if (uri) return <Image source={{ uri }} style={[shape, { backgroundColor: colors.border }]} />;
   return (
-    <LinearGradient colors={["#34D399", "#047857"]} style={[shape, styles.center]}>
+    <LinearGradient colors={["#4A86CF", "#034694"]} style={[shape, styles.center]}>
       <Text style={{ fontSize: size * 0.42, fontWeight: "800", color: "#fff" }}>{(name.trim().charAt(0) || "?").toUpperCase()}</Text>
     </LinearGradient>
   );

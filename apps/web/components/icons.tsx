@@ -263,33 +263,42 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
 
 /** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
 /**
- * The StarPOS CRM mark: a chat bubble with a rising trend line — messaging that
- * grows sales — on an emerald tile. The gradient is built in, so it ignores
- * text colour; pass className for size only.
+ * The StarPOS star: the logo's blue star with its white "S" swash. Colours are
+ * built in, so it ignores text colour; pass className for size only. Use
+ * BrandLogo for the full wordmark on light backgrounds.
  */
 export function BrandMark(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 32 32" {...props}>
-      <defs>
-        <linearGradient id="starpos-crm-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#34d399" />
-          <stop offset="1" stopColor="#047857" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="32" height="32" rx="9" fill="url(#starpos-crm-mark)" />
+    <svg viewBox="0 0 745 665" {...props}>
+      <path fill="#034694" d="M372 0l88 254h285L515 410l88 255-231-155-230 155 88-255L0 254h285z" />
       <path
-        fill="#fff"
-        d="M9 8.5h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-6.6l-4.9 3.8v-3.8H9a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z"
-      />
-      <path
-        d="M10.5 18.2l3.4-3.4 2.4 2.2 4.9-4.9m-2.9 0h2.9v2.9"
+        d="M517 292h-87q-60 0-60 58v70q0 75-70 75h-78"
         fill="none"
-        stroke="#059669"
-        strokeWidth="1.9"
-        strokeLinecap="round"
+        stroke="#fff"
+        strokeWidth="52"
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/** The full StarPOS logo (blue star, green wordmark) — for light backgrounds only. */
+export function BrandLogo({ className = "h-9" }: { className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/starpos-logo.webp" alt="StarPOS" width={2000} height={667} className={`w-auto ${className}`} />;
+}
+
+/** Star plus "StarPOS CRM" in white and green — the brand on dark (blue) backgrounds. */
+export function BrandLockupOnDark({ markClassName = "h-9 w-9", textClassName = "text-xl" }: { markClassName?: string; textClassName?: string }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className={`flex shrink-0 items-center justify-center rounded-xl bg-white p-1 ${markClassName}`}>
+        <BrandMark className="h-full w-full" />
+      </span>
+      <span className={`font-extrabold tracking-tight text-white ${textClassName}`}>
+        StarPOS <span className="text-leaf-400">CRM</span>
+      </span>
+    </span>
   );
 }
 

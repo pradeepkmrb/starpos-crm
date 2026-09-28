@@ -186,7 +186,7 @@ export default function TargetsPage() {
                     </div>
                     <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className={`h-full rounded-full ${pct !== null && pct >= 100 ? "bg-gradient-to-r from-brand-500 to-emerald-400" : "bg-brand-500"}`}
+                        className={`h-full rounded-full ${pct !== null && pct >= 100 ? "bg-gradient-to-r from-leaf-500 to-leaf-400" : "bg-brand-500"}`}
                         style={{ width: `${pct === null ? 0 : Math.min(100, pct)}%` }}
                       />
                     </div>

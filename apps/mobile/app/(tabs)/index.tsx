@@ -101,7 +101,7 @@ export default function HomeScreen() {
 
             <GradientCard>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="trophy-outline" size={14} color="#D1FAE5" />
+                <Ionicons name="trophy-outline" size={14} color="#D8E7F7" />
                 <Text style={styles.heroLabel}>Won this month</Text>
               </View>
               <Text style={styles.heroValue}>{formatRupees(won)}</Text>
@@ -251,13 +251,13 @@ const styles = StyleSheet.create({
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brandLight },
   visitText: { flex: 1, color: "#fff", fontWeight: "700" },
   visitAction: { color: colors.brandLight, fontWeight: "800" },
-  heroLabel: { color: "#D1FAE5", fontSize: 13, fontWeight: "600" },
+  heroLabel: { color: "#D8E7F7", fontSize: 13, fontWeight: "600" },
   heroValue: { color: "#fff", fontSize: 34, fontWeight: "800", marginTop: 6, letterSpacing: -0.5 },
-  heroSub: { color: "#D1FAE5", fontSize: 13 },
+  heroSub: { color: "#D8E7F7", fontSize: 13 },
   targetRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, marginBottom: -8 },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", marginTop: space.lg },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: "#fff" },
-  heroFoot: { color: "#D1FAE5", fontSize: 13, marginTop: space.sm },
+  heroFoot: { color: "#D8E7F7", fontSize: 13, marginTop: space.sm },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: space.md, marginTop: space.lg },
   tile: {
     flexGrow: 1,

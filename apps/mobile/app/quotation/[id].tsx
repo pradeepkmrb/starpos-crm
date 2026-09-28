@@ -164,7 +164,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  heroLabel: { color: "#D1FAE5", fontSize: 13 },
+  heroLabel: { color: "#D8E7F7", fontSize: 13 },
   heroValue: { color: "#fff", fontSize: 32, fontWeight: "800", marginVertical: 4, letterSpacing: -0.5 },
   track: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", marginTop: 6, overflow: "hidden" },
   fill: { height: 8, borderRadius: 4, backgroundColor: "#fff" },

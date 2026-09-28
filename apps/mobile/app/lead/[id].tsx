@@ -233,7 +233,7 @@ export default function LeadDetailScreen() {
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.sm, flexWrap: "wrap" }}>
             <Badge label={LEAD_STATUS_LABELS[lead.status]} fg={stage.fg} bg={stage.bg} />
-            {lead.valuePaise ? <Badge label={formatRupees(lead.valuePaise)} fg={colors.brandDeep} bg="#D1FAE5" /> : null}
+            {lead.valuePaise ? <Badge label={formatRupees(lead.valuePaise)} fg={colors.greenDark} bg={colors.greenSoft} /> : null}
           </View>
 
           <View style={styles.actions}>

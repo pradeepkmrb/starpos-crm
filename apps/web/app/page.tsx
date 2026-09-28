@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PLAN_DEFINITIONS, formatPaiseAsInr, UNLIMITED } from "@starpos-crm/shared";
 import {
   BoltIcon,
+  BrandLogo,
   BrandMark,
   CalendarIcon,
   ChartIcon,
@@ -48,7 +49,7 @@ const FEATURES = [
   },
   {
     icon: ChartIcon,
-    tint: "bg-teal-50 text-teal-600",
+    tint: "bg-leaf-50 text-leaf-600",
     title: "Insights",
     body: "Delivery and read rates, calls, visits and closings, per rep and per month.",
   },
@@ -60,9 +61,9 @@ export default function HomePage() {
   return (
     <main className="bg-canvas">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2.5">
-          <BrandMark className="h-9 w-9" />
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">StarPOS CRM</span>
+        <div className="flex items-end gap-2">
+          <BrandLogo className="h-10" />
+          <span className="pb-0.5 text-sm font-extrabold tracking-widest text-brand-600">CRM</span>
         </div>
         <div className="flex shrink-0 gap-2">
           <Link href="/login" className="btn-ghost">

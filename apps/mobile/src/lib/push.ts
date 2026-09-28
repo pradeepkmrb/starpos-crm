@@ -31,7 +31,7 @@ export async function registerForPush(): Promise<void> {
       name: "Reminders and assignments",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#0170F0",
+      lightColor: "#034694",
     });
   }
 
