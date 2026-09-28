@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { quoteTotals, type QuotationStatus } from "@digitel/shared";
+import { quoteTotals, type QuotationStatus } from "@starpos-crm/shared";
 import { Badge, Button, Card, ErrorText, GradientCard, Loading } from "@/components/ui";
 import { ApiError, getQuotation, updateQuotationStatus, type Quotation } from "@/lib/api";
 import { formatDate, formatRupees } from "@/lib/format";

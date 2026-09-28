@@ -14,12 +14,12 @@ COPY apps/web ./apps/web
 
 RUN pnpm install --frozen-lockfile=false
 
-RUN pnpm --filter @digitel/shared build
+RUN pnpm --filter @starpos-crm/shared build
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-RUN pnpm --filter @digitel/web build
+RUN pnpm --filter @starpos-crm/web build
 
 WORKDIR /workspace/apps/web
 

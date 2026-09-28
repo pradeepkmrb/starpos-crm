@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { findIntegration } from "@digitel/shared";
+import { findIntegration } from "@starpos-crm/shared";
 import {
   buildPublicView,
   detectMode,

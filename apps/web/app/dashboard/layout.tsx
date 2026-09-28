@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { TenantRole } from "@digitel/shared";
+import type { TenantRole } from "@starpos-crm/shared";
 import {
   clearTokens,
   getAccessToken,
@@ -35,7 +35,7 @@ import {
 import { CommandPalette } from "../../components/CommandPalette";
 import { ToastProvider } from "../../components/Toaster";
 
-const COLLAPSED_KEY = "digitel_sidebar_collapsed";
+const COLLAPSED_KEY = "starpos_crm_sidebar_collapsed";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -176,7 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <MenuIcon className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-bold text-slate-900">{current?.label ?? "Digitell"}</p>
+                <p className="truncate text-base font-bold text-slate-900">{current?.label ?? "StarPOS CRM"}</p>
                 {tenant && <p className="hidden truncate text-xs text-slate-500 sm:block">{tenant.name}</p>}
               </div>
 
@@ -311,7 +311,7 @@ function Sidebar({
     <>
       <Link href="/dashboard" className={`flex items-center gap-2.5 py-5 ${collapsed ? "justify-center px-0" : "px-5"}`}>
         <BrandMark className="h-9 w-9 shrink-0" />
-        {!collapsed && <span className="text-xl font-extrabold tracking-tight text-white">Digitell</span>}
+        {!collapsed && <span className="text-xl font-extrabold tracking-tight text-white">StarPOS CRM</span>}
       </Link>
 
       <nav className={`flex-1 overflow-y-auto pb-4 ${collapsed ? "px-3" : "px-3"}`}>

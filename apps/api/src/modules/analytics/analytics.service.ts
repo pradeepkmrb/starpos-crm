@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
-import { describeChannel, type ChannelType } from "@digitel/shared";
+import { Prisma } from "@starpos-crm/db";
+import { describeChannel, type ChannelType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export interface MessageTotals {

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
-import { isChoiceFieldType, type CustomFieldEntity } from "@digitel/shared";
+import { Prisma } from "@starpos-crm/db";
+import { isChoiceFieldType, type CustomFieldEntity } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateCustomFieldDto } from "./dto/create-custom-field.dto";
 import { UpdateCustomFieldDto } from "./dto/update-custom-field.dto";

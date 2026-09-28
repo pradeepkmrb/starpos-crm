@@ -16,7 +16,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
-import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, type LeadStatus } from "@starpos-crm/shared";
 import { IMAGE_PATH_PATTERN } from "../../media/media.constants";
 
 export class CreateLeadDto {

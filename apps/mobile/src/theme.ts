@@ -1,5 +1,5 @@
 import type { ViewStyle } from "react-native";
-import type { LeadStatus } from "@digitel/shared";
+import type { LeadStatus } from "@starpos-crm/shared";
 
 /**
  * "Emerald fresh" — the same palette as the web dashboard's tailwind `brand`

@@ -1,5 +1,5 @@
 import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, type LeadStatus } from "@starpos-crm/shared";
 
 export class UpdateMetaFormDto {
   @IsOptional()

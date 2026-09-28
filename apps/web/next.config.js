@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@digitel/shared"],
+  transpilePackages: ["@starpos-crm/shared"],
 };
 
 module.exports = nextConfig;

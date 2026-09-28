@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPE_LABELS, type ActivityType } from "@digitel/shared";
+import { ACTIVITY_TYPE_LABELS, type ActivityType } from "@starpos-crm/shared";
 
 /** How far ahead of a scheduled activity its reminder goes out. */
 export const REMINDER_LEAD_MINUTES = 15;

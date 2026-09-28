@@ -1,4 +1,4 @@
-import { CHANNEL_LABELS, channelHasReplyWindow, describeChannel } from "@digitel/shared";
+import { CHANNEL_LABELS, channelHasReplyWindow, describeChannel } from "@starpos-crm/shared";
 import { CUSTOMER_SERVICE_WINDOW_MS, windowExpiresAt, windowIsOpen } from "../whatsapp/inbox.service";
 import { messagingChannelType } from "../whatsapp/webhook-processor.processor";
 import { contactAddress, ensureReplyPrefix } from "./outbound-dispatcher.service";

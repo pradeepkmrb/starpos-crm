@@ -35,7 +35,7 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
         env:
-          DATABASE_URL: postgresql://digitel:digitel@localhost:5432/digitel?schema=public
+          DATABASE_URL: postgresql://starpos_crm:starpos_crm@localhost:5432/starpos_crm?schema=public
 
       - name: Lint
         run: pnpm lint

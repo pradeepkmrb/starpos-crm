@@ -1,5 +1,5 @@
 import { ForbiddenException } from "@nestjs/common";
-import { UNLIMITED } from "@digitel/shared";
+import { UNLIMITED } from "@starpos-crm/shared";
 import { EntitlementsService, currentPeriodMonth } from "./entitlements.service";
 import type { PrismaService } from "../../prisma/prisma.service";
 

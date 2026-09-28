@@ -8,7 +8,7 @@ import type {
   PaymentMode,
   QuotationStatus,
   TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 
 /** Set EXPO_PUBLIC_API_URL to point a dev build at a local API. */
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://api-production-9e49.up.railway.app";
@@ -26,8 +26,8 @@ export class ApiError extends Error {
 
 // --- token storage: the device keychain on phones, localStorage in a browser preview ---
 
-const ACCESS_KEY = "digitel_access_token";
-const REFRESH_KEY = "digitel_refresh_token";
+const ACCESS_KEY = "starpos_crm_access_token";
+const REFRESH_KEY = "starpos_crm_refresh_token";
 
 async function readStored(key: string): Promise<string | null> {
   if (Platform.OS === "web") return globalThis.localStorage?.getItem(key) ?? null;

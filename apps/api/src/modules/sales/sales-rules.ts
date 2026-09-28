@@ -1,4 +1,4 @@
-import { CLOSED_LEAD_STATUSES, LEAD_STATUSES, type LeadStatus, type QuotationStatus } from "@digitel/shared";
+import { CLOSED_LEAD_STATUSES, LEAD_STATUSES, type LeadStatus, type QuotationStatus } from "@starpos-crm/shared";
 
 /**
  * The lead stage a quotation implies: sending one means a proposal is out,

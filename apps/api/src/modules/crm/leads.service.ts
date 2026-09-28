@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
-import { LEAD_STATUSES, boundingBox, distanceMeters, type LatLng, type LeadStatus } from "@digitel/shared";
+import { Prisma } from "@starpos-crm/db";
+import { LEAD_STATUSES, boundingBox, distanceMeters, type LatLng, type LeadStatus } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";

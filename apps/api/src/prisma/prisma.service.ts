@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { PrismaClient } from "@digitel/db";
+import { PrismaClient } from "@starpos-crm/db";
 import { tenantScopingMiddleware } from "./tenant-scoping.middleware";
 
 @Injectable()

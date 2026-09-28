@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@digitel/shared": ["../../packages/shared/src/index.ts"],
+      "@starpos-crm/shared": ["../../packages/shared/src/index.ts"],
       "@/*": ["./src/*"]
     }
   },

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
 import { decryptToken, encryptToken } from "../../common/token-encryption";
 import { MetaLeadsClient } from "./meta-leads.client";

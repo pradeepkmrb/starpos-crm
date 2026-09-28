@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CUSTOM_TARGET_PREFIX, IGNORE_TARGET, LEAD_STANDARD_TARGETS } from "@digitel/shared";
+import { CUSTOM_TARGET_PREFIX, IGNORE_TARGET, LEAD_STANDARD_TARGETS } from "@starpos-crm/shared";
 import type { CustomFieldDefinition, MetaFormQuestion } from "../../../../lib/api";
 
 const AUTO = "";

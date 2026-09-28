@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast, type PaymentMode, type TenantRole } from "@digitel/shared";
+import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast, type PaymentMode, type TenantRole } from "@starpos-crm/shared";
 import { ApiError, type Payment, deletePayment, getAccessToken, listPayments, me } from "../../../lib/api";
 import { currentMonthInput } from "../../../lib/money";
 import { Drawer } from "../../../components/Drawer";

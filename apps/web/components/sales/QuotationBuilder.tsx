@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatInr, quoteTotals } from "@digitel/shared";
+import { formatInr, quoteTotals } from "@starpos-crm/shared";
 import {
   ApiError,
   type Lead,

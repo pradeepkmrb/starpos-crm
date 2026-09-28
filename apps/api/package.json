@@ -1,5 +1,5 @@
 {
-  "name": "@digitel/api",
+  "name": "@starpos-crm/api",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -13,8 +13,8 @@
     "test:e2e": "jest --config jest.e2e.config.js"
   },
   "dependencies": {
-    "@digitel/db": "workspace:*",
-    "@digitel/shared": "workspace:*",
+    "@starpos-crm/db": "workspace:*",
+    "@starpos-crm/shared": "workspace:*",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.4.6",
     "@nestjs/config": "^3.3.0",
@@ -38,7 +38,7 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@digitel/config": "workspace:*",
+    "@starpos-crm/config": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^10.4.7",
     "@nestjs/testing": "^10.4.6",

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
-import { UNLIMITED, type EntitlementKind } from "@digitel/shared";
+import { UNLIMITED, type EntitlementKind } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export interface UsageSnapshot {

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { quoteTotals } from "@digitel/shared";
+import { quoteTotals } from "@starpos-crm/shared";
 import { Button, Card, EmptyState, ErrorText, Field, Input, Loading } from "@/components/ui";
 import { ApiError, createQuotation, getLead, listProducts, type Lead, type Product } from "@/lib/api";
 import { formatRupees } from "@/lib/format";

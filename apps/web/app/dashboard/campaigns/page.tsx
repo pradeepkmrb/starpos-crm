@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Campaign,

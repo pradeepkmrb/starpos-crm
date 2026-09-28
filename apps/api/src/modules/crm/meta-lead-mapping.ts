@@ -1,4 +1,4 @@
-import { CUSTOM_TARGET_PREFIX, IGNORE_TARGET, LEAD_STANDARD_TARGETS, type LeadStandardTarget } from "@digitel/shared";
+import { CUSTOM_TARGET_PREFIX, IGNORE_TARGET, LEAD_STANDARD_TARGETS, type LeadStandardTarget } from "@starpos-crm/shared";
 
 /** One answer as Meta reports it on a lead. */
 export interface MetaLeadFieldDatum {

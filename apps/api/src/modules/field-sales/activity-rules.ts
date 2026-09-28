@@ -7,7 +7,7 @@ import {
   type ActivityStatus,
   type ActivityType,
   type LeadStatus,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 
 /**
  * The new value for Lead.closedAt after a status change: stamped on entering

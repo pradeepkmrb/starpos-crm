@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatInr, roleAtLeast, type TenantRole } from "@digitel/shared";
+import { formatInr, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import { ApiError, type TargetRow, type TargetsBoard, getAccessToken, getTargets, me, setTarget } from "../../../lib/api";
 import { paiseToInput, rupeesToPaise } from "../../../lib/money";
 import { PageSkeleton } from "../../../components/PageSkeleton";

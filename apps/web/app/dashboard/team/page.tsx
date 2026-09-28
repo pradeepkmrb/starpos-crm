@@ -15,7 +15,7 @@ import {
   listMembers,
   me,
 } from "../../../lib/api";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import { UsersIcon } from "../../../components/icons";
 import { Avatar } from "../../../components/Avatar";
 import { PageHeader, SectionCard } from "../../../components/ui";

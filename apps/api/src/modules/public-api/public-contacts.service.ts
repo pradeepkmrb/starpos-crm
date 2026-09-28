@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { Prisma } from "@digitel/db";
-import type { ChannelType } from "@digitel/shared";
+import type { Prisma } from "@starpos-crm/db";
+import type { ChannelType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { windowExpiresAt, windowIsOpen } from "../whatsapp/inbox.service";

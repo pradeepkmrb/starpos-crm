@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { quoteTotals } from "@digitel/shared";
+import { quoteTotals } from "@starpos-crm/shared";
 import type { BusinessProfile } from "./sales-rules";
 
 export interface PdfQuotation {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { describeChannel, roleAtLeast, type TenantRole } from "@digitel/shared";
+import { describeChannel, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Automation,

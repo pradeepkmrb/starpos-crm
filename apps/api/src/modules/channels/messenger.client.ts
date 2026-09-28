@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { ChannelType } from "@digitel/shared";
+import type { ChannelType } from "@starpos-crm/shared";
 import { decryptToken } from "../../common/token-encryption";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import {

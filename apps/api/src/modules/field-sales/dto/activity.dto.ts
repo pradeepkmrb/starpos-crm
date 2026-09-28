@@ -12,7 +12,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
-import { ACTIVITY_TYPES, SETTABLE_ACTIVITY_STATUSES, type ActivityType } from "@digitel/shared";
+import { ACTIVITY_TYPES, SETTABLE_ACTIVITY_STATUSES, type ActivityType } from "@starpos-crm/shared";
 
 type SettableStatus = (typeof SETTABLE_ACTIVITY_STATUSES)[number];
 

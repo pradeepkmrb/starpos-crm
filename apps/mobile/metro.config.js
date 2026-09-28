@@ -10,7 +10,7 @@ const config = getDefaultConfig(__dirname);
 config.watchFolders = [...(config.watchFolders ?? []), sharedSrc];
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules ?? {}),
-  "@digitel/shared": sharedSrc,
+  "@starpos-crm/shared": sharedSrc,
 };
 
 module.exports = config;

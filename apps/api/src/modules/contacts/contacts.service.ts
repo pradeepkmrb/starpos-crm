@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import type { ChannelType } from "@digitel/shared";
+import type { ChannelType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ACTIVITY_TYPE_LABELS, roleAtLeast, type TenantRole } from "@digitel/shared";
+import { ACTIVITY_TYPE_LABELS, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import { ApiError, type Activity, getAccessToken, listActivities, me, updateActivity } from "../../../lib/api";
 import { addDays, formatWhen, localInputToIso, startOfDay } from "../../../lib/activities";
 import { StatusBadge } from "../leads/LeadActivities";

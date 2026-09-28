@@ -10,7 +10,7 @@ import {
   roleAtLeast,
   type ChannelType,
   type TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type AuthUser,
@@ -696,7 +696,7 @@ export default function InboxPage() {
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 border-b-[6px] border-wa-green bg-wa-panel p-8 text-center">
                   <ChatIcon className="h-16 w-16 text-wa-muted/50" />
-                  <p className="text-2xl font-light text-wa-ink">Digitell Inbox</p>
+                  <p className="text-2xl font-light text-wa-ink">StarPOS CRM Inbox</p>
                   <p className="max-w-md text-sm text-wa-muted">
                     Pick a chat on the left. WhatsApp, Messenger, Instagram and email all land here; Meta channels allow
                     free replies for 24 hours after the contact&apos;s last message.

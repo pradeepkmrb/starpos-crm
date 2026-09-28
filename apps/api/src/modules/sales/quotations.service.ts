@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import {
   QUOTATION_STATUSES,
   QUOTATION_STATUS_LABELS,
@@ -9,7 +9,7 @@ import {
   roleAtLeast,
   type LeadStatus,
   type QuotationStatus,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
 import { normalizeWhatsappNumber } from "../../common/phone";

@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Inject, Logger, forwardRef } from "@nestjs/common";
 import { Job } from "bullmq";
-import type { ChannelType } from "@digitel/shared";
+import type { ChannelType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
 import { ContactsService } from "../contacts/contacts.service";

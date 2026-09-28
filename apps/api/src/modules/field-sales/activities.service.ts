@@ -6,7 +6,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import {
   ACTIVITY_STATUSES,
   ACTIVITY_TYPES,
@@ -17,7 +17,7 @@ import {
   type ActivityStatus,
   type ActivityType,
   type LeadStatus,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
 import { PushService } from "../push/push.service";

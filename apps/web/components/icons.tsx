@@ -263,7 +263,7 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
 
 /** Rounded-tile send/broadcast brand mark — not a reproduction of any third-party logo. */
 /**
- * The Digitell mark: a chat bubble with a rising trend line — messaging that
+ * The StarPOS CRM mark: a chat bubble with a rising trend line — messaging that
  * grows sales — on an emerald tile. The gradient is built in, so it ignores
  * text colour; pass className for size only.
  */
@@ -271,12 +271,12 @@ export function BrandMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 32 32" {...props}>
       <defs>
-        <linearGradient id="digitel-mark" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="starpos-crm-mark" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#34d399" />
           <stop offset="1" stopColor="#047857" />
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width="32" height="32" rx="9" fill="url(#digitel-mark)" />
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="url(#starpos-crm-mark)" />
       <path
         fill="#fff"
         d="M9 8.5h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-6.6l-4.9 3.8v-3.8H9a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z"

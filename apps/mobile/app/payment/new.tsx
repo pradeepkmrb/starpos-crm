@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { PAYMENT_MODES, PAYMENT_MODE_LABELS, type PaymentMode } from "@digitel/shared";
+import { PAYMENT_MODES, PAYMENT_MODE_LABELS, type PaymentMode } from "@starpos-crm/shared";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Chip, ChipRow, ErrorText, Field, Input } from "@/components/ui";
 import { ApiError, createPayment, listQuotations, type Quotation } from "@/lib/api";

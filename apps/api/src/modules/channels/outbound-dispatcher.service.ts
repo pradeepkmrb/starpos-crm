@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import type { Channel, Contact } from "@digitel/db";
+import type { Channel, Contact } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
 import { decryptToken } from "../../common/token-encryption";
 import { MetaGraphClient } from "../whatsapp/meta-graph.client";

@@ -1,4 +1,4 @@
-# Digitel
+# StarPOS CRM
 
 Multi-tenant WhatsApp marketing SaaS (Bring Your Own Meta WhatsApp API) —
 a Digitell-style clone. All 6 build phases are complete: auth & tenants,
@@ -63,7 +63,7 @@ verify inbound webhook signatures) — set those once as an admin in
 ## Running tests
 
 ```bash
-pnpm --filter @digitel/api test
+pnpm --filter @starpos-crm/api test
 ```
 
 Covers CSV parsing (quoted cells, extra columns) and import column matching,

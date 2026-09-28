@@ -17,9 +17,9 @@ COPY apps/api ./apps/api
 
 RUN pnpm install --frozen-lockfile=false
 
-RUN pnpm --filter @digitel/shared build
-RUN pnpm --filter @digitel/db generate
-RUN pnpm --filter @digitel/api build
+RUN pnpm --filter @starpos-crm/shared build
+RUN pnpm --filter @starpos-crm/db generate
+RUN pnpm --filter @starpos-crm/api build
 
 WORKDIR /workspace/apps/api
 

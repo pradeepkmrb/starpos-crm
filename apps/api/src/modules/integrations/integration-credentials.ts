@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import type { IntegrationSpec } from "@digitel/shared";
+import type { IntegrationSpec } from "@starpos-crm/shared";
 
 export type CredentialMap = Record<string, string>;
 

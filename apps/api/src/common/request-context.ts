@@ -1,4 +1,4 @@
-import type { TenantRole } from "@digitel/shared";
+import type { TenantRole } from "@starpos-crm/shared";
 
 export interface TenantRequestContext {
   /** Empty for API-key requests: a key authenticates the workspace, not a person. */

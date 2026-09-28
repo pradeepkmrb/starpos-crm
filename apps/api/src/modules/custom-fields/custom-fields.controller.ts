@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
-import type { CustomFieldEntity } from "@digitel/shared";
+import type { CustomFieldEntity } from "@starpos-crm/shared";
 import { CustomFieldsService } from "./custom-fields.service";
 import { CreateCustomFieldDto } from "./dto/create-custom-field.dto";
 import { UpdateCustomFieldDto } from "./dto/update-custom-field.dto";

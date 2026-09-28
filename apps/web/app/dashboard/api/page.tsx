@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   API_BASE_URL,

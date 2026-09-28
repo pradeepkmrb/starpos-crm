@@ -7,7 +7,7 @@ import {
   CHANNEL_SHORT_LABELS,
   roleAtLeast,
   type TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type Contact,

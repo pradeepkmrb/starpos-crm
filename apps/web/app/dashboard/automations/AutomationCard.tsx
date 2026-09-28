@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { describeChannel } from "@digitel/shared";
+import { describeChannel } from "@starpos-crm/shared";
 import {
   ApiError,
   type Automation,

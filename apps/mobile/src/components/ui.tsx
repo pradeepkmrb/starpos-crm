@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Text, TextInput } from "@/components/AppText";
-import { LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUS_LABELS, type LeadStatus } from "@starpos-crm/shared";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { brandShadow, colors, heroGradient, radius, shadow, space, STAGE_COLORS } from "@/theme";

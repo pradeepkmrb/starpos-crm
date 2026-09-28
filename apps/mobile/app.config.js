@@ -4,7 +4,7 @@
 // matters for EAS/standalone Android builds — an Android-restricted key set in
 // the EAS environment.
 //
-// GOOGLE_SERVICES_JSON: Firebase's google-services.json for com.touch4bill.digitel.
+// GOOGLE_SERVICES_JSON: Firebase's google-services.json for com.touch4bill.starposcrm.
 // On EAS it is a "file" environment variable, so this holds the path EAS wrote
 // the file to; locally, drop the file next to this one (it is gitignored).
 const fs = require("fs");

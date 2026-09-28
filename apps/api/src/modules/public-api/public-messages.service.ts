@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { Channel, Contact } from "@digitel/db";
-import { CHANNEL_LABELS, type ChannelType } from "@digitel/shared";
+import type { Channel, Contact } from "@starpos-crm/db";
+import { CHANNEL_LABELS, type ChannelType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "../whatsapp/channels.service";
 import { MetaGraphClient } from "../whatsapp/meta-graph.client";

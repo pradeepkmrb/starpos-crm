@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatDistance, outcomeLabel } from "@digitel/shared";
+import { formatDistance, outcomeLabel } from "@starpos-crm/shared";
 import { ApiError, type Activity, type Member, getAccessToken, listActivities, listMembers } from "../../../lib/api";
 import { addDays, formatDuration, mapsLink, startOfDay } from "../../../lib/activities";
 

@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import { ProductsService } from "./products.service";
 import type { PrismaService } from "../../prisma/prisma.service";
 

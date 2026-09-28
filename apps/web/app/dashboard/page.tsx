@@ -9,7 +9,7 @@ import {
   LEAD_STATUS_LABELS,
   roleAtLeast,
   type LeadStatus,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type AnalyticsOverview,

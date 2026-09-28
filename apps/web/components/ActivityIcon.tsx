@@ -1,4 +1,4 @@
-import type { ActivityType } from "@digitel/shared";
+import type { ActivityType } from "@starpos-crm/shared";
 import { CalendarIcon, ChatIcon, MapPinIcon, PhoneIcon, PresentationIcon } from "./icons";
 
 const CHIPS: Record<ActivityType, { icon: typeof PhoneIcon; className: string }> = {

@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { VISIT_OUTCOMES } from "@digitel/shared";
+import { VISIT_OUTCOMES } from "@starpos-crm/shared";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Card, Chip, ChipRow, ErrorText, Field, GradientCard, Input, Loading } from "@/components/ui";
 import { success } from "@/lib/haptics";

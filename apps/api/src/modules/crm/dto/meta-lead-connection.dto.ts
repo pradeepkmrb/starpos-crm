@@ -1,5 +1,5 @@
 import { IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import { LEAD_STATUSES, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, type LeadStatus } from "@starpos-crm/shared";
 
 /**
  * What the Facebook JS SDK hands back after "Connect with Meta": a code when

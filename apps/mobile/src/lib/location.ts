@@ -18,7 +18,7 @@ export class LocationError extends Error {}
 export async function currentFix(): Promise<Fix> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    throw new LocationError("Location permission is off. Turn it on for Digitell in your phone's settings.");
+    throw new LocationError("Location permission is off. Turn it on for StarPOS CRM in your phone's settings.");
   }
   try {
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });

@@ -1,5 +1,5 @@
 import { IsIn } from "class-validator";
-import type { PlanCode } from "@digitel/shared";
+import type { PlanCode } from "@starpos-crm/shared";
 
 const PAID_PLAN_CODES: PlanCode[] = ["professional", "enterprise"];
 

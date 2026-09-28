@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
 import { decryptToken } from "../../common/token-encryption";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";

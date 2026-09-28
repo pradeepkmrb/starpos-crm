@@ -7,7 +7,7 @@ import {
   formatDistance,
   outcomeLabel,
   type ActivityType,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type Activity,

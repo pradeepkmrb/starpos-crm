@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Digitell",
-    "slug": "digitel",
+    "name": "StarPOS CRM",
+    "slug": "starpos-crm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.touch4bill.digitel"
+      "bundleIdentifier": "com.touch4bill.starposcrm"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
-      "package": "com.touch4bill.digitel"
+      "package": "com.touch4bill.starposcrm"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,8 +47,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Digitell uses your photos so you can add a profile picture and photos of your leads.",
-          "cameraPermission": "Digitell uses the camera so you can take a profile picture and photos of your leads.",
+          "photosPermission": "StarPOS CRM uses your photos so you can add a profile picture and photos of your leads.",
+          "cameraPermission": "StarPOS CRM uses the camera so you can take a profile picture and photos of your leads.",
           "microphonePermission": false
         }
       ],
@@ -56,18 +56,17 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Digitell uses your location to check you in at a lead and to show leads near you."
+          "locationWhenInUsePermission": "StarPOS CRM uses your location to check you in at a lead and to show leads near you."
         }
       ]
     ],
-    "scheme": "digitel",
+    "scheme": "starposcrm",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a413a0f4-f110-4b7b-8d3e-68be4cf019bd"
       }
     },
     "owner": "touch4bill"

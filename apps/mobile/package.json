@@ -1,5 +1,5 @@
 {
-  "name": "digitel-mobile",
+  "name": "starpos-crm-mobile",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {

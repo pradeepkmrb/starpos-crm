@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, roleAtLeast, type LeadStatus, type TenantRole } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, roleAtLeast, type LeadStatus, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Lead,
@@ -40,7 +40,7 @@ import { LeadActivities } from "./LeadActivities";
 import { LeadDeals } from "../../../components/sales/LeadDeals";
 
 type View = "board" | "table";
-const VIEW_KEY = "digitel_leads_view";
+const VIEW_KEY = "starpos_crm_leads_view";
 
 const STATUS_BADGE: Record<LeadStatus, string> = {
   new: "badge-info",

@@ -11,7 +11,7 @@ import type {
   PlanCode,
   QuotationStatus,
   TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -83,22 +83,22 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("digitel_access_token");
+  return localStorage.getItem("starpos_crm_access_token");
 }
 
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("digitel_refresh_token");
+  return localStorage.getItem("starpos_crm_refresh_token");
 }
 
 function storeTokens(tokens: { accessToken: string; refreshToken: string }) {
-  localStorage.setItem("digitel_access_token", tokens.accessToken);
-  localStorage.setItem("digitel_refresh_token", tokens.refreshToken);
+  localStorage.setItem("starpos_crm_access_token", tokens.accessToken);
+  localStorage.setItem("starpos_crm_refresh_token", tokens.refreshToken);
 }
 
 export function clearTokens() {
-  localStorage.removeItem("digitel_access_token");
-  localStorage.removeItem("digitel_refresh_token");
+  localStorage.removeItem("starpos_crm_access_token");
+  localStorage.removeItem("starpos_crm_refresh_token");
 }
 
 // --- types ---

@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import {
   INTEGRATIONS,
   findIntegration,
   type IntegrationSpec,
   type IntegrationStatus,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { decryptToken, encryptToken } from "../../common/token-encryption";
 import { PaymentGatewayClient } from "./payment-gateway.client";

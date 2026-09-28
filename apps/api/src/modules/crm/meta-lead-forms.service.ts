@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
+import { Prisma } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
 import { encryptToken } from "../../common/token-encryption";
 import { LinkMetaFormDto } from "./dto/link-meta-form.dto";

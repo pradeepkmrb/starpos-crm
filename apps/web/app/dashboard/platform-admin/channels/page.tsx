@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CHANNEL_LABELS } from "@digitel/shared";
+import { CHANNEL_LABELS } from "@starpos-crm/shared";
 import { ApiError, getPlatformChannels, type PlatformChannel } from "../../../../lib/api";
 import { PageSkeleton } from "../../../../components/PageSkeleton";
 

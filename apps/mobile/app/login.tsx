@@ -37,13 +37,13 @@ export default function LoginScreen() {
             <View style={styles.logo}>
               <Ionicons name="trending-up" size={32} color={colors.brand} />
             </View>
-            <Text style={styles.brand}>Digitell</Text>
+            <Text style={styles.brand}>StarPOS CRM</Text>
             <Text style={styles.tagline}>More leads. More sales. A stronger tomorrow.</Text>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.title}>Sign in</Text>
-            <Text style={styles.subtitle}>Use the same email and password as the Digitell dashboard.</Text>
+            <Text style={styles.subtitle}>Use the same email and password as the StarPOS CRM dashboard.</Text>
             <Field label="Email">
               <Input
                 value={email}

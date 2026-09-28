@@ -1,4 +1,4 @@
-import type { Prisma } from "@digitel/db";
+import type { Prisma } from "@starpos-crm/db";
 import { getCurrentTenantId } from "./tenant-context.store";
 
 /**

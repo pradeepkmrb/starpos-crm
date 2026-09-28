@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
-import { CUSTOM_FIELD_TYPES, type CustomFieldType } from "@digitel/shared";
+import { CUSTOM_FIELD_TYPES, type CustomFieldType } from "@starpos-crm/shared";
 
 export class CreateCustomFieldDto {
   @IsString()

@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, PAYMENT_MODE_LABELS, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, PAYMENT_MODE_LABELS, type LeadStatus } from "@starpos-crm/shared";
 import { ActivityRow } from "@/components/ActivityRow";
 import { Badge, Button, Card, Chip, ChipRow, EmptyState, ErrorText, IconChip, Loading } from "@/components/ui";
 import {

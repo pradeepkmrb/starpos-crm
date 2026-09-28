@@ -72,7 +72,7 @@ export default function MoreScreen() {
       </Card>
 
       <Text style={[styles.muted, { textAlign: "center" }]}>
-        Digitell {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
+        StarPOS CRM {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
       </Text>
     </ScrollView>
   );

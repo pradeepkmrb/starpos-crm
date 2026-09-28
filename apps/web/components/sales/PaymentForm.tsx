@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PAYMENT_MODES, PAYMENT_MODE_LABELS, formatInr, type PaymentMode } from "@digitel/shared";
+import { PAYMENT_MODES, PAYMENT_MODE_LABELS, formatInr, type PaymentMode } from "@starpos-crm/shared";
 import {
   ApiError,
   type Lead,

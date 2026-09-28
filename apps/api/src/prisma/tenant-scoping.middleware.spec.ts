@@ -1,6 +1,6 @@
 import { tenantContextStore } from "./tenant-context.store";
 import { tenantScopingMiddleware } from "./tenant-scoping.middleware";
-import type { Prisma } from "@digitel/db";
+import type { Prisma } from "@starpos-crm/db";
 
 describe("tenantScopingMiddleware", () => {
   const middleware = tenantScopingMiddleware();

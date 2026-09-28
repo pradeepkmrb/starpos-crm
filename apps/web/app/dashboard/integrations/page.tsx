@@ -8,7 +8,7 @@ import {
   roleAtLeast,
   type IntegrationCategory,
   type TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type Integration,

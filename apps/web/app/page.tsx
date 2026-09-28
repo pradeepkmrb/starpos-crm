@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PLAN_DEFINITIONS, formatPaiseAsInr, UNLIMITED } from "@digitel/shared";
+import { PLAN_DEFINITIONS, formatPaiseAsInr, UNLIMITED } from "@starpos-crm/shared";
 import {
   BoltIcon,
   BrandMark,
@@ -62,7 +62,7 @@ export default function HomePage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2.5">
           <BrandMark className="h-9 w-9" />
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">Digitell</span>
+          <span className="text-xl font-extrabold tracking-tight text-slate-900">StarPOS CRM</span>
         </div>
         <div className="flex shrink-0 gap-2">
           <Link href="/login" className="btn-ghost">
@@ -192,9 +192,9 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 text-sm text-slate-400">
           <span className="flex items-center gap-2">
             <BrandMark className="h-6 w-6" />
-            Digitell
+            StarPOS CRM
           </span>
-          <span>© {new Date().getFullYear()} Digitell</span>
+          <span>© {new Date().getFullYear()} StarPOS CRM</span>
         </div>
       </footer>
     </main>

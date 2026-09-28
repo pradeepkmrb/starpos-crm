@@ -9,7 +9,7 @@ import {
   DEMO_MODES,
   VISIT_PURPOSES,
   type ActivityType,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Button, Chip, ChipRow, ErrorText, Field, Input } from "@/components/ui";
 import { ApiError, createActivity, updateActivity } from "@/lib/api";

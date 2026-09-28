@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, Sc
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/AppText";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@starpos-crm/shared";
 import { DateTimeField } from "@/components/DateTimeField";
 import { LeadThumb } from "@/components/Photo";
 import { Button, Chip, ChipRow, ErrorText, Field, Input, Loading } from "@/components/ui";

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNEL_LABELS, roleAtLeast, type ChannelType, type TenantRole } from "@digitel/shared";
+import { CHANNEL_LABELS, roleAtLeast, type ChannelType, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Channel,

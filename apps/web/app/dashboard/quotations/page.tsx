@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QUOTATION_STATUSES, QUOTATION_STATUS_LABELS, formatInr, roleAtLeast, type QuotationStatus, type TenantRole } from "@digitel/shared";
+import { QUOTATION_STATUSES, QUOTATION_STATUS_LABELS, formatInr, roleAtLeast, type QuotationStatus, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type BusinessProfile,

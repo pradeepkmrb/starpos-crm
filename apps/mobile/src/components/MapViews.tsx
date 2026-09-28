@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Text } from "@/components/AppText";
 import MapView, { Circle, Marker } from "react-native-maps";
-import { VISIT_CHECK_IN_RADIUS_METERS, type LatLng } from "@digitel/shared";
+import { VISIT_CHECK_IN_RADIUS_METERS, type LatLng } from "@starpos-crm/shared";
 import { colors } from "@/theme";
 
 // Native maps. MapViews.web.tsx stands in for these in the browser preview,

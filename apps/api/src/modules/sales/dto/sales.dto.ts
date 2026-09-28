@@ -17,7 +17,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
-import { PAYMENT_MODES, QUOTATION_STATUSES, type PaymentMode, type QuotationStatus } from "@digitel/shared";
+import { PAYMENT_MODES, QUOTATION_STATUSES, type PaymentMode, type QuotationStatus } from "@starpos-crm/shared";
 
 /** One line on a quotation. With a productId, missing name/price/tax come from the catalogue. */
 export class QuotationItemDto {

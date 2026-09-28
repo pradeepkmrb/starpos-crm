@@ -1,4 +1,4 @@
-import { UNLIMITED } from "@digitel/shared";
+import { UNLIMITED } from "@starpos-crm/shared";
 import { exceedsPlanLimits } from "./plan-limits";
 import type { LimitsSnapshot, UsageSnapshot } from "./entitlements.service";
 

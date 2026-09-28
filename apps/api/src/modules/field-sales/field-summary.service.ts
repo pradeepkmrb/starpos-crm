@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
-import { ACTIVITY_TYPES, CLOSED_LEAD_STATUSES, monthKey, type ActivityType } from "@digitel/shared";
+import { Prisma } from "@starpos-crm/db";
+import { ACTIVITY_TYPES, CLOSED_LEAD_STATUSES, monthKey, type ActivityType } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
 import { ACTIVITY_INCLUDE, ownerFilter } from "./activities.service";

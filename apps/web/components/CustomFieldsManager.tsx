@@ -11,7 +11,7 @@ import {
   type CustomFieldEntity,
   type CustomFieldType,
   type TenantRole,
-} from "@digitel/shared";
+} from "@starpos-crm/shared";
 import {
   ApiError,
   type CustomFieldDefinition,

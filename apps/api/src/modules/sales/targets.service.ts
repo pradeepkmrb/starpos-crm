@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { monthKey, monthRange } from "@digitel/shared";
+import { monthKey, monthRange } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
 import { SetTargetDto } from "./dto/sales.dto";

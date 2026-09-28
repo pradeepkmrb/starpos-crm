@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@digitel/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@starpos-crm/shared";
 import type { CustomFieldDefinition, Lead, LeadInput, Member } from "../../../lib/api";
 import { CustomFieldInput, type CustomValue } from "../../../components/CustomFieldInput";
 

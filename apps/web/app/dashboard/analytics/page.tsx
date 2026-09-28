@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNEL_SHORT_LABELS } from "@digitel/shared";
+import { CHANNEL_SHORT_LABELS } from "@starpos-crm/shared";
 import {
   ApiError,
   type AnalyticsOverview,

@@ -1,5 +1,5 @@
 import { IsEmail, IsIn } from "class-validator";
-import type { TenantRole } from "@digitel/shared";
+import type { TenantRole } from "@starpos-crm/shared";
 
 const INVITABLE_ROLES: TenantRole[] = ["admin", "agent", "viewer"];
 

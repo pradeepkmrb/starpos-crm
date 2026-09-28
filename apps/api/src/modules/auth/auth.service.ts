@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
-import type { TenantRole } from "@digitel/shared";
+import type { TenantRole } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TenantsService } from "../tenants/tenants.service";
 import { RegisterDto } from "./dto/register.dto";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QUOTATION_STATUS_LABELS, formatInr, quoteTotals, type QuotationStatus } from "@digitel/shared";
+import { QUOTATION_STATUS_LABELS, formatInr, quoteTotals, type QuotationStatus } from "@starpos-crm/shared";
 import { ApiError, type Quotation, deleteQuotation, sendQuotation, updateQuotation } from "../../lib/api";
 import { useToast } from "../Toaster";
 import { CopyIcon, DocumentIcon, ShareIcon } from "../icons";

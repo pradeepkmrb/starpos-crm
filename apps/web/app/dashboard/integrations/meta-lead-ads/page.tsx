@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@digitel/shared";
+import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type CustomFieldDefinition,

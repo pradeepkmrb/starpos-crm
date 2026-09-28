@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
-import { roleAtLeast } from "@digitel/shared";
+import { roleAtLeast } from "@starpos-crm/shared";
 import { ActivitiesService, parseDate } from "./activities.service";
 import { FieldSummaryService } from "./field-summary.service";
 import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";

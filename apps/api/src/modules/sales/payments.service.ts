@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@digitel/db";
-import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast } from "@digitel/shared";
+import { Prisma } from "@starpos-crm/db";
+import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { TenantRequestContext } from "../../common/request-context";
 import { parseDate } from "../field-sales/activities.service";

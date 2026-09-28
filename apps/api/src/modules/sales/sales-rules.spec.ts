@@ -1,4 +1,4 @@
-import { monthKey, monthRange, quoteTotals } from "@digitel/shared";
+import { monthKey, monthRange, quoteTotals } from "@starpos-crm/shared";
 import {
   canMoveQuotation,
   formatQuoteNumber,

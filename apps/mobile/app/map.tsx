@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
-import { LEAD_STATUS_LABELS, formatDistance } from "@digitel/shared";
+import { LEAD_STATUS_LABELS, formatDistance } from "@starpos-crm/shared";
 import { Text } from "@/components/AppText";
 import { NearbyMap } from "@/components/MapViews";
 import { LeadThumb } from "@/components/Photo";

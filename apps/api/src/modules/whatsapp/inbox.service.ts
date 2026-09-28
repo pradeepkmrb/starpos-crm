@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
-import { CHANNEL_LABELS, type ChannelType, channelHasReplyWindow } from "@digitel/shared";
+import { CHANNEL_LABELS, type ChannelType, channelHasReplyWindow } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ChannelsService } from "./channels.service";
 import { MessageLogService } from "../messages/message-log.service";

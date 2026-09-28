@@ -102,9 +102,9 @@ export const QUICK_ACTIONS: NavItem[] = [
  * Fired when a quick action targets the page that is already open, where a
  * query-string change alone would not re-run the page's mount logic.
  */
-export const NEW_LEAD_EVENT = "digitel:new-lead";
-export const NEW_QUOTATION_EVENT = "digitel:new-quotation";
-export const NEW_PAYMENT_EVENT = "digitel:new-payment";
+export const NEW_LEAD_EVENT = "starpos-crm:new-lead";
+export const NEW_QUOTATION_EVENT = "starpos-crm:new-quotation";
+export const NEW_PAYMENT_EVENT = "starpos-crm:new-payment";
 
 const QUICK_ACTION_EVENTS: Record<string, string> = {
   "/dashboard/leads?new=1": NEW_LEAD_EVENT,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PAYMENT_MODE_LABELS, formatInr } from "@digitel/shared";
+import { PAYMENT_MODE_LABELS, formatInr } from "@starpos-crm/shared";
 import { type Payment, type Quotation, listPayments, listQuotations } from "../../lib/api";
 import { Drawer } from "../Drawer";
 import { useToast } from "../Toaster";

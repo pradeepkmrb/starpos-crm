@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UNLIMITED, formatPaiseAsInr, roleAtLeast, type PlanCode, type TenantRole } from "@digitel/shared";
+import { UNLIMITED, formatPaiseAsInr, roleAtLeast, type PlanCode, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type BillingOverview,

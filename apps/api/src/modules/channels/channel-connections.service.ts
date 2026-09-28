@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { Channel } from "@digitel/db";
-import { type ChannelType, describeChannel } from "@digitel/shared";
+import type { Channel } from "@starpos-crm/db";
+import { type ChannelType, describeChannel } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { decryptToken, encryptToken } from "../../common/token-encryption";

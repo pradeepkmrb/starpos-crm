@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
-import { roleAtLeast, type TenantRole } from "@digitel/shared";
+import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import { ROLES_KEY } from "./roles.decorator";
 import "../../common/request-context";
 

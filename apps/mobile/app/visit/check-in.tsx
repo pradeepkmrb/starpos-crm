@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { VISIT_CHECK_IN_RADIUS_METERS, VISIT_PURPOSES, distanceMeters, formatDistance } from "@digitel/shared";
+import { VISIT_CHECK_IN_RADIUS_METERS, VISIT_PURPOSES, distanceMeters, formatDistance } from "@starpos-crm/shared";
 import { CheckInMap } from "@/components/MapViews";
 import { LeadThumb } from "@/components/Photo";
 import { Button, Card, Chip, ChipRow, ErrorText, Field, Loading } from "@/components/ui";

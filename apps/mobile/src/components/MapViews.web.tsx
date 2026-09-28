@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
-import { distanceMeters, formatDistance, type LatLng } from "@digitel/shared";
+import { distanceMeters, formatDistance, type LatLng } from "@starpos-crm/shared";
 import { colors, radius, space } from "@/theme";
 import type { MapLead } from "./MapViews";
 

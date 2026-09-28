@@ -1,5 +1,5 @@
 import { SetMetadata } from "@nestjs/common";
-import type { TenantRole } from "@digitel/shared";
+import type { TenantRole } from "@starpos-crm/shared";
 
 export const ROLES_KEY = "requiredRole";
 

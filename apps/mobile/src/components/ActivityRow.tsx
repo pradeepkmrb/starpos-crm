@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
-import { ACTIVITY_TYPE_LABELS, outcomeLabel, type ActivityType } from "@digitel/shared";
+import { ACTIVITY_TYPE_LABELS, outcomeLabel, type ActivityType } from "@starpos-crm/shared";
 import type { Activity } from "@/lib/api";
 import { formatWhen, isOverdue } from "@/lib/format";
 import { colors, space } from "@/theme";

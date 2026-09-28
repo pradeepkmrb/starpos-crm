@@ -13,7 +13,7 @@ export class HealthController {
 
     res
       .status(database.ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
-      .json({ status, service: "digitel-api", time: new Date().toISOString(), database });
+      .json({ status, service: "starpos-crm-api", time: new Date().toISOString(), database });
   }
 
   private async checkDatabase(): Promise<{ ok: boolean; error?: string }> {

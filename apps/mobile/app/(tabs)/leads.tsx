@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { LeadThumb } from "@/components/Photo";
 import { Chip, ChipRow, EmptyState, ErrorText, Input, Loading } from "@/components/ui";
-import { LEAD_STATUS_LABELS, formatDistance } from "@digitel/shared";
+import { LEAD_STATUS_LABELS, formatDistance } from "@starpos-crm/shared";
 import { ApiError, listLeads, listNearbyLeads, type Lead } from "@/lib/api";
 import { currentFix, LocationError } from "@/lib/location";
 import { formatRupees, openDialer } from "@/lib/format";

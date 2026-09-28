@@ -1,5 +1,5 @@
 import { Alert, Linking, Platform, Share } from "react-native";
-import { QUOTATION_STATUS_LABELS, type QuotationStatus } from "@digitel/shared";
+import { QUOTATION_STATUS_LABELS, type QuotationStatus } from "@starpos-crm/shared";
 import { ApiError, sendQuotation, updateQuotationStatus, type Quotation } from "./api";
 import { formatRupees } from "./format";
 import { colors } from "@/theme";

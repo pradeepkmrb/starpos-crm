@@ -28,7 +28,7 @@ export default function LoginPage() {
   return (
     <>
       <h1 className="text-xl font-bold text-slate-900">Welcome back</h1>
-      <p className="mt-1 text-sm text-slate-500">Log in to your Digitell dashboard.</p>
+      <p className="mt-1 text-sm text-slate-500">Log in to your StarPOS CRM dashboard.</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block">

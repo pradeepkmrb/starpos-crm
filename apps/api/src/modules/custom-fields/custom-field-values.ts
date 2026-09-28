@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import type { CustomFieldType } from "@digitel/shared";
+import type { CustomFieldType } from "@starpos-crm/shared";
 
 /** The slice of a CustomField row this module needs. */
 export interface CustomFieldDefinition {
