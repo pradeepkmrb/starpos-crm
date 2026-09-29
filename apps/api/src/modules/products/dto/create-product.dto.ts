@@ -1,4 +1,5 @@
-import { IsInt, IsNumber, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
+import { IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
+import { PRODUCT_IMAGE_MESSAGE, PRODUCT_IMAGE_PATTERN } from "./product-image";
 
 export class CreateProductDto {
   @IsString()
@@ -49,7 +50,7 @@ export class CreateProductDto {
   category?: string;
 
   @IsOptional()
-  @IsUrl({ protocols: ["http", "https"], require_protocol: true }, { message: "imageUrl must be an http(s) URL" })
+  @Matches(PRODUCT_IMAGE_PATTERN, { message: PRODUCT_IMAGE_MESSAGE })
   @MaxLength(2000)
   imageUrl?: string;
 }

@@ -462,6 +462,22 @@ export function importContacts(input: { listName: string; csvText: string }) {
   return request<ImportResult>("/contacts/import", { method: "POST", body: JSON.stringify(input) });
 }
 
+// --- Media ---
+
+/** Uploaded images are stored as API paths; external links pass through untouched. */
+export function mediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("/media/") ? `${API_URL}${url}` : url;
+}
+
+/** Stores a JPEG, PNG or WebP (max 2 MB) and returns the path to save on a record. */
+export function uploadImage(contentType: string, base64Data: string) {
+  return request<{ id: string; url: string }>("/media/images", {
+    method: "POST",
+    body: JSON.stringify({ contentType, data: base64Data }),
+  });
+}
+
 // --- Catalogue ---
 
 export interface Product {
@@ -477,7 +493,10 @@ export interface Product {
   taxPercent: number;
   taxName: string | null;
   category: string | null;
+  /** An http(s) link, or an uploaded /media/images/:id path — render it through mediaUrl(). */
   imageUrl: string | null;
+  /** Position on the catalogue, lowest first. */
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -510,6 +529,30 @@ export function createProduct(input: ProductInput) {
 
 export function updateProduct(productId: string, input: Partial<ProductInput>) {
   return request<Product>(`/products/${productId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+/** Saves the catalogue order: every product id, first to last. */
+export function reorderProducts(ids: string[]) {
+  return request<Product[]>("/products/order", { method: "PUT", body: JSON.stringify({ ids }) });
+}
+
+export interface CatalogueEnquiryInput {
+  name: string;
+  phone: string;
+  email?: string;
+  company?: string;
+  message?: string;
+  items: { productId: string; quantity: number }[];
+  /** Honeypot — always sent empty by the real form. */
+  website?: string;
+}
+
+/** A shopper's "Request a quote" from the public catalogue — no token required. */
+export function submitCatalogueEnquiry(slug: string, input: CatalogueEnquiryInput) {
+  return request<{ ok: true; reference: string | null }>(`/public/catalogue/${encodeURIComponent(slug)}/enquiries`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function deleteProduct(productId: string) {

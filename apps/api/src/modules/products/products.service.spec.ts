@@ -17,6 +17,7 @@ function buildProduct(overrides: Record<string, unknown> = {}) {
     taxName: "GST",
     category: "Sarees",
     imageUrl: null,
+    sortOrder: 0,
     createdAt: new Date("2026-09-01T00:00:00Z"),
     updatedAt: new Date("2026-09-01T00:00:00Z"),
     ...overrides,
@@ -31,7 +32,9 @@ function buildService(overrides: { existingProduct?: unknown; tenant?: unknown }
       create: jest.fn().mockImplementation(({ data }) => Promise.resolve(buildProduct(data))),
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve(buildProduct(data))),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      aggregate: jest.fn().mockResolvedValue({ _min: { sortOrder: 3 } }),
     },
+    $transaction: jest.fn().mockImplementation((ops: unknown[]) => Promise.all(ops)),
     tenant: { findUnique: jest.fn().mockResolvedValue(overrides.tenant ?? null) },
   } as unknown as PrismaService;
 
@@ -72,6 +75,41 @@ describe("ProductsService", () => {
       await expect(service.create("t1", { name: "Copy", price: 1, sku: "SAR-001" })).rejects.toThrow(
         ConflictException,
       );
+    });
+  });
+
+  describe("create ordering", () => {
+    it("puts a new product ahead of the current first one", async () => {
+      const { service, prisma } = buildService();
+      await service.create("t1", { name: "Kurta", price: 10 });
+      expect((prisma.product.create as jest.Mock).mock.calls[0][0].data.sortOrder).toBe(2);
+    });
+  });
+
+  describe("reorder", () => {
+    it("writes each product's position in the order given", async () => {
+      const { service, prisma } = buildService();
+      (prisma.product.findMany as jest.Mock)
+        .mockResolvedValueOnce([{ id: "a" }, { id: "b" }, { id: "c" }])
+        .mockResolvedValueOnce([]);
+      await service.reorder("t1", ["c", "a", "b"]);
+      const updates = (prisma.product.update as jest.Mock).mock.calls.map(([arg]) => [arg.where.id, arg.data.sortOrder]);
+      expect(updates).toEqual([
+        ["c", 0],
+        ["a", 1],
+        ["b", 2],
+      ]);
+    });
+
+    it.each([
+      ["a missing product", ["a", "b"]],
+      ["another tenant's product", ["a", "b", "x"]],
+      ["a duplicate", ["a", "a", "b"]],
+    ])("rejects a list with %s", async (_label, ids) => {
+      const { service, prisma } = buildService();
+      (prisma.product.findMany as jest.Mock).mockResolvedValueOnce([{ id: "a" }, { id: "b" }, { id: "c" }]);
+      await expect(service.reorder("t1", ids)).rejects.toThrow("refresh");
+      expect(prisma.product.update).not.toHaveBeenCalled();
     });
   });
 

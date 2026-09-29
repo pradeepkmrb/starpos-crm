@@ -936,7 +936,10 @@ model Product {
   /// Label shown beside the tax line on the catalogue, e.g. "GST".
   taxName     String?
   category    String?
+  /// An http(s) link, or an uploaded /media/images/:id path.
   imageUrl    String?
+  /// Position on the catalogue, lowest first; set by the admin's reorder.
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -946,7 +949,7 @@ model Product {
   // Postgres counts NULLs as distinct, so products without a SKU don't
   // collide with each other while real SKUs stay unique per tenant.
   @@unique([tenantId, sku])
-  @@index([tenantId])
+  @@index([tenantId, sortOrder])
 }
 
 

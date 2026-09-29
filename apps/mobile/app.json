@@ -18,7 +18,9 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "package": "com.touch4bill.starposcrm"
     },
     "web": {
@@ -67,6 +69,7 @@
     "extra": {
       "router": {},
       "eas": {
+        "projectId": "49f36e02-8306-4e4f-8ffc-eb5d97bf70b1"
       }
     },
     "owner": "touch4bill"

@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UseGuards } from "@nestjs/common";
 import { Request } from "express";
 import { ProductsService } from "./products.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
+import { ReorderProductsDto } from "./dto/reorder-products.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
@@ -22,6 +23,13 @@ export class ProductsController {
   @Roles("admin")
   create(@Req() req: Request, @Body() dto: CreateProductDto) {
     return this.productsService.create(req.tenantContext!.tenantId, dto);
+  }
+
+  // Declared before ":id" routes so "order" is never read as a product id.
+  @Put("order")
+  @Roles("admin")
+  reorder(@Req() req: Request, @Body() dto: ReorderProductsDto) {
+    return this.productsService.reorder(req.tenantContext!.tenantId, dto.ids);
   }
 
   @Patch(":id")

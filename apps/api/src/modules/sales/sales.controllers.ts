@@ -20,6 +20,8 @@ import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
 import { MetaApiExceptionFilter } from "../whatsapp/meta-api-exception.filter";
 import "../../common/request-context";
+import { CatalogueEnquiriesService } from "./catalogue-enquiries.service";
+import { CatalogueEnquiryDto } from "./dto/catalogue-enquiry.dto";
 import {
   BusinessProfileDto,
   CreatePaymentDto,
@@ -174,5 +176,23 @@ export class TargetsController {
   @Roles("admin")
   set(@Req() req: Request, @Body() dto: SetTargetDto) {
     return this.targets.set(req.tenantContext!, dto);
+  }
+}
+
+/**
+ * Unguarded, like the catalogue it sits behind: the "Request a quote" form on
+ * /catalogue/<slug>. It can only create a lead, a draft quote and a note in
+ * that one workspace, and is rate limited per shopper and per workspace.
+ */
+@Controller("public/catalogue")
+export class PublicCatalogueEnquiriesController {
+  constructor(private readonly enquiries: CatalogueEnquiriesService) {}
+
+  @Post(":slug/enquiries")
+  submit(@Param("slug") slug: string, @Body() dto: CatalogueEnquiryDto, @Req() req: Request) {
+    // Railway's proxy puts the shopper's address first in X-Forwarded-For.
+    const forwarded = req.headers["x-forwarded-for"];
+    const clientKey = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim() || req.ip || "unknown";
+    return this.enquiries.submit(slug, dto, clientKey);
   }
 }

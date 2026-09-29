@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
 import {
@@ -13,10 +13,13 @@ import {
   getAccessToken,
   listProducts,
   me,
+  mediaUrl,
+  reorderProducts,
   updateProduct,
+  uploadImage,
 } from "../../../lib/api";
 import { formatMoney } from "../../../lib/money";
-import { BoxIcon, LinkIcon, PlusIcon, SearchIcon, ShareIcon } from "../../../components/icons";
+import { BoxIcon, CameraIcon, ChevronRightIcon, LinkIcon, PlusIcon, SearchIcon, ShareIcon } from "../../../components/icons";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { useToast } from "../../../components/Toaster";
 import { EmptyState, PageHeader } from "../../../components/ui";
@@ -39,6 +42,7 @@ export default function CataloguePage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -104,6 +108,25 @@ export default function CataloguePage() {
   function onShare() {
     const text = `${tenant?.name ?? "Our"} catalogue: ${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  }
+
+  /** Moves a product to `to` (an index in the full list) and saves the new order. */
+  async function move(product: Product, to: number) {
+    const from = products.findIndex((p) => p.id === product.id);
+    if (from < 0 || to < 0 || to >= products.length || from === to) return;
+    const previous = products;
+    const next = [...products];
+    next.splice(to, 0, ...next.splice(from, 1));
+    setProducts(next);
+    setSavingOrder(true);
+    try {
+      setProducts(await reorderProducts(next.map((p) => p.id)));
+    } catch (err) {
+      setProducts(previous);
+      toast(err instanceof ApiError ? err.message : "Couldn't save the new order");
+    } finally {
+      setSavingOrder(false);
+    }
   }
 
   async function onDelete(product: Product) {
@@ -208,18 +231,26 @@ export default function CataloguePage() {
             </div>
           </div>
 
+          {canManage && products.length > 1 && (
+            <p className="text-xs text-slate-500">
+              {category || search.trim()
+                ? "Clear the search and category filter to change the display order."
+                : "Use the arrows on each product to set the order customers see on your catalogue link."}
+            </p>
+          )}
+
           {visible.length === 0 ? (
             <div className="card">
               <EmptyState icon={SearchIcon} tone="slate" title="Nothing matches" text={`No products match “${search}”.`} compact />
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {visible.map((p) => (
+              {visible.map((p, index) => (
                 <article key={p.id} className="card card-hover group flex flex-col overflow-hidden">
                   <div className="relative aspect-[2/1] bg-gradient-to-br from-brand-50 to-slate-100">
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={mediaUrl(p.imageUrl) ?? ""} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center">
                         <BoxIcon className="h-12 w-12 text-brand-300" />
@@ -248,6 +279,40 @@ export default function CataloguePage() {
                       </div>
                     </div>
                   </div>
+                  {canManage && !category && !search.trim() && products.length > 1 && (
+                    <div className="flex items-center gap-1 border-t border-slate-100 px-3 py-2">
+                      <span className="mr-auto text-xs font-semibold text-slate-500">Position {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => move(p, 0)}
+                        disabled={savingOrder || index === 0}
+                        className="rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-30"
+                        title="Show first"
+                      >
+                        First
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(p, index - 1)}
+                        disabled={savingOrder || index === 0}
+                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        aria-label={`Move ${p.name} earlier`}
+                        title="Move earlier"
+                      >
+                        <ChevronRightIcon className="h-4 w-4 rotate-180" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(p, index + 1)}
+                        disabled={savingOrder || index === products.length - 1}
+                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        aria-label={`Move ${p.name} later`}
+                        title="Move later"
+                      >
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                   {canManage && (
                     <div className="flex border-t border-slate-100">
                       <button
@@ -491,18 +556,7 @@ function ProductForm({
             <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} />
           </label>
 
-          <label className="block">
-            <span className="field-label">Product Image</span>
-            <input
-              className="input"
-              placeholder="https://…"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
-            <span className="mt-1 block text-xs text-slate-500">
-              Paste a link to an image that is already hosted somewhere.
-            </span>
-          </label>
+          <ImageField value={imageUrl} onChange={setImageUrl} />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -516,6 +570,101 @@ function ProductForm({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** Longest side an uploaded product photo is scaled down to. */
+const MAX_IMAGE_SIDE = 1600;
+
+/**
+ * Shrinks a picked photo in the browser and re-encodes it as JPEG, so a
+ * 10 MB phone photo fits the API's 2 MB limit. Returns base64 without the
+ * data: prefix.
+ */
+async function prepareImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d")!;
+  // JPEG has no transparency; a white backdrop keeps PNG cut-outs clean.
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  for (const quality of [0.85, 0.7, 0.55]) {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    if (base64.length * 0.75 <= 1.9 * 1024 * 1024) return base64;
+  }
+  throw new Error("That image is too large even after shrinking it — try a smaller one.");
+}
+
+/** Upload a photo, or paste a link to one hosted elsewhere. */
+function ImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const uploaded = value.startsWith("/media/");
+  const preview = mediaUrl(value.trim());
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    if (!file.type.startsWith("image/")) {
+      setError("Pick an image file (JPEG, PNG or WebP).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { url } = await uploadImage("image/jpeg", await prepareImage(file));
+      onChange(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      <span className="field-label">Product Image</span>
+      <div className="flex items-start gap-4">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <BoxIcon className="h-8 w-8 text-slate-300" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="btn-secondary">
+              <CameraIcon className="h-4 w-4" />
+              {uploading ? "Uploading…" : preview ? "Replace image" : "Upload image"}
+            </button>
+            {preview && (
+              <button type="button" onClick={() => onChange("")} className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700">
+                Remove
+              </button>
+            )}
+          </div>
+          <input
+            className="input"
+            placeholder="…or paste an image link (https://…)"
+            value={uploaded ? "" : value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <p className="text-xs text-slate-500">JPEG, PNG or WebP. Large photos are resized automatically.</p>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPick} />
     </div>
   );
 }

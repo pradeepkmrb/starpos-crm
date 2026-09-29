@@ -3,7 +3,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   Max,
   MaxLength,
@@ -11,6 +10,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { PRODUCT_IMAGE_MESSAGE, PRODUCT_IMAGE_PATTERN } from "./product-image";
 
 /**
  * Every field is optional so a patch touches only what the operator edited.
@@ -68,7 +68,7 @@ export class UpdateProductDto {
   // "" clears the image, so the URL check only applies to a real value.
   @IsOptional()
   @ValidateIf((o: UpdateProductDto) => o.imageUrl !== "")
-  @IsUrl({ protocols: ["http", "https"], require_protocol: true }, { message: "imageUrl must be an http(s) URL" })
+  @Matches(PRODUCT_IMAGE_PATTERN, { message: PRODUCT_IMAGE_MESSAGE })
   @MaxLength(2000)
   imageUrl?: string;
 }

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, type Product } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -19,6 +19,9 @@ function serialize(product: Product) {
 
 export type SerializedProduct = ReturnType<typeof serialize>;
 
+/** Catalogue order: the admin's arrangement, newest first among ties. */
+export const CATALOGUE_ORDER: Prisma.ProductOrderByWithRelationInput[] = [{ sortOrder: "asc" }, { createdAt: "desc" }];
+
 /** "" from a form field means "cleared", which is null in the database. */
 function nullable(value: string | undefined): string | null | undefined {
   if (value === undefined) return undefined;
@@ -33,7 +36,7 @@ export class ProductsService {
   async list(tenantId: string): Promise<SerializedProduct[]> {
     const products = await this.prisma.product.findMany({
       where: { tenantId },
-      orderBy: { createdAt: "desc" },
+      orderBy: CATALOGUE_ORDER,
     });
     return products.map(serialize);
   }
@@ -41,6 +44,9 @@ export class ProductsService {
   async create(tenantId: string, dto: CreateProductDto): Promise<SerializedProduct> {
     const sku = nullable(dto.sku) ?? null;
     if (sku) await this.assertSkuIsFree(tenantId, sku);
+
+    // A new product goes to the top, where the admin will look for it.
+    const { _min } = await this.prisma.product.aggregate({ where: { tenantId }, _min: { sortOrder: true } });
 
     const product = await this.prisma.product.create({
       data: {
@@ -55,6 +61,7 @@ export class ProductsService {
         taxName: nullable(dto.taxName) ?? null,
         category: nullable(dto.category) ?? null,
         imageUrl: nullable(dto.imageUrl) ?? null,
+        sortOrder: (_min.sortOrder ?? 1) - 1,
       },
     });
     return serialize(product);
@@ -85,6 +92,22 @@ export class ProductsService {
     return serialize(await this.prisma.product.update({ where: { id }, data }));
   }
 
+  /**
+   * Sets the catalogue order to exactly `ids`. The list must be every product
+   * in the workspace, so a stale screen can't silently drop one from the order.
+   */
+  async reorder(tenantId: string, ids: string[]): Promise<SerializedProduct[]> {
+    const existing = await this.prisma.product.findMany({ where: { tenantId }, select: { id: true } });
+    const known = new Set(existing.map((p) => p.id));
+    if (new Set(ids).size !== ids.length || ids.length !== known.size || ids.some((id) => !known.has(id))) {
+      throw new BadRequestException("The catalogue changed since you loaded it — refresh and try again");
+    }
+    await this.prisma.$transaction(
+      ids.map((id, sortOrder) => this.prisma.product.update({ where: { id }, data: { sortOrder } })),
+    );
+    return this.list(tenantId);
+  }
+
   async remove(tenantId: string, id: string): Promise<{ id: string; deleted: boolean }> {
     const { count } = await this.prisma.product.deleteMany({ where: { id, tenantId } });
     if (count === 0) throw new NotFoundException("Product not found");
@@ -107,7 +130,7 @@ export class ProductsService {
 
     const products = await this.prisma.product.findMany({
       where: { tenantId: tenant.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: CATALOGUE_ORDER,
     });
 
     return {
