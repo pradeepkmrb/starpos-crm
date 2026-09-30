@@ -11,7 +11,9 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /workspace
 
-COPY package.json pnpm-workspace.yaml turbo.json ./
+# The lockfile keeps builds on the exact versions tested locally, rather than
+# whatever the registry calls "latest" at build time.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/api ./apps/api
 
