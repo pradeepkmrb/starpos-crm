@@ -3,12 +3,12 @@ import { Request } from "express";
 import { CampaignsService } from "./campaigns.service";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("campaigns")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access("broadcasts")
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
@@ -23,7 +23,6 @@ export class CampaignsController {
   }
 
   @Post()
-  @Roles("admin")
   launch(@Req() req: Request, @Body() dto: CreateCampaignDto) {
     return this.campaignsService.launchCampaign(req.tenantContext!.tenantId, dto);
   }

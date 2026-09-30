@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
+import { type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Campaign,
@@ -22,8 +22,10 @@ import { CampaignCard } from "./CampaignCard";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { EmptyState, PageHeader, SectionCard, SetupStep, StatTile } from "../../../components/ui";
 import { CheckIcon, EyeIcon, MegaphoneIcon, UsersIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 export default function CampaignsPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
@@ -111,7 +113,7 @@ export default function CampaignsPage() {
         <StatTile icon={EyeIcon} tone="amber" label="Read" value={pct(totals.read)} sub={`${totals.read.toLocaleString("en-IN")} messages`} />
       </div>
 
-      {roleAtLeast(role, "admin") && (
+      {access.canEdit("broadcasts") && (
         <LaunchForm
           channels={channels}
           lists={lists}

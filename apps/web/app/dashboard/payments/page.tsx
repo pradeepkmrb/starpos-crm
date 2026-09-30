@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast, type PaymentMode, type TenantRole } from "@starpos-crm/shared";
+import { PAYMENT_MODE_LABELS, formatInr, type PaymentMode } from "@starpos-crm/shared";
 import { ApiError, type Payment, deletePayment, getAccessToken, listPayments, me } from "../../../lib/api";
 import { currentMonthInput } from "../../../lib/money";
 import { Drawer } from "../../../components/Drawer";
@@ -11,6 +11,7 @@ import { useToast } from "../../../components/Toaster";
 import { NEW_PAYMENT_EVENT, consumeNewFlag } from "../../../components/nav";
 import { BanknotesIcon, PlusIcon } from "../../../components/icons";
 import { PaymentForm } from "../../../components/sales/PaymentForm";
+import { useAccess } from "../../../components/AccessContext";
 
 const MODE_TONE: Record<PaymentMode, string> = {
   cash: "bg-brand-50 text-brand-700",
@@ -40,9 +41,9 @@ function shiftMonth(month: string, delta: number) {
 
 /** Money received, month by month: who paid, how, and who collected it. */
 export default function PaymentsPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
   const [month, setMonth] = useState(currentMonthInput());
   const [scope, setScope] = useState<"me" | "everyone">("everyone");
@@ -50,8 +51,8 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const canEdit = role ? roleAtLeast(role, "agent") : false;
-  const isAdmin = role ? roleAtLeast(role, "admin") : false;
+  const canEdit = access.canEdit("payments");
+  const isAdmin = access.seesAll && access.canEdit("payments");
 
   const load = useCallback(
     async () => setPayments(await listPayments({ ...monthBounds(month), collector: scope === "me" ? "me" : undefined })),
@@ -65,7 +66,6 @@ export default function PaymentsPage() {
     }
     Promise.all([me(), load()])
       .then(([meRes]) => {
-        setRole(meRes.role);
         setMyId(meRes.user.id);
       })
       .catch((err) => {

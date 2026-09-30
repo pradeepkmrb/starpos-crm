@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CHANNEL_LABELS,
-  CHANNEL_SHORT_LABELS,
-  CHANNEL_TYPES,
-  channelHasReplyWindow,
-  roleAtLeast,
-  type ChannelType,
-  type TenantRole,
-} from "@starpos-crm/shared";
+import { CHANNEL_LABELS, CHANNEL_SHORT_LABELS, CHANNEL_TYPES, channelHasReplyWindow, type ChannelType, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type AuthUser,
@@ -53,6 +45,7 @@ import {
 } from "../../../components/icons";
 import Link from "next/link";
 import { Avatar } from "../../../components/Avatar";
+import { useAccess } from "../../../components/AccessContext";
 
 /** Inbound messages arrive by webhook, so the list needs its own refresh. */
 const POLL_INTERVAL_MS = 15_000;
@@ -173,6 +166,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 export default function InboxPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
@@ -451,7 +445,7 @@ export default function InboxPage() {
   if (loading) return <PageSkeleton />;
   if (!role) return null;
 
-  const canReply = roleAtLeast(role, "agent");
+  const canReply = access.canEdit("inbox");
 
   const details = thread && (
     <div className="space-y-5">
@@ -497,7 +491,7 @@ export default function InboxPage() {
               applied={thread.contact.labels}
               onToggle={onToggleLabel}
               onCreate={onCreateLabel}
-              canCreate={roleAtLeast(role, "admin")}
+              canCreate={access.canEdit("inbox")}
             />
           </div>
           <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">

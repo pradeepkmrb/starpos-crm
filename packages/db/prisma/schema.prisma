@@ -32,6 +32,7 @@ model User {
   salesTargets      SalesTarget[]
   connectedIntegrations TenantIntegration[] @relation("IntegrationConnectedBy")
   pushDevices       PushDevice[]
+  attendance        Attendance[]
 }
 
 model Tenant {
@@ -53,6 +54,8 @@ model Tenant {
   plan         Plan               @relation(fields: [planId], references: [id])
   memberships  TenantMembership[]
   invites      TenantInvite[]
+  roles        Role[]
+  attendance   Attendance[]
   subscription Subscription?
   invoices     Invoice[]
   apiUsage     TenantApiUsage[]
@@ -106,12 +109,18 @@ model TenantMembership {
   id       String @id @default(cuid())
   tenantId String
   userId   String
+  /// "owner" marks the workspace owner, who always has full access. For
+  /// everyone else what they can do comes from roleId; this column is kept in
+  /// step with the role's data scope ("admin" = all records, "agent" = own).
   role     TenantRole @default(agent)
+  /// The workspace role giving this person their menu access. Null only for the owner.
+  roleId   String?
   status   MembershipStatus @default(active)
   createdAt DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customRole Role?  @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, userId])
   @@index([tenantId])
@@ -129,11 +138,36 @@ enum MembershipStatus {
   removed
 }
 
+/// A workspace-defined role: a level (none/view/edit) for each dashboard
+/// menu, plus whose records its members see. See packages/shared permissions.ts.
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  /// { [menu key]: "none" | "view" | "edit" } — parse with normalizePermissions.
+  permissions Json
+  /// "all" or "own" (own + unassigned leads).
+  dataScope   String   @default("all")
+  /// False = mobile app only: the web dashboard refuses this role's sign-ins.
+  webAccess   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships TenantMembership[]
+  invites     TenantInvite[]
+
+  @@unique([tenantId, name])
+}
+
 model TenantInvite {
   id            String   @id @default(cuid())
   tenantId      String
   email         String
   role          TenantRole @default(agent)
+  /// The role the invitee joins with.
+  roleId        String?
   token         String   @unique
   expiresAt     DateTime
   invitedByUserId String
@@ -142,6 +176,7 @@ model TenantInvite {
 
   tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invitedByUser User  @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+  customRole   Role?  @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
 }
@@ -1090,4 +1125,26 @@ model PushDevice {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
+}
+
+/// A teammate's working session: clocked in from the app's Profile screen
+/// and clocked out later. One open session per person at a time.
+model Attendance {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String
+  clockInAt    DateTime  @default(now())
+  clockOutAt   DateTime?
+  /// Where the phone was, when location was available.
+  clockInLat   Float?
+  clockInLng   Float?
+  clockOutLat  Float?
+  clockOutLng  Float?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, clockInAt])
+  @@index([tenantId, clockInAt])
 }

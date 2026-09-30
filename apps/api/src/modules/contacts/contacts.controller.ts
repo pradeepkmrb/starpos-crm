@@ -8,12 +8,12 @@ import { UpdateContactDto } from "./dto/update-contact.dto";
 import { CreateContactListDto } from "./dto/create-contact-list.dto";
 import { AddListMembersDto } from "./dto/add-list-members.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("contacts")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access({ view: ["audience", "inbox", "broadcasts"], edit: ["audience"] })
 export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
 
@@ -36,59 +36,51 @@ export class ContactsController {
   }
 
   @Post("lists")
-  @Roles("admin")
   createList(@Req() req: Request, @Body() dto: CreateContactListDto) {
     return this.contactsService.createList(req.tenantContext!.tenantId, dto.name, dto.contactIds ?? []);
   }
 
   @Post("lists/:id/members")
-  @Roles("admin")
   addListMembers(@Req() req: Request, @Param("id") id: string, @Body() dto: AddListMembersDto) {
     return this.contactsService.addListMembers(req.tenantContext!.tenantId, id, dto.contactIds);
   }
 
   /** Removes the list only — its contacts stay in the audience. */
   @Delete("lists/:id")
-  @Roles("admin")
   removeList(@Req() req: Request, @Param("id") id: string) {
     return this.contactsService.deleteList(req.tenantContext!.tenantId, id);
   }
 
   @Post("import")
-  @Roles("admin")
   import(@Req() req: Request, @Body() dto: ImportContactsDto) {
     return this.contactsService.importCsv(req.tenantContext!.tenantId, dto);
   }
 
   @Post()
-  @Roles("admin")
   create(@Req() req: Request, @Body() dto: CreateContactDto) {
     return this.contactsService.createContact(req.tenantContext!.tenantId, dto);
   }
 
   /** Erases the contacts along with their message history — see ContactsService. */
   @Post("bulk-delete")
-  @Roles("admin")
   bulkDelete(@Req() req: Request, @Body() dto: BulkDeleteContactsDto) {
     return this.contactsService.deleteContacts(req.tenantContext!.tenantId, dto.ids);
   }
 
   /** Agent-level: editing contact details and the bot toggle is inbox work. */
   @Patch(":id")
-  @Roles("agent")
+  @Access({ edit: ["audience", "inbox"] })
   update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateContactDto) {
     return this.contactsService.updateContact(req.tenantContext!.tenantId, id, dto);
   }
 
   /** Wipes the tenant's entire audience — the UI confirms twice before calling this. */
   @Post("delete-all")
-  @Roles("admin")
   deleteAll(@Req() req: Request) {
     return this.contactsService.deleteAllContacts(req.tenantContext!.tenantId);
   }
 
   @Delete(":id")
-  @Roles("admin")
   remove(@Req() req: Request, @Param("id") id: string) {
     return this.contactsService.deleteContact(req.tenantContext!.tenantId, id);
   }

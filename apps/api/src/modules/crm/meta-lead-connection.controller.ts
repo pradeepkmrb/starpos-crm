@@ -3,14 +3,13 @@ import { Request } from "express";
 import { MetaLeadConnectionService } from "./meta-lead-connection.service";
 import { ConnectMetaLeadsDto, UpdateMetaLeadConnectionDto } from "./dto/meta-lead-connection.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 /** "Connect with Meta" for lead ads — admin-level, like every integration. */
 @Controller("lead-sources/meta-connection")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("admin")
+@UseGuards(JwtAuthGuard)
+@Access("integrations")
 export class MetaLeadConnectionController {
   constructor(private readonly connections: MetaLeadConnectionService) {}
 

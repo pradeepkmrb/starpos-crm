@@ -9,15 +9,23 @@ import * as bcrypt from "bcryptjs";
 import type { TenantRole } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TenantsService } from "../tenants/tenants.service";
+import { MemberAccessService } from "../roles/member-access.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
+
+type Client = "web" | "mobile";
 
 interface TokenPayload {
   userId: string;
   tenantId: string;
   role: TenantRole;
+  /** Absent on tokens issued before app-only roles existed; those count as web. */
+  client?: Client;
 }
+
+export const MOBILE_ONLY_MESSAGE =
+  "Your role signs in on the StarPOS CRM mobile app only. Ask your admin if you need the web dashboard.";
 
 const ACCESS_TOKEN_TTL = "15m";
 const REFRESH_TOKEN_TTL = "7d";
@@ -28,7 +36,21 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly tenantsService: TenantsService,
     private readonly jwtService: JwtService,
+    private readonly memberAccess: MemberAccessService,
   ) {}
+
+  /** Role name, menu permissions and data scope for the apps to shape their menus. */
+  private async access(tenantId: string, userId: string) {
+    const access = await this.memberAccess.resolve(tenantId, userId);
+    if (!access) throw new UnauthorizedException("Tenant access revoked");
+    return {
+      roleId: access.roleId,
+      roleName: access.roleName,
+      permissions: access.permissions,
+      dataScope: access.dataScope,
+      webAccess: access.webAccess,
+    };
+  }
 
   async register(dto: RegisterDto) {
     const { user, tenant } = await this.createUserAndTenant(
@@ -39,10 +61,11 @@ export class AuthService {
     );
 
     return {
-      ...this.issueTokens({ userId: user.id, tenantId: tenant.id, role: "owner" }),
+      ...this.issueTokens({ userId: user.id, tenantId: tenant.id, role: "owner", client: "web" }),
       user: { id: user.id, email: user.email, name: user.name },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
       role: "owner" as TenantRole,
+      ...(await this.access(tenant.id, user.id)),
     };
   }
 
@@ -104,13 +127,25 @@ export class AuthService {
       throw new UnauthorizedException("This account has no active tenant access");
     }
 
-    const primary = memberships[0];
+    const client: Client = dto.client ?? "web";
+    // On the web, skip workspaces where this person's role is app-only.
+    let usable = memberships;
+    if (client === "web") {
+      const allowed = await Promise.all(
+        memberships.map(async (m) => (await this.memberAccess.resolve(m.tenantId, user.id))?.webAccess ?? false),
+      );
+      usable = memberships.filter((_, i) => allowed[i]);
+      if (usable.length === 0) throw new ForbiddenException(MOBILE_ONLY_MESSAGE);
+    }
+
+    const primary = usable[0];
     return {
-      ...this.issueTokens({ userId: user.id, tenantId: primary.tenantId, role: primary.role }),
+      ...this.issueTokens({ userId: user.id, tenantId: primary.tenantId, role: primary.role, client }),
       user: { id: user.id, email: user.email, name: user.name },
       tenant: { id: primary.tenant.id, name: primary.tenant.name, slug: primary.tenant.slug },
       role: primary.role,
-      availableTenants: memberships.map((m) => ({
+      ...(await this.access(primary.tenantId, user.id)),
+      availableTenants: usable.map((m) => ({
         id: m.tenant.id,
         name: m.tenant.name,
         role: m.role,
@@ -126,14 +161,19 @@ export class AuthService {
     if (!membership || membership.status !== "active") {
       throw new UnauthorizedException("Tenant access revoked");
     }
+    const client: Client = payload.client ?? "web";
+    if (client === "web" && !(await this.access(payload.tenantId, payload.userId)).webAccess) {
+      throw new UnauthorizedException(MOBILE_ONLY_MESSAGE);
+    }
     return this.issueTokens({
       userId: payload.userId,
       tenantId: payload.tenantId,
       role: membership.role,
+      client,
     });
   }
 
-  async switchTenant(userId: string, tenantId: string) {
+  async switchTenant(userId: string, tenantId: string, client: Client = "web") {
     const membership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId } },
       include: { tenant: true },
@@ -141,10 +181,13 @@ export class AuthService {
     if (!membership || membership.status !== "active") {
       throw new ForbiddenException("You do not have access to that tenant");
     }
+    const access = await this.access(tenantId, userId);
+    if (client === "web" && !access.webAccess) throw new ForbiddenException(MOBILE_ONLY_MESSAGE);
     return {
-      ...this.issueTokens({ userId, tenantId, role: membership.role }),
+      ...this.issueTokens({ userId, tenantId, role: membership.role, client }),
       tenant: { id: membership.tenant.id, name: membership.tenant.name, slug: membership.tenant.slug },
       role: membership.role,
+      ...access,
     };
   }
 
@@ -168,8 +211,8 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.tenantMembership.upsert({
         where: { tenantId_userId: { tenantId: invite.tenantId, userId: user.id } },
-        update: { status: "active", role: invite.role },
-        create: { tenantId: invite.tenantId, userId: user.id, role: invite.role },
+        update: { status: "active", role: invite.role, roleId: invite.roleId },
+        create: { tenantId: invite.tenantId, userId: user.id, role: invite.role, roleId: invite.roleId },
       }),
       this.prisma.tenantInvite.update({
         where: { id: invite.id },
@@ -177,13 +220,19 @@ export class AuthService {
       }),
     ]);
 
+    this.memberAccess.forget(invite.tenantId, user.id);
     const tenant = await this.prisma.tenant.findUniqueOrThrow({ where: { id: invite.tenantId } });
-    return {
-      ...this.issueTokens({ userId: user.id, tenantId: tenant.id, role: invite.role }),
+    const access = await this.access(tenant.id, user.id);
+    const profile = {
       user: { id: user.id, email: user.email, name: user.name },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
       role: invite.role,
+      ...access,
     };
+    // Invites are accepted in the browser. An app-only role gets its account
+    // set up but no web session — they sign in on the phone instead.
+    if (!access.webAccess) return { ...profile, mobileOnly: true as const };
+    return { ...this.issueTokens({ userId: user.id, tenantId: tenant.id, role: invite.role, client: "web" }), ...profile };
   }
 
   async me(userId: string, tenantId: string) {
@@ -198,6 +247,7 @@ export class AuthService {
       user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl },
       tenant: { id: membership.tenant.id, name: membership.tenant.name, slug: membership.tenant.slug },
       role: membership.role,
+      ...(await this.access(tenantId, userId)),
       isPlatformAdmin: user.isPlatformAdmin,
     };
   }

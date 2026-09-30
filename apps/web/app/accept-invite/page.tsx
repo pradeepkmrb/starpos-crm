@@ -12,14 +12,17 @@ function AcceptInviteForm() {
   const [form, setForm] = useState({ name: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mobileOnly, setMobileOnly] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await acceptInvite({ token, name: form.name || undefined, password: form.password || undefined });
-      router.push("/dashboard");
+      const res = await acceptInvite({ token, name: form.name || undefined, password: form.password || undefined });
+      // App-only roles get no web session: point them at the phone instead.
+      if ("mobileOnly" in res) setMobileOnly(true);
+      else router.push("/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
@@ -33,7 +36,15 @@ function AcceptInviteForm() {
         <BrandLogo className="h-10" />
       </Link>
       <div className="w-full max-w-sm card p-8">
-        {!token ? (
+        {mobileOnly ? (
+          <>
+            <h1 className="text-xl font-bold text-slate-900">You&apos;re in</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Your account is ready. Your role uses the StarPOS CRM mobile app — install it and sign in with this email
+              and password.
+            </p>
+          </>
+        ) : !token ? (
           <p className="text-sm text-red-600">Missing invite token.</p>
         ) : (
           <>

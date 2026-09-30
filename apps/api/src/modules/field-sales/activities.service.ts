@@ -19,6 +19,7 @@ import {
   type LeadStatus,
 } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
+import { visibleLeadsWhere, visibleViaLead } from "../../common/lead-visibility";
 import type { TenantRequestContext } from "../../common/request-context";
 import { PushService } from "../push/push.service";
 import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
@@ -80,6 +81,7 @@ export class ActivitiesService {
     const rows = await this.prisma.activity.findMany({
       where: {
         tenantId: ctx.tenantId,
+        ...visibleViaLead(ctx),
         ...(options.leadId ? { leadId: options.leadId } : {}),
         ...ownerFilter(ctx, options.owner),
         ...(isIn(ACTIVITY_STATUSES, options.status) ? { status: options.status } : {}),
@@ -101,7 +103,7 @@ export class ActivitiesService {
 
   async create(ctx: TenantRequestContext, dto: CreateActivityDto) {
     const lead = await this.prisma.lead.findFirst({
-      where: { id: dto.leadId, tenantId: ctx.tenantId },
+      where: { id: dto.leadId, tenantId: ctx.tenantId, AND: [visibleLeadsWhere(ctx)] },
       select: { id: true, status: true },
     });
     if (!lead) throw new NotFoundException("Lead not found");
@@ -142,7 +144,7 @@ export class ActivitiesService {
 
   async update(ctx: TenantRequestContext, id: string, dto: UpdateActivityDto) {
     const existing = await this.prisma.activity.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId: ctx.tenantId, ...visibleViaLead(ctx) },
       include: { lead: { select: { id: true, status: true } } },
     });
     if (!existing) throw new NotFoundException("Activity not found");
@@ -211,7 +213,7 @@ export class ActivitiesService {
   async checkIn(ctx: TenantRequestContext, dto: CheckInDto) {
     if (!ctx.userId) throw new BadRequestException("Check-in needs a signed-in user");
     const lead = await this.prisma.lead.findFirst({
-      where: { id: dto.leadId, tenantId: ctx.tenantId },
+      where: { id: dto.leadId, tenantId: ctx.tenantId, AND: [visibleLeadsWhere(ctx)] },
       select: { id: true, name: true, company: true, latitude: true, longitude: true },
     });
     if (!lead) throw new NotFoundException("Lead not found");

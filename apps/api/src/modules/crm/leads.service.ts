@@ -16,6 +16,8 @@ export interface ListLeadsOptions {
   /** Only this owner's leads; resolve "me" in the controller. Null means unassigned. */
   ownerUserId?: string | null;
   hot?: boolean;
+  /** Extra filter from visibleLeadsWhere — limits an agent to their own and unassigned leads. */
+  visibility?: Prisma.LeadWhereInput;
 }
 
 /** What every lead response carries alongside the row itself. */
@@ -37,6 +39,7 @@ export class LeadsService {
     return this.prisma.lead.findMany({
       where: {
         tenantId,
+        AND: [options.visibility ?? {}],
         ...(isLeadStatus(options.status) ? { status: options.status } : {}),
         ...(options.ownerUserId !== undefined ? { ownerUserId: options.ownerUserId } : {}),
         ...(options.hot ? { isHot: true } : {}),
@@ -66,12 +69,13 @@ export class LeadsService {
     tenantId: string,
     center: LatLng,
     radiusMeters: number,
-    options: { ownerUserId?: string | null; take?: number } = {},
+    options: { ownerUserId?: string | null; take?: number; visibility?: Prisma.LeadWhereInput } = {},
   ) {
     const box = boundingBox(center, radiusMeters);
     const rows = await this.prisma.lead.findMany({
       where: {
         tenantId,
+        AND: [options.visibility ?? {}],
         latitude: { gte: box.minLat, lte: box.maxLat },
         longitude: { gte: box.minLng, lte: box.maxLng },
         ...(options.ownerUserId !== undefined ? { ownerUserId: options.ownerUserId } : {}),
@@ -90,10 +94,10 @@ export class LeadsService {
   }
 
   /** Pipeline counts for the header tiles, in one grouped query. */
-  async summary(tenantId: string) {
+  async summary(tenantId: string, visibility: Prisma.LeadWhereInput = {}) {
     const rows = await this.prisma.lead.groupBy({
       by: ["status"],
-      where: { tenantId },
+      where: { tenantId, AND: [visibility] },
       _count: { _all: true },
     });
     const byStatus = Object.fromEntries(LEAD_STATUSES.map((status) => [status, 0])) as Record<
@@ -104,8 +108,8 @@ export class LeadsService {
     return { total: rows.reduce((sum, row) => sum + row._count._all, 0), byStatus };
   }
 
-  async get(tenantId: string, id: string) {
-    const lead = await this.prisma.lead.findFirst({ where: { id, tenantId }, include: LEAD_INCLUDE });
+  async get(tenantId: string, id: string, visibility: Prisma.LeadWhereInput = {}) {
+    const lead = await this.prisma.lead.findFirst({ where: { id, tenantId, AND: [visibility] }, include: LEAD_INCLUDE });
     if (!lead) throw new NotFoundException("Lead not found");
     return lead;
   }
@@ -143,8 +147,14 @@ export class LeadsService {
     return lead;
   }
 
-  async update(tenantId: string, id: string, dto: UpdateLeadDto, actorUserId?: string) {
-    const lead = await this.prisma.lead.findFirst({ where: { id, tenantId } });
+  async update(
+    tenantId: string,
+    id: string,
+    dto: UpdateLeadDto,
+    actorUserId?: string,
+    visibility: Prisma.LeadWhereInput = {},
+  ) {
+    const lead = await this.prisma.lead.findFirst({ where: { id, tenantId, AND: [visibility] } });
     if (!lead) throw new NotFoundException("Lead not found");
 
     // Only keys the caller actually sent are written, so a patch of one

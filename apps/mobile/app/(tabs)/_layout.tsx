@@ -5,6 +5,7 @@ import { Platform, Pressable, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brandShadow, colors } from "@/theme";
 import { INTER } from "@/components/AppText";
+import { useAccess } from "@/lib/access";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -49,6 +50,11 @@ function QuickAddButton() {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const access = useAccess();
+  // Tabs the role doesn't include are hidden (href: null) rather than removed, so routes stay valid.
+  const showLeads = access.canView("leads");
+  const showFollowUps = access.canView("follow_ups");
+  const canAdd = access.canEditAny(["leads", "follow_ups", "visits", "quotations", "payments"]);
 
   return (
     <Tabs
@@ -81,6 +87,7 @@ export default function TabsLayout() {
         name="leads"
         options={{
           title: "Leads",
+          href: showLeads ? undefined : null,
           tabBarIcon: tabIcon("people-outline", "people"),
           headerRight: () => (
             <Pressable
@@ -94,9 +101,19 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="new" options={{ title: "", tabBarButton: () => <QuickAddButton /> }} />
-      <Tabs.Screen name="follow-ups" options={{ title: "Follow-ups", tabBarIcon: tabIcon("calendar-outline", "calendar") }} />
-      <Tabs.Screen name="more" options={{ title: "More", tabBarIcon: tabIcon("grid-outline", "grid") }} />
+      <Tabs.Screen
+        name="new"
+        options={canAdd ? { title: "", tabBarButton: () => <QuickAddButton /> } : { title: "", href: null }}
+      />
+      <Tabs.Screen
+        name="follow-ups"
+        options={{
+          title: "Follow-ups",
+          href: showFollowUps ? undefined : null,
+          tabBarIcon: tabIcon("calendar-outline", "calendar"),
+        }}
+      />
+      <Tabs.Screen name="more" options={{ title: "Profile", tabBarIcon: tabIcon("person-circle-outline", "person-circle") }} />
     </Tabs>
   );
 }

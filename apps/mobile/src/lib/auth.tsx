@@ -42,7 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const data = await apiLogin(email, password);
-    setMe({ user: data.user, tenant: data.tenant, role: data.role });
+    setMe({
+      user: data.user,
+      tenant: data.tenant,
+      role: data.role,
+      roleName: data.roleName,
+      permissions: data.permissions,
+      dataScope: data.dataScope,
+      webAccess: data.webAccess,
+    });
   }, []);
 
   // Once someone is signed in, make sure this phone gets their notifications.

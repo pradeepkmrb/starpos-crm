@@ -6,6 +6,7 @@ import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 export class RegenerateApiKeyDto {
   @IsOptional()
@@ -21,18 +22,17 @@ export class RegenerateApiKeyDto {
  */
 @Controller("api-keys")
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Access("developers")
 export class ApiKeysController {
   constructor(private readonly apiKeys: ApiKeysService) {}
 
   @Get()
-  @Roles("admin")
   current(@Req() req: Request) {
     return this.apiKeys.getOrCreateActiveKey(req.tenantContext!.tenantId);
   }
 
   /** Invalidates the old key immediately — anything using it starts failing. */
   @Post("regenerate")
-  @Roles("admin")
   regenerate(@Req() req: Request, @Body() dto: RegenerateApiKeyDto) {
     return this.apiKeys.regenerate(req.tenantContext!.tenantId, dto.name);
   }

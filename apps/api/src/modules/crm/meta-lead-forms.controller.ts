@@ -4,14 +4,13 @@ import { MetaLeadFormsService } from "./meta-lead-forms.service";
 import { LinkMetaFormDto } from "./dto/link-meta-form.dto";
 import { UpdateMetaFormDto } from "./dto/update-meta-form.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 /** Wiring a Meta lead-ads form into the CRM is an admin-level integration. */
 @Controller("lead-sources/meta")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("admin")
+@UseGuards(JwtAuthGuard)
+@Access("integrations")
 export class MetaLeadFormsController {
   constructor(private readonly metaLeadForms: MetaLeadFormsService) {}
 

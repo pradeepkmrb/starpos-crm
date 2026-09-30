@@ -1,5 +1,5 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
-import { formatInr } from "@starpos-crm/shared";
+import { FULL_ACCESS, formatInr } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { normalizeWhatsappNumber } from "../../common/phone";
 import { PushService } from "../push/push.service";
@@ -90,7 +90,8 @@ export class CatalogueEnquiriesService {
     const message = dto.message?.trim() || null;
 
     const quotation = await this.quotations.create(
-      { tenantId: tenant.id, userId: "", role: "owner" },
+      // Acts for the workspace, like an API key: the shopper has no role.
+      { tenantId: tenant.id, userId: "", role: "owner", permissions: FULL_ACCESS, dataScope: "all" },
       {
         leadId: lead.id,
         items: [...quantities].map(([productId, quantity]) => ({ productId, quantity })),

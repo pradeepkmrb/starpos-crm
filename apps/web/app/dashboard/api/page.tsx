@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
+
 import {
   ApiError,
   API_BASE_URL,
@@ -24,6 +24,7 @@ import {
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { PageHeader } from "../../../components/ui";
 import { CodeIcon as CodeHeaderIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 const PUBLIC_API_BASE = `${API_BASE_URL}/api/v1`;
 
@@ -41,9 +42,9 @@ function pretty(value: unknown): string {
 }
 
 export default function ApiDevelopersPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [apiKey, setApiKey] = useState<ApiKeyRecord | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -59,10 +60,9 @@ export default function ApiDevelopersPage() {
 
     me()
       .then(async (profile) => {
-        setRole(profile.role);
         // Only admins and owners may read the key; everyone else still gets
         // the reference, with the examples using a placeholder.
-        if (roleAtLeast(profile.role, "admin")) {
+        if (profile.role === "owner" || profile.permissions.developers !== "none") {
           setApiKey(await getApiKey());
         }
       })
@@ -76,7 +76,7 @@ export default function ApiDevelopersPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const canManage = role ? roleAtLeast(role, "admin") : false;
+  const canManage = access.canEdit("developers");
   const exampleKey = revealed && apiKey ? apiKey.key : KEY_PLACEHOLDER;
 
   const copy = useCallback(async (label: string, text: string) => {

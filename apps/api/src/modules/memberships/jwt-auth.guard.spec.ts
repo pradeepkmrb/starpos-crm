@@ -1,4 +1,5 @@
 import { ExecutionContext, UnauthorizedException } from "@nestjs/common";
+import { FULL_ACCESS } from "@starpos-crm/shared";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { ApiKeyGuard } from "../public-api/api-key.guard";
 import type { TenantRequestContext } from "../../common/request-context";
@@ -9,11 +10,19 @@ function contextFor(tenantContext?: TenantRequestContext): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-const userContext: TenantRequestContext = { userId: "user_1", tenantId: "tenant_1", role: "admin" };
+const userContext: TenantRequestContext = {
+  userId: "user_1",
+  tenantId: "tenant_1",
+  role: "admin",
+  permissions: FULL_ACCESS,
+  dataScope: "all",
+};
 const apiKeyContext: TenantRequestContext = {
   userId: "",
   tenantId: "tenant_1",
   role: "admin",
+  permissions: FULL_ACCESS,
+  dataScope: "all",
   apiKeyId: "key_1",
 };
 

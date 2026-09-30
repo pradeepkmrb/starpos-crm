@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatInr, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
-import { ApiError, type TargetRow, type TargetsBoard, getAccessToken, getTargets, me, setTarget } from "../../../lib/api";
+import { formatInr } from "@starpos-crm/shared";
+import { ApiError, type TargetRow, type TargetsBoard, getAccessToken, getTargets, setTarget } from "../../../lib/api";
 import { paiseToInput, rupeesToPaise } from "../../../lib/money";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { useToast } from "../../../components/Toaster";
 import { TargetIcon, TrophyIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 function shiftMonth(month: string, delta: number) {
   const [y, m] = month.split("-").map(Number);
@@ -32,15 +33,15 @@ const MEDALS = ["bg-amber-400 text-amber-950", "bg-slate-300 text-slate-800", "b
  * inline; everyone sees the leaderboard.
  */
 export default function TargetsPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [month, setMonth] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState<string | null>(null);
   const [board, setBoard] = useState<TargetsBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = role ? roleAtLeast(role, "admin") : false;
+  const isAdmin = access.canEdit("targets");
 
   const load = useCallback(async (m?: string) => {
     const b = await getTargets(m);
@@ -54,9 +55,7 @@ export default function TargetsPage() {
       router.push("/login");
       return;
     }
-    Promise.all([me(), load()])
-      .then(([meRes]) => setRole(meRes.role))
-      .catch((err) => {
+    load().catch((err) => {
         if (err instanceof ApiError && err.status === 401) router.push("/login");
         else setError(err instanceof ApiError ? err.message : "Could not load targets");
       });

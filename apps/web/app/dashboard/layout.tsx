@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { TenantRole } from "@starpos-crm/shared";
+import { hasAccess } from "@starpos-crm/shared";
 import {
   clearTokens,
   getAccessToken,
   getFieldSummary,
   me,
   type AuthTenant,
+  type MeResponse,
   type AuthUser,
 } from "../../lib/api";
 import {
@@ -31,8 +32,12 @@ import {
   QUICK_ACTIONS,
   announceQuickAction,
   isNavActive,
+  navItemAllowed,
+  navItemForPath,
+  visibleNavGroups,
   type NavGroup,
 } from "../../components/nav";
+import { AccessProvider, type AccessState } from "../../components/AccessContext";
 import { CommandPalette } from "../../components/CommandPalette";
 import { ToastProvider } from "../../components/Toaster";
 
@@ -43,7 +48,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tenant, setTenant] = useState<AuthTenant | null>(null);
-  const [role, setRole] = useState<TenantRole | null>(null);
+  const [access, setAccess] = useState<AccessState | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [overdue, setOverdue] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
@@ -63,18 +68,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!getAccessToken()) return;
     me()
-      .then((res) => {
+      .then((res: MeResponse) => {
         setUser(res.user);
         setTenant(res.tenant);
-        setRole(res.role);
+        setAccess({ role: res.role, roleName: res.roleName, permissions: res.permissions, dataScope: res.dataScope });
         setIsPlatformAdmin(res.isPlatformAdmin);
+        // The overdue bell only means something to people who work follow-ups.
+        if (hasAccess(res.permissions, ["leads", "follow_ups", "visits"], "view")) {
+          getFieldSummary()
+            .then((s) => setOverdue(s.overdueCount))
+            .catch(() => setOverdue(0));
+        }
       })
       .catch(() => {
         // pages handle 401 redirects themselves
       });
-    getFieldSummary()
-      .then((s) => setOverdue(s.overdueCount))
-      .catch(() => setOverdue(0));
   }, [pathname]);
 
   // Close drawers and menus on navigation.
@@ -113,10 +121,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     });
   }
 
-  const groups: NavGroup[] = isPlatformAdmin
-    ? [...NAV_GROUPS, { label: "Agency", items: [AGENCY_NAV_ITEM] }]
-    : NAV_GROUPS;
+  const permissions = access?.permissions ?? null;
+  const groups: NavGroup[] = [
+    ...visibleNavGroups(NAV_GROUPS, permissions),
+    ...(isPlatformAdmin ? [{ label: "Agency", items: [AGENCY_NAV_ITEM] }] : []),
+  ];
   const allPages = groups.flatMap((g) => g.items);
+  const quickActions = QUICK_ACTIONS.filter((a) => navItemAllowed(a, permissions));
+  // A page opened by link or bookmark that the role doesn't include.
+  const pageItem = navItemForPath(pathname);
+  const blocked = !!access && !!pageItem && !navItemAllowed(pageItem, permissions);
   const current = [...allPages].sort((a, b) => b.href.length - a.href.length).find((i) => isNavActive(pathname, i.href));
   const displayName = user?.name ?? user?.email ?? "";
   const fullBleed = pathname?.startsWith("/dashboard/inbox") ?? false;
@@ -127,6 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <AccessProvider value={access}>
     <ToastProvider>
       <div className="min-h-screen bg-canvas">
         {/* Desktop sidebar */}
@@ -135,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             collapsed ? "w-[76px]" : "w-64"
           }`}
         >
-          <Sidebar groups={groups} pathname={pathname} collapsed={collapsed} tenant={tenant} role={role} />
+          <Sidebar groups={groups} pathname={pathname} collapsed={collapsed} tenant={tenant} roleName={access?.roleName ?? null} />
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -160,7 +175,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <CloseIcon className="h-5 w-5" />
               </button>
-              <Sidebar groups={groups} pathname={pathname} collapsed={false} tenant={tenant} role={role} />
+              <Sidebar groups={groups} pathname={pathname} collapsed={false} tenant={tenant} roleName={access?.roleName ?? null} />
             </aside>
           </div>
         )}
@@ -202,6 +217,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
 
               <div className="flex items-center gap-1 sm:gap-2" ref={menuRef}>
+                {quickActions.length > 0 && (
                 <div className="relative">
                   <button type="button" onClick={() => setMenu(menu === "new" ? null : "new")} className="btn-primary px-3 sm:px-4">
                     <PlusIcon className="h-4 w-4" />
@@ -209,7 +225,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
                   {menu === "new" && (
                     <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-pop">
-                      {QUICK_ACTIONS.map((action) => {
+                      {quickActions.map((action) => {
                         const Icon = action.icon;
                         return (
                           <Link
@@ -226,7 +242,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   )}
                 </div>
+                )}
 
+                {access && hasAccess(access.permissions, ["follow_ups"], "view") && (
                 <Link
                   href="/dashboard/follow-ups"
                   className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100"
@@ -240,6 +258,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </span>
                   )}
                 </Link>
+                )}
 
                 <div className="relative">
                   <button
@@ -261,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
                         <p className="truncate text-xs text-slate-500">
                           {tenant?.name}
-                          {role ? ` · ${role}` : ""}
+                          {access ? ` · ${access.roleName}` : ""}
                         </p>
                       </div>
                       <div className="my-1 h-px bg-slate-100" />
@@ -281,17 +300,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </header>
 
           {/* The Inbox is a full-bleed chat app, like WhatsApp Web; every other page is a centred column. */}
-          <main className={fullBleed ? "" : "mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8"}>{children}</main>
+          <main className={fullBleed && !blocked ? "" : "mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8"}>
+            {blocked ? <NoAccess label={pageItem!.label} /> : children}
+          </main>
         </div>
 
         <CommandPalette
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
           pages={allPages}
-          actions={QUICK_ACTIONS}
+          actions={quickActions}
         />
       </div>
     </ToastProvider>
+    </AccessProvider>
+  );
+}
+
+function NoAccess({ label }: { label: string }) {
+  return (
+    <div className="card mx-auto max-w-lg p-8 text-center">
+      <h1 className="text-lg font-bold text-slate-900">No access to {label}</h1>
+      <p className="mt-2 text-sm text-slate-500">
+        Your role doesn't include this part of the dashboard. Ask your workspace owner or admin if you need it.
+      </p>
+      <Link href="/dashboard" className="btn-primary mt-5">
+        Go to Home
+      </Link>
+    </div>
   );
 }
 
@@ -300,13 +336,13 @@ function Sidebar({
   pathname,
   collapsed,
   tenant,
-  role,
+  roleName,
 }: {
   groups: NavGroup[];
   pathname: string | null;
   collapsed: boolean;
   tenant: AuthTenant | null;
-  role: TenantRole | null;
+  roleName: string | null;
 }) {
   return (
     <>
@@ -349,7 +385,7 @@ function Sidebar({
       {tenant && !collapsed && (
         <div className="mx-3 mb-2 rounded-2xl bg-white/5 p-3">
           <p className="truncate text-sm font-semibold text-white">{tenant.name}</p>
-          <p className="text-xs capitalize text-ink-300">{role ?? "member"}</p>
+          <p className="text-xs text-ink-300">{roleName ?? "Member"}</p>
         </div>
       )}
     </>

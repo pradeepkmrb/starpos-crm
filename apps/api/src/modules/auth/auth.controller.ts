@@ -37,7 +37,7 @@ export class AuthController {
   @Post("switch-tenant")
   @UseGuards(JwtAuthGuard)
   switchTenant(@Req() req: Request, @Body() dto: SwitchTenantDto) {
-    return this.authService.switchTenant(req.tenantContext!.userId, dto.tenantId);
+    return this.authService.switchTenant(req.tenantContext!.userId, dto.tenantId, req.tenantContext!.client);
   }
 
   @Get("me")

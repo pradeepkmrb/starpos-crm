@@ -2,7 +2,9 @@ import { Injectable, NestMiddleware } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { NextFunction, Request, Response } from "express";
 import { tenantContextStore } from "../../prisma/tenant-context.store";
+import { FULL_ACCESS } from "@starpos-crm/shared";
 import { ApiKeysService } from "../api-keys/api-keys.service";
+import { MemberAccessService } from "../roles/member-access.service";
 import "../../common/request-context";
 
 export const API_KEY_HEADER = "x-api-key";
@@ -22,23 +24,37 @@ export class TenantContextMiddleware implements NestMiddleware {
   constructor(
     private readonly jwtService: JwtService,
     private readonly apiKeysService: ApiKeysService,
+    private readonly memberAccess: MemberAccessService,
   ) {}
 
   async use(req: Request, _res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.slice("Bearer ".length);
+      let payload: { userId: string; tenantId: string; client?: "web" | "mobile" } | null = null;
       try {
-        const payload = this.jwtService.verify(token, {
+        payload = this.jwtService.verify<{ userId: string; tenantId: string; client?: "web" | "mobile" }>(token, {
           secret: process.env.JWT_ACCESS_SECRET,
         });
-        req.tenantContext = {
-          userId: payload.userId,
-          tenantId: payload.tenantId,
-          role: payload.role,
-        };
       } catch {
         // invalid/expired token: leave tenantContext undefined
+      }
+      if (payload) {
+        // Access comes from the live membership, not the token, so a removed
+        // teammate or a changed role takes effect straight away.
+        const access = await this.memberAccess.resolve(payload.tenantId, payload.userId);
+        const client = payload.client ?? "web";
+        // A mobile-only role's web session stops working as soon as the role changes.
+        if (access && (client === "mobile" || access.webAccess)) {
+          req.tenantContext = {
+            userId: payload.userId,
+            tenantId: payload.tenantId,
+            role: access.role,
+            permissions: access.permissions,
+            dataScope: access.dataScope,
+            client,
+          };
+        }
       }
     }
 
@@ -56,6 +72,8 @@ export class TenantContextMiddleware implements NestMiddleware {
             // A key acts for the whole workspace, short of owner-only actions
             // such as billing and rotating the key itself.
             role: "admin",
+            permissions: FULL_ACCESS,
+            dataScope: "all",
             apiKeyId: principal.apiKeyId,
           };
         }

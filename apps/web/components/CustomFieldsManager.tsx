@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  CUSTOM_FIELD_TYPES,
-  CUSTOM_FIELD_TYPE_LABELS,
-  isChoiceFieldType,
-  roleAtLeast,
-  type CustomFieldEntity,
-  type CustomFieldType,
-  type TenantRole,
-} from "@starpos-crm/shared";
+import { CUSTOM_FIELD_TYPES, CUSTOM_FIELD_TYPE_LABELS, isChoiceFieldType, type CustomFieldEntity, type CustomFieldType } from "@starpos-crm/shared";
 import {
   ApiError,
   type CustomFieldDefinition,
@@ -19,12 +11,12 @@ import {
   deleteCustomField,
   getAccessToken,
   listCustomFields,
-  me,
   reorderCustomFields,
   updateCustomField,
 } from "../lib/api";
 import { PageHeader } from "./ui";
 import { SlidersIcon as SlidersHeaderIcon } from "./icons";
+import { useAccess } from "./AccessContext";
 
 /** What changes between the two builders is wording, not behaviour. */
 const COPY: Record<
@@ -59,10 +51,10 @@ const COPY: Record<
  * which set of fields is edited and which entry screen the wording points at.
  */
 export function CustomFieldsManager({ entity }: { entity: CustomFieldEntity }) {
+  const access = useAccess();
   const router = useRouter();
   const copy = COPY[entity];
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -75,7 +67,7 @@ export function CustomFieldsManager({ entity }: { entity: CustomFieldEntity }) {
   const [placeholder, setPlaceholder] = useState("");
   const [helpText, setHelpText] = useState("");
 
-  const canManage = role ? roleAtLeast(role, "admin") : false;
+  const canManage = access.canEdit(entity === "lead" ? "lead_fields" : "contact_fields");
   const needsOptions = isChoiceFieldType(type);
 
   useEffect(() => {
@@ -86,8 +78,7 @@ export function CustomFieldsManager({ entity }: { entity: CustomFieldEntity }) {
     setLoading(true);
     (async () => {
       try {
-        const [meRes, fieldsRes] = await Promise.all([me(), listCustomFields(entity)]);
-        setRole(meRes.role);
+        const fieldsRes = await listCustomFields(entity);
         setFields(fieldsRes);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {

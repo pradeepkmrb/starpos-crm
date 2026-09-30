@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { describeChannel, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
+import { describeChannel, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Automation,
@@ -21,8 +21,10 @@ import { useToast } from "../../../components/Toaster";
 import { EmptyState, PageHeader, StatTile } from "../../../components/ui";
 import { BoltIcon, ChatIcon, PlugIcon, PlusIcon, UsersIcon } from "../../../components/icons";
 import Link from "next/link";
+import { useAccess } from "../../../components/AccessContext";
 
 export default function AutomationsPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
@@ -65,7 +67,7 @@ export default function AutomationsPage() {
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
-  const canManage = roleAtLeast(role, "admin");
+  const canManage = access.canEdit("flows");
 
   const live = automations.filter((a) => a.isActive).length;
 

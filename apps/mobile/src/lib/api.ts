@@ -2,6 +2,8 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type {
   ActivityStatus,
+  DataScope,
+  Permissions,
   ActivityType,
   CustomFieldType,
   LeadStatus,
@@ -11,7 +13,7 @@ import type {
 } from "@starpos-crm/shared";
 
 /** Set EXPO_PUBLIC_API_URL to point a dev build at a local API. */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://api-production-0efa.up.railway.app";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://api.starcrm.in";
 
 export class ApiError extends Error {
   constructor(
@@ -132,6 +134,13 @@ export interface Me {
   user: AuthUser;
   tenant: { id: string; name: string; slug: string };
   role: TenantRole;
+  /** The workspace role this person has, e.g. "Sales agent"; "Owner" for the owner. */
+  roleName: string;
+  /** Menu access from their role — the app hides what it doesn't allow. */
+  permissions: Permissions;
+  dataScope: DataScope;
+  /** False = this app only; the web dashboard won't sign them in. */
+  webAccess: boolean;
 }
 
 export interface LeadOwner {
@@ -251,7 +260,8 @@ export interface CustomFieldDefinition {
 export async function login(email: string, password: string) {
   const data = await request<Me & { accessToken: string; refreshToken: string }>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    // "mobile" lets app-only roles sign in here while the web refuses them.
+    body: JSON.stringify({ email, password, client: "mobile" }),
   });
   await storeTokens(data);
   return data;
@@ -262,6 +272,32 @@ export async function logout() {
 }
 
 export const getMe = () => request<Me>("/auth/me");
+
+// --- Attendance ---
+
+export interface AttendanceSession {
+  id: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  workedSeconds: number;
+}
+
+export interface AttendanceToday {
+  day: string;
+  timeZone: string;
+  /** The session that is running now, if clocked in. */
+  open: AttendanceSession | null;
+  sessions: AttendanceSession[];
+  workedSeconds: number;
+}
+
+export const getAttendanceToday = () => request<AttendanceToday>("/attendance/today");
+
+export const clockIn = (coords?: { latitude: number; longitude: number }) =>
+  request<AttendanceToday>("/attendance/clock-in", { method: "POST", body: JSON.stringify(coords ?? {}) });
+
+export const clockOut = (coords?: { latitude: number; longitude: number }) =>
+  request<AttendanceToday>("/attendance/clock-out", { method: "POST", body: JSON.stringify(coords ?? {}) });
 
 export const updateMe = (input: { name?: string; avatarUrl?: string | null }) =>
   request<Me>("/auth/me", { method: "PATCH", body: JSON.stringify(input) });

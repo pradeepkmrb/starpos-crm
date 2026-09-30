@@ -10,13 +10,13 @@ import { EmbeddedSignupDto } from "./dto/embedded-signup.dto";
 import { ContactsService } from "../contacts/contacts.service";
 import { MessageLogService } from "../messages/message-log.service";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("channels")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @UseFilters(MetaApiExceptionFilter)
+@Access({ view: ["connections", "inbox", "broadcasts", "templates"], edit: ["connections"] })
 export class ChannelsController {
   constructor(
     private readonly channelsService: ChannelsService,
@@ -32,13 +32,11 @@ export class ChannelsController {
   }
 
   @Post()
-  @Roles("admin")
   create(@Req() req: Request, @Body() dto: CreateChannelDto) {
     return this.channelsService.createChannel(req.tenantContext!.tenantId, dto);
   }
 
   @Post("embedded-signup")
-  @Roles("admin")
   async embeddedSignup(@Req() req: Request, @Body() dto: EmbeddedSignupDto) {
     const tenantId = req.tenantContext!.tenantId;
 
@@ -81,13 +79,11 @@ export class ChannelsController {
   }
 
   @Post(":id/disconnect")
-  @Roles("admin")
   disconnect(@Req() req: Request, @Param("id") id: string) {
     return this.channelsService.disconnectChannel(req.tenantContext!.tenantId, id);
   }
 
   @Get(":id/templates")
-  @Roles("admin")
   async listTemplates(@Req() req: Request, @Param("id") id: string) {
     const channel = await this.channelsService.getChannelWithCredentials(req.tenantContext!.tenantId, id);
     return this.metaGraphClient.listTemplates(channel);
@@ -99,7 +95,6 @@ export class ChannelsController {
   }
 
   @Post(":id/test-send")
-  @Roles("admin")
   async testSend(@Req() req: Request, @Param("id") id: string, @Body() dto: TestSendDto) {
     const tenantId = req.tenantContext!.tenantId;
     const channel = await this.channelsService.getChannelWithCredentials(tenantId, id);

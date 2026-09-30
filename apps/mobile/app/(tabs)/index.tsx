@@ -9,6 +9,8 @@ import { Avatar } from "@/components/Photo";
 import { Card, EmptyState, ErrorText, GradientCard, IconChip, Loading, SectionTitle } from "@/components/ui";
 import { ApiError, getFieldSummary, type FieldSummary } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useAccess } from "@/lib/access";
+import { ClockCard } from "@/components/ClockCard";
 import { formatRupees, greeting, localWindow } from "@/lib/format";
 import { colors, radius, shadow, space } from "@/theme";
 
@@ -16,18 +18,22 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 export default function HomeScreen() {
   const { me } = useAuth();
+  const access = useAccess();
+  // The day's sales summary needs one of these menus; other roles get a simpler home.
+  const salesAccess = access.canViewAny(["leads", "follow_ups", "visits", "targets"]);
   const [summary, setSummary] = useState<FieldSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!salesAccess) return;
     try {
       setSummary(await getFieldSummary(localWindow()));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't load your day");
     }
-  }, []);
+  }, [salesAccess]);
 
   // Refetch whenever the tab comes back into view, e.g. after logging a call.
   useFocusEffect(
@@ -85,7 +91,12 @@ export default function HomeScreen() {
         <Text style={styles.date}>{today}</Text>
 
         <ErrorText text={error} />
-        {!summary ? (
+        {!salesAccess ? (
+          <View style={{ gap: space.md }}>
+            <ClockCard />
+            <EmptyState text="Your role doesn't include the sales screens. Ask your admin if you need them." />
+          </View>
+        ) : !summary ? (
           <Loading />
         ) : (
           <>

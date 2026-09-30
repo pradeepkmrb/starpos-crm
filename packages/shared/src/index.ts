@@ -7,3 +7,4 @@ export * from "./crm";
 export * from "./integrations";
 export * from "./geo";
 export * from "./sales";
+export * from "./permissions";

@@ -1,4 +1,7 @@
 import type {
+  AccessModule,
+  DataScope,
+  Permissions,
   ActivityStatus,
   ActivityType,
   ChannelType,
@@ -115,7 +118,17 @@ export interface AuthTenant {
   slug: string;
 }
 
-export interface AuthResponse {
+/** What the signed-in person may do: their workspace role's menu access. */
+export interface Access {
+  roleId: string | null;
+  roleName: string;
+  permissions: Permissions;
+  dataScope: DataScope;
+  /** False = mobile app only (the web refuses to sign them in). */
+  webAccess: boolean;
+}
+
+export interface AuthResponse extends Access {
   accessToken: string;
   refreshToken: string;
   user: AuthUser;
@@ -123,20 +136,47 @@ export interface AuthResponse {
   role: TenantRole;
 }
 
+export interface MeResponse extends Access {
+  user: AuthUser & { avatarUrl?: string | null };
+  tenant: AuthTenant;
+  role: TenantRole;
+  isPlatformAdmin: boolean;
+}
+
 export interface Member {
   id: string;
   role: TenantRole;
+  roleId: string | null;
   status: string;
   user: AuthUser;
+  customRole: { id: string; name: string } | null;
 }
 
 export interface Invite {
   id: string;
   email: string;
   role: TenantRole;
+  roleId: string | null;
+  customRole: { id: string; name: string } | null;
   acceptedAt: string | null;
   expiresAt: string;
 }
+
+export interface WorkspaceRole {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: Permissions;
+  dataScope: DataScope;
+  webAccess: boolean;
+  memberCount: number;
+}
+
+export type WorkspaceRoleInput = Pick<WorkspaceRole, "name" | "permissions" | "dataScope" | "webAccess"> & {
+  description?: string;
+};
+
+export type { AccessModule };
 
 // --- calls ---
 
@@ -164,9 +204,7 @@ export async function login(input: { email: string; password: string }) {
 }
 
 export function me() {
-  return request<{ user: AuthUser; tenant: AuthTenant; role: TenantRole; isPlatformAdmin: boolean }>(
-    "/auth/me",
-  );
+  return request<MeResponse>("/auth/me");
 }
 
 export function listMembers() {
@@ -177,21 +215,85 @@ export function listInvites() {
   return request<Invite[]>("/tenants/invites");
 }
 
-export function createInvite(input: { email: string; role: TenantRole }) {
+export function createInvite(input: { email: string; roleId: string }) {
   return request<Invite & { acceptUrl: string }>("/tenants/invites", {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
+/**
+ * Joins the workspace. A role without web access gets its account set up but
+ * no web session (`mobileOnly`) — they sign in on the mobile app instead.
+ */
 export function acceptInvite(input: { token: string; password?: string; name?: string }) {
-  return request<AuthResponse>("/auth/accept-invite", {
-    method: "POST",
-    body: JSON.stringify(input),
-  }).then((data) => {
-    storeTokens(data);
+  return request<AuthResponse | (Omit<AuthResponse, "accessToken" | "refreshToken"> & { mobileOnly: true })>(
+    "/auth/accept-invite",
+    { method: "POST", body: JSON.stringify(input) },
+  ).then((data) => {
+    if ("accessToken" in data) storeTokens(data);
     return data;
   });
+}
+
+export function setMemberRole(userId: string, roleId: string) {
+  return request<{ userId: string; roleId: string }>(`/tenants/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ roleId }),
+  });
+}
+
+export function removeMember(userId: string) {
+  return request<{ userId: string; removed: true }>(`/tenants/members/${userId}`, { method: "DELETE" });
+}
+
+export function revokeInvite(inviteId: string) {
+  return request<{ id: string; deleted: true }>(`/tenants/invites/${inviteId}`, { method: "DELETE" });
+}
+
+// --- Roles ---
+
+export function listRoles() {
+  return request<WorkspaceRole[]>("/roles");
+}
+
+export function createRole(input: WorkspaceRoleInput) {
+  return request<WorkspaceRole>("/roles", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateRole(roleId: string, input: WorkspaceRoleInput) {
+  return request<WorkspaceRole>(`/roles/${roleId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteRole(roleId: string) {
+  return request<{ id: string; deleted: true }>(`/roles/${roleId}`, { method: "DELETE" });
+}
+
+// --- Attendance ---
+
+export interface AttendanceSession {
+  id: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  workedSeconds: number;
+}
+
+export interface TeamAttendance {
+  day: string;
+  timeZone: string;
+  people: {
+    user: { id: string; name: string | null; email: string };
+    sessions: AttendanceSession[];
+    firstIn: string | null;
+    lastOut: string | null;
+    clockedIn: boolean;
+    workedSeconds: number;
+  }[];
+}
+
+/** Who clocked in on a day ("YYYY-MM-DD", default today) — everyone, or just you with an "own" data scope. */
+export function getTeamAttendance(day?: string) {
+  return request<TeamAttendance>(`/attendance/team${day ? `?day=${day}` : ""}`);
 }
 
 // --- WhatsApp channels ---

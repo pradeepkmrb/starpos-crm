@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QUOTATION_STATUSES, QUOTATION_STATUS_LABELS, formatInr, roleAtLeast, type QuotationStatus, type TenantRole } from "@starpos-crm/shared";
+import { QUOTATION_STATUSES, QUOTATION_STATUS_LABELS, formatInr, type QuotationStatus } from "@starpos-crm/shared";
 import {
   ApiError,
   type BusinessProfile,
@@ -10,7 +10,6 @@ import {
   getAccessToken,
   getBusinessProfile,
   listQuotations,
-  me,
   saveBusinessProfile,
 } from "../../../lib/api";
 import { Drawer } from "../../../components/Drawer";
@@ -21,6 +20,7 @@ import { PlusIcon, ReceiptIcon, SearchIcon, SlidersIcon } from "../../../compone
 import { QuotationBuilder } from "../../../components/sales/QuotationBuilder";
 import { QuotationStatusBadge, QuotationView } from "../../../components/sales/QuotationView";
 import { PaymentForm } from "../../../components/sales/PaymentForm";
+import { useAccess } from "../../../components/AccessContext";
 
 type Filter = "all" | QuotationStatus;
 
@@ -30,9 +30,9 @@ function day(iso: string) {
 
 /** Every quotation in the workspace: build, send, and follow them to a yes. */
 export default function QuotationsPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [quotes, setQuotes] = useState<Quotation[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -42,8 +42,8 @@ export default function QuotationsPage() {
   const [paymentFor, setPaymentFor] = useState<Quotation | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const canEdit = role ? roleAtLeast(role, "agent") : false;
-  const isAdmin = role ? roleAtLeast(role, "admin") : false;
+  const canEdit = access.canEdit("quotations");
+  const isAdmin = access.seesAll && access.canEdit("quotations");
 
   const load = useCallback(async () => setQuotes(await listQuotations()), []);
 
@@ -52,9 +52,7 @@ export default function QuotationsPage() {
       router.push("/login");
       return;
     }
-    Promise.all([me(), load()])
-      .then(([meRes]) => setRole(meRes.role))
-      .catch((err) => {
+    load().catch((err) => {
         if (err instanceof ApiError && err.status === 401) router.push("/login");
         else setError(err instanceof ApiError ? err.message : "Could not load quotations");
       });

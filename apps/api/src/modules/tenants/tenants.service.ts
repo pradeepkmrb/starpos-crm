@@ -1,10 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "@starpos-crm/db";
 import { PrismaService } from "../../prisma/prisma.service";
+import { RolesService } from "../roles/roles.service";
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roles: RolesService,
+  ) {}
 
   /**
    * Accepts an optional transaction client so callers (AuthService.register)
@@ -32,6 +36,7 @@ export class TenantsService {
       },
     });
 
+    await this.roles.createDefaults(tenant.id, tx);
     return tenant;
   }
 

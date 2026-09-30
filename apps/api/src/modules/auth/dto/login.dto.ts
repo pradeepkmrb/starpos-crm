@@ -1,4 +1,4 @@
-import { IsEmail, IsString } from "class-validator";
+import { IsEmail, IsIn, IsOptional, IsString } from "class-validator";
 
 export class LoginDto {
   @IsEmail()
@@ -6,4 +6,9 @@ export class LoginDto {
 
   @IsString()
   password!: string;
+
+  /** The mobile app sends "mobile"; anything else is the web dashboard. */
+  @IsOptional()
+  @IsIn(["web", "mobile"])
+  client?: "web" | "mobile";
 }

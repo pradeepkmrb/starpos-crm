@@ -7,8 +7,10 @@ import {
   ACTIVITY_TYPE_LABELS,
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
-  roleAtLeast,
+  canEdit,
+  hasAccess,
   type LeadStatus,
+  type Permissions,
 } from "@starpos-crm/shared";
 import {
   ApiError,
@@ -42,13 +44,15 @@ import {
   UsersIcon,
 } from "../../components/icons";
 
+/** Each part is null when the person's role doesn't include the menu it comes from. */
 interface HomeData {
   user: AuthUser;
-  field: FieldSummary;
-  leads: LeadSummary;
-  analytics: AnalyticsOverview;
-  audience: number;
-  broadcasts: number;
+  permissions: Permissions;
+  field: FieldSummary | null;
+  leads: LeadSummary | null;
+  analytics: AnalyticsOverview | null;
+  audience: number | null;
+  broadcasts: number | null;
 }
 
 const STAGE_BAR: Record<LeadStatus, string> = {
@@ -84,21 +88,26 @@ export default function DashboardPage() {
     (async () => {
       try {
         const meRes = await me();
+        const p = meRes.permissions;
+        const when = <T,>(allowed: boolean, load: () => Promise<T>) => (allowed ? load() : Promise.resolve(null));
         const [field, leads, analytics, campaigns, contacts] = await Promise.all([
-          // Admins see the whole team's numbers; reps see their own.
-          getFieldSummary(roleAtLeast(meRes.role, "admin") ? "team" : "me"),
-          getLeadSummary(),
-          getAnalyticsOverview(30),
-          listCampaigns(),
-          listContacts(),
+          // Roles that see all records get the whole team's numbers; others their own.
+          when(hasAccess(p, ["leads", "follow_ups", "visits", "targets"], "view"), () =>
+            getFieldSummary(meRes.dataScope === "all" ? "team" : "me"),
+          ),
+          when(hasAccess(p, ["leads"], "view"), getLeadSummary),
+          when(hasAccess(p, ["analytics"], "view"), () => getAnalyticsOverview(30)),
+          when(hasAccess(p, ["broadcasts"], "view"), listCampaigns),
+          when(hasAccess(p, ["audience"], "view"), listContacts),
         ]);
         setData({
           user: meRes.user,
+          permissions: p,
           field,
           leads,
           analytics,
-          audience: contacts.length,
-          broadcasts: campaigns.length,
+          audience: contacts?.length ?? null,
+          broadcasts: campaigns?.length ?? null,
         });
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -114,13 +123,9 @@ export default function DashboardPage() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!data) return <HomeSkeleton />;
 
-  const { field, leads, analytics } = data;
+  const { field, leads, analytics, permissions } = data;
   const firstName = data.user.name?.split(" ")[0] ?? "";
-  const pipelineTotal = field.month.wonValuePaise + field.openPipeline.valuePaise;
-  const wonShare = pipelineTotal > 0 ? field.month.wonValuePaise / pipelineTotal : 0;
-  const scopeLabel = field.scope === "team" ? "Your team" : "You";
-  const target = field.targetPaise;
-  const targetPct = target ? Math.round((field.month.wonValuePaise / target) * 100) : 0;
+  const nothingToShow = !field && !leads && !analytics;
 
   return (
     <div className="space-y-6">
@@ -135,21 +140,79 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="flex gap-2">
-          <Link href="/dashboard/leads?new=1" className="btn-secondary">
-            <PlusIcon className="h-4 w-4" />
-            Add lead
-          </Link>
-          <Link href="/dashboard/quotations?new=1" className="btn-secondary">
-            <ReceiptIcon className="h-4 w-4" />
-            New quotation
-          </Link>
-          <Link href="/dashboard/campaigns" className="btn-primary">
-            <MegaphoneIcon className="h-4 w-4" />
-            New broadcast
-          </Link>
+          {canEdit(permissions, "leads") && (
+            <Link href="/dashboard/leads?new=1" className="btn-secondary">
+              <PlusIcon className="h-4 w-4" />
+              Add lead
+            </Link>
+          )}
+          {canEdit(permissions, "quotations") && (
+            <Link href="/dashboard/quotations?new=1" className="btn-secondary">
+              <ReceiptIcon className="h-4 w-4" />
+              New quotation
+            </Link>
+          )}
+          {canEdit(permissions, "broadcasts") && (
+            <Link href="/dashboard/campaigns" className="btn-primary">
+              <MegaphoneIcon className="h-4 w-4" />
+              New broadcast
+            </Link>
+          )}
         </div>
       </div>
 
+      {nothingToShow && (
+        <div className="card p-8 text-center text-sm text-slate-500">
+          Welcome! Use the menu on the left to get to the parts of StarPOS CRM your role includes.
+        </div>
+      )}
+
+      {field && <SalesOverview field={field} />}
+
+      {(leads || field) && (
+        <div className="grid gap-4 lg:grid-cols-5">
+          {leads && (
+            <section className={`card p-6 ${field ? "lg:col-span-3" : "lg:col-span-5"}`}>
+              <SectionHeader title="Pipeline" href="/dashboard/leads" linkLabel="Open leads" />
+              <PipelineBars summary={leads} />
+            </section>
+          )}
+          {field && <TodaysPlan field={field} wide={!leads} />}
+        </div>
+      )}
+
+      {analytics && (
+        <section className="card p-6">
+          <SectionHeader title="WhatsApp · last 30 days" href="/dashboard/analytics" linkLabel="Analytics" />
+          <div className="mt-4 grid gap-6 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
+              <MiniStat label="Delivery rate" value={`${Math.round(analytics.totals.deliveryRate * 100)}%`} />
+              <MiniStat label="Read rate" value={`${Math.round(analytics.totals.readRate * 100)}%`} />
+              {data.audience !== null && (
+                <MiniStat label="Audience" value={data.audience.toLocaleString("en-IN")} icon={UsersIcon} />
+              )}
+              {data.broadcasts !== null && <MiniStat label="Broadcasts" value={String(data.broadcasts)} icon={MegaphoneIcon} />}
+            </div>
+            <div className="lg:col-span-3">
+              <MessagesChart analytics={analytics} />
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** Won this month, today's count and the month's activity KPIs. */
+function SalesOverview({ field }: { field: FieldSummary }) {
+  const pipelineTotal = field.month.wonValuePaise + field.openPipeline.valuePaise;
+  const wonShare = pipelineTotal > 0 ? field.month.wonValuePaise / pipelineTotal : 0;
+  const scopeLabel = field.scope === "team" ? "Your team" : "You";
+  const target = field.targetPaise;
+  const targetPct = target ? Math.round((field.month.wonValuePaise / target) * 100) : 0;
+
+  return (
+    <>
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Hero */}
         <div className="relative overflow-hidden rounded-2.5xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 p-6 text-white shadow-brand lg:col-span-2">
@@ -240,13 +303,13 @@ export default function DashboardPage() {
         <Kpi icon={PresentationIcon} tint="bg-sky-50 text-sky-600" label="Demos" value={field.month.demos} />
         <Kpi icon={TrophyIcon} tint="bg-brand-50 text-brand-600" label="Closings" value={field.month.closings} />
       </div>
+    </>
+  );
+}
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <section className="card p-6 lg:col-span-3">
-          <SectionHeader title="Pipeline" href="/dashboard/leads" linkLabel="Open leads" />
-          <PipelineBars summary={leads} />
-        </section>
-        <section className="card p-6 lg:col-span-2">
+function TodaysPlan({ field, wide }: { field: FieldSummary; wide: boolean }) {
+  return (
+        <section className={`card p-6 ${wide ? "lg:col-span-5" : "lg:col-span-2"}`}>
           <SectionHeader title="Today's plan" href="/dashboard/follow-ups" linkLabel="All follow-ups" />
           {field.today.length === 0 ? (
             <EmptyHint text="Nothing scheduled today. Plan a call or visit from any lead." />
@@ -274,23 +337,6 @@ export default function DashboardPage() {
             </ul>
           )}
         </section>
-      </div>
-
-      <section className="card p-6">
-        <SectionHeader title="WhatsApp · last 30 days" href="/dashboard/analytics" linkLabel="Analytics" />
-        <div className="mt-4 grid gap-6 lg:grid-cols-4">
-          <div className="grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
-            <MiniStat label="Delivery rate" value={`${Math.round(analytics.totals.deliveryRate * 100)}%`} />
-            <MiniStat label="Read rate" value={`${Math.round(analytics.totals.readRate * 100)}%`} />
-            <MiniStat label="Audience" value={data.audience.toLocaleString("en-IN")} icon={UsersIcon} />
-            <MiniStat label="Broadcasts" value={String(data.broadcasts)} icon={MegaphoneIcon} />
-          </div>
-          <div className="lg:col-span-3">
-            <MessagesChart analytics={analytics} />
-          </div>
-        </div>
-      </section>
-    </div>
   );
 }
 

@@ -6,9 +6,11 @@ import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import { RolesGuard } from "../memberships/roles.guard";
 import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("billing")
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Access("billing")
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 

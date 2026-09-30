@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LEAD_STATUSES, roleAtLeast, type LeadStatus, type TenantRole } from "@starpos-crm/shared";
+import { LEAD_STATUSES, type LeadStatus } from "@starpos-crm/shared";
 import {
   ApiError,
   type CustomFieldDefinition,
@@ -33,6 +33,7 @@ import { FieldMappingEditor, describeTarget } from "./FieldMappingEditor";
 import { PageSkeleton } from "../../../../components/PageSkeleton";
 import { PageHeader, SectionCard } from "../../../../components/ui";
 import { CheckIcon, MegaphoneIcon, RefreshIcon } from "../../../../components/icons";
+import { useAccess } from "../../../../components/AccessContext";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -59,9 +60,9 @@ function unionQuestions(forms: MetaLeadFormLink[]): MetaFormQuestion[] {
 }
 
 export default function MetaLeadAdsPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [config, setConfig] = useState<PlatformPublicConfig | null>(null);
   const [connection, setConnection] = useState<MetaLeadConnection | null>(null);
   const [links, setLinks] = useState<MetaLeadFormLink[]>([]);
@@ -72,7 +73,7 @@ export default function MetaLeadAdsPage() {
   const [mappingFor, setMappingFor] = useState<string | null>(null);
   const [editingDefault, setEditingDefault] = useState(false);
 
-  const canManage = role ? roleAtLeast(role, "admin") : false;
+  const canManage = access.canEdit("integrations");
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -82,8 +83,7 @@ export default function MetaLeadAdsPage() {
     (async () => {
       try {
         const meRes = await me();
-        setRole(meRes.role);
-        if (!roleAtLeast(meRes.role, "admin")) return;
+        if (meRes.permissions.integrations !== "edit") return;
         const [configRes, connectionRes, linksRes, fieldsRes] = await Promise.all([
           getPlatformPublicConfig(),
           getMetaLeadConnection(),

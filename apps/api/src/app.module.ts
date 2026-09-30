@@ -25,6 +25,8 @@ import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
+import { RolesModule } from "./modules/roles/roles.module";
+import { AttendanceModule } from "./modules/attendance/attendance.module";
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
     JwtCoreModule,
     BullmqCoreModule,
     EntitlementsModule,
+    RolesModule,
     HealthModule,
     TenantsModule,
     MembershipsModule,
@@ -53,6 +56,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
     PublicApiModule,
     MediaModule,
     PushModule,
+    AttendanceModule,
   ],
 })
 export class AppModule implements NestModule {

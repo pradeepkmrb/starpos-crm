@@ -16,8 +16,6 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import { MetaApiExceptionFilter } from "../whatsapp/meta-api-exception.filter";
 import "../../common/request-context";
 import { CatalogueEnquiriesService } from "./catalogue-enquiries.service";
@@ -33,6 +31,7 @@ import { QuotationsService } from "./quotations.service";
 import { PaymentsService } from "./payments.service";
 import { TargetsService } from "./targets.service";
 import { renderQuotationPdf } from "./quotation-pdf";
+import { Access } from "../roles/access.decorator";
 
 /**
  * Where WhatsApp and customers fetch quote PDFs from. PUBLIC_API_URL wins;
@@ -47,8 +46,9 @@ function publicBaseUrl(req: Request): string {
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 @Controller("quotations")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @UseFilters(MetaApiExceptionFilter)
+@Access({ view: ["quotations", "leads", "payments"], edit: ["quotations"] })
 export class QuotationsController {
   constructor(private readonly quotations: QuotationsService) {}
 
@@ -70,7 +70,6 @@ export class QuotationsController {
   }
 
   @Put("settings")
-  @Roles("admin")
   saveSettings(@Req() req: Request, @Body() dto: BusinessProfileDto) {
     return this.quotations.saveProfile(req.tenantContext!.tenantId, dto);
   }
@@ -82,28 +81,24 @@ export class QuotationsController {
   }
 
   @Post()
-  @Roles("agent")
   async create(@Req() req: Request, @Body() dto: CreateQuotationDto) {
     const q = await this.quotations.create(req.tenantContext!, dto);
     return { ...q, pdfUrl: this.quotations.pdfUrl(publicBaseUrl(req), q.shareToken) };
   }
 
   @Patch(":id")
-  @Roles("agent")
   async update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateQuotationDto) {
     const q = await this.quotations.update(req.tenantContext!, id, dto);
     return { ...q, pdfUrl: this.quotations.pdfUrl(publicBaseUrl(req), q.shareToken) };
   }
 
   @Delete(":id")
-  @Roles("agent")
   remove(@Req() req: Request, @Param("id") id: string) {
     return this.quotations.remove(req.tenantContext!, id);
   }
 
   /** Sends the PDF over WhatsApp, or explains why not and returns a share link. */
   @Post(":id/send")
-  @Roles("agent")
   send(@Req() req: Request, @Param("id") id: string) {
     return this.quotations.send(req.tenantContext!, id, publicBaseUrl(req));
   }
@@ -130,7 +125,8 @@ export class PublicQuotationsController {
 }
 
 @Controller("payments")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access({ view: ["payments", "quotations", "leads"], edit: ["payments"] })
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
@@ -147,20 +143,19 @@ export class PaymentsController {
   }
 
   @Post()
-  @Roles("agent")
   create(@Req() req: Request, @Body() dto: CreatePaymentDto) {
     return this.payments.create(req.tenantContext!, dto);
   }
 
   @Delete(":id")
-  @Roles("agent")
   remove(@Req() req: Request, @Param("id") id: string) {
     return this.payments.remove(req.tenantContext!, id);
   }
 }
 
 @Controller("targets")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access("targets")
 export class TargetsController {
   constructor(private readonly targets: TargetsService) {}
 
@@ -173,7 +168,6 @@ export class TargetsController {
   }
 
   @Put()
-  @Roles("admin")
   set(@Req() req: Request, @Body() dto: SetTargetDto) {
     return this.targets.set(req.tenantContext!, dto);
   }

@@ -110,6 +110,21 @@ export function monthRange(month: string, timeZone: string): { start: Date; end:
   return { start: zonedMidnight(year, m, 1, timeZone), end: zonedMidnight(m === 12 ? year + 1 : year, m === 12 ? 1 : m + 1, 1, timeZone) };
 }
 
+/** The "YYYY-MM-DD" calendar day a moment falls on, in the given time zone. */
+export function dayKey(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+/** The UTC instants a "YYYY-MM-DD" day starts and ends at in a time zone. */
+export function dayRange(day: string, timeZone: string): { start: Date; end: Date } {
+  const [year, month, d] = day.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, d + 1));
+  return {
+    start: zonedMidnight(year, month, d, timeZone),
+    end: zonedMidnight(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), timeZone),
+  };
+}
+
 /** Midnight on a calendar date in a time zone, as a UTC Date. */
 function zonedMidnight(year: number, month: number, day: number, timeZone: string): Date {
   const guess = Date.UTC(year, month - 1, day);

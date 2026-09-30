@@ -4,9 +4,8 @@ import { IntegrationsService } from "./integrations.service";
 import { ConnectIntegrationDto } from "./dto/connect-integration.dto";
 import { SetIntegrationActiveDto } from "./dto/set-integration-active.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 /**
  * Every route is tenant-scoped through req.tenantContext, so a workspace only
@@ -14,7 +13,8 @@ import "../../common/request-context";
  * admin-level work; reading the catalog is not.
  */
 @Controller("integrations")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access("integrations")
 export class IntegrationsController {
   constructor(private readonly integrations: IntegrationsService) {}
 
@@ -30,7 +30,6 @@ export class IntegrationsController {
 
   /** Connects the provider, or replaces the keys of one already connected. */
   @Post(":provider/connect")
-  @Roles("admin")
   connect(
     @Req() req: Request,
     @Param("provider") provider: string,
@@ -42,13 +41,11 @@ export class IntegrationsController {
 
   /** Re-checks the stored keys against the provider and records the result. */
   @Post(":provider/test")
-  @Roles("admin")
   test(@Req() req: Request, @Param("provider") provider: string) {
     return this.integrations.test(req.tenantContext!.tenantId, provider);
   }
 
   @Patch(":provider")
-  @Roles("admin")
   setActive(
     @Req() req: Request,
     @Param("provider") provider: string,
@@ -59,7 +56,6 @@ export class IntegrationsController {
 
   /** Disconnects and erases the stored credentials. */
   @Delete(":provider")
-  @Roles("admin")
   disconnect(@Req() req: Request, @Param("provider") provider: string) {
     return this.integrations.disconnect(req.tenantContext!.tenantId, provider);
   }

@@ -11,6 +11,7 @@ import {
   type QuotationStatus,
 } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
+import { visibleLeadsWhere, visibleViaLead } from "../../common/lead-visibility";
 import type { TenantRequestContext } from "../../common/request-context";
 import { normalizeWhatsappNumber } from "../../common/phone";
 import { MetaGraphClient } from "../whatsapp/meta-graph.client";
@@ -73,6 +74,7 @@ export class QuotationsService {
     const rows = await this.prisma.quotation.findMany({
       where: {
         tenantId: ctx.tenantId,
+        ...visibleViaLead(ctx),
         ...(options.leadId ? { leadId: options.leadId } : {}),
         ...((QUOTATION_STATUSES as readonly string[]).includes(options.status ?? "")
           ? { status: options.status as QuotationStatus }
@@ -86,13 +88,19 @@ export class QuotationsService {
   }
 
   async get(ctx: TenantRequestContext, id: string) {
-    const q = await this.prisma.quotation.findFirst({ where: { id, tenantId: ctx.tenantId }, include: QUOTATION_INCLUDE });
+    const q = await this.prisma.quotation.findFirst({
+      where: { id, tenantId: ctx.tenantId, ...visibleViaLead(ctx) },
+      include: QUOTATION_INCLUDE,
+    });
     if (!q) throw new NotFoundException("Quotation not found");
     return present(q);
   }
 
   async create(ctx: TenantRequestContext, dto: CreateQuotationDto) {
-    const lead = await this.prisma.lead.findFirst({ where: { id: dto.leadId, tenantId: ctx.tenantId }, select: { id: true } });
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: dto.leadId, tenantId: ctx.tenantId, AND: [visibleLeadsWhere(ctx)] },
+      select: { id: true },
+    });
     if (!lead) throw new NotFoundException("Lead not found");
     const items = await this.resolveItems(ctx.tenantId, dto.items);
     const totals = quoteTotals(items, dto.discountPaise ?? 0);
@@ -136,7 +144,7 @@ export class QuotationsService {
 
   async update(ctx: TenantRequestContext, id: string, dto: UpdateQuotationDto) {
     const existing = await this.prisma.quotation.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId: ctx.tenantId, ...visibleViaLead(ctx) },
       include: { lead: { select: { id: true, status: true } } },
     });
     if (!existing) throw new NotFoundException("Quotation not found");
@@ -199,7 +207,7 @@ export class QuotationsService {
   /** Drafts can be discarded by whoever made them; anything already sent needs an admin. */
   async remove(ctx: TenantRequestContext, id: string) {
     const q = await this.prisma.quotation.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId: ctx.tenantId, ...visibleViaLead(ctx) },
       select: { id: true, status: true, createdByUserId: true },
     });
     if (!q) throw new NotFoundException("Quotation not found");
@@ -218,7 +226,7 @@ export class QuotationsService {
    */
   async send(ctx: TenantRequestContext, id: string, publicBaseUrl: string): Promise<SendResult> {
     const q = await this.prisma.quotation.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId: ctx.tenantId, ...visibleViaLead(ctx) },
       include: { lead: { select: { name: true, company: true, phone: true } }, tenant: { select: { name: true } } },
     });
     if (!q) throw new NotFoundException("Quotation not found");

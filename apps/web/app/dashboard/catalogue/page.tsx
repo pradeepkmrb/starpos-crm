@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
+
 import {
   ApiError,
   type AuthTenant,
@@ -23,14 +23,15 @@ import { BoxIcon, CameraIcon, ChevronRightIcon, LinkIcon, PlusIcon, SearchIcon, 
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { useToast } from "../../../components/Toaster";
 import { EmptyState, PageHeader } from "../../../components/ui";
+import { useAccess } from "../../../components/AccessContext";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD"];
 
 export default function CataloguePage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [tenant, setTenant] = useState<AuthTenant | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,6 @@ export default function CataloguePage() {
     (async () => {
       try {
         const [meRes, productsRes] = await Promise.all([me(), listProducts()]);
-        setRole(meRes.role);
         setTenant(meRes.tenant);
         setProducts(productsRes);
       } catch (err) {
@@ -67,7 +67,7 @@ export default function CataloguePage() {
     })();
   }, [router]);
 
-  const canManage = role ? roleAtLeast(role, "admin") : false;
+  const canManage = access.canEdit("catalogue");
 
   // Built in the browser so the link always points at the deployment the
   // operator is actually using.

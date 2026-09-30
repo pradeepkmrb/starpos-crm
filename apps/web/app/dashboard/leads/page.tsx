@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, roleAtLeast, type LeadStatus, type TenantRole } from "@starpos-crm/shared";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, type LeadStatus } from "@starpos-crm/shared";
 import {
   ApiError,
   type Lead,
@@ -18,7 +18,6 @@ import {
   listCustomFields,
   listLeads,
   listMembers,
-  me,
   updateLead,
 } from "../../../lib/api";
 import { mapsLink } from "../../../lib/activities";
@@ -38,6 +37,7 @@ import {
 import { LeadForm } from "./LeadForm";
 import { LeadActivities } from "./LeadActivities";
 import { LeadDeals } from "../../../components/sales/LeadDeals";
+import { useAccess } from "../../../components/AccessContext";
 
 type View = "board" | "table";
 const VIEW_KEY = "starpos_crm_leads_view";
@@ -83,10 +83,10 @@ function initials(name: string): string {
 }
 
 export default function LeadsPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -101,9 +101,9 @@ export default function LeadsPage() {
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const canEdit = role ? roleAtLeast(role, "agent") : false;
-  const canDelete = role ? roleAtLeast(role, "admin") : false;
-  const canManageFields = role ? roleAtLeast(role, "admin") : false;
+  const canEdit = access.canEdit("leads");
+  const canDelete = access.canEdit("leads");
+  const canManageFields = access.canEdit("lead_fields");
 
   const reload = useCallback(async () => {
     const [leadsRes, summaryRes] = await Promise.all([listLeads({ limit: 500 }), getLeadSummary()]);
@@ -138,14 +138,12 @@ export default function LeadsPage() {
     }
     (async () => {
       try {
-        const [meRes, leadsRes, fieldsRes, summaryRes, membersRes] = await Promise.all([
-          me(),
+        const [leadsRes, fieldsRes, summaryRes, membersRes] = await Promise.all([
           listLeads({ limit: 500 }),
           listCustomFields("lead"),
           getLeadSummary(),
           listMembers().catch(() => [] as Member[]),
         ]);
-        setRole(meRes.role);
         setLeads(leadsRes);
         setFields(fieldsRes);
         setSummary(summaryRes);

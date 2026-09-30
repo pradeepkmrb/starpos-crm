@@ -2,12 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CHANNEL_LABELS,
-  CHANNEL_SHORT_LABELS,
-  roleAtLeast,
-  type TenantRole,
-} from "@starpos-crm/shared";
+import { CHANNEL_LABELS, CHANNEL_SHORT_LABELS, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Contact,
@@ -43,6 +38,7 @@ import { Drawer } from "../../../components/Drawer";
 import { useToast } from "../../../components/Toaster";
 import { EmptyState, PageHeader, SectionCard, StatTile } from "../../../components/ui";
 import { CheckIcon, ChevronDownIcon, DocumentIcon, ListIcon, PlusIcon, SearchIcon, UsersIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 /** Matches the server's own ceiling on ?limit=. */
 const CONTACT_FETCH_LIMIT = 5000;
@@ -109,6 +105,7 @@ function downloadCsv(contacts: Contact[], fields: CustomFieldDefinition[]) {
 }
 
 export default function ContactsPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -333,7 +330,7 @@ export default function ContactsPage() {
   if (loading) return <PageSkeleton />;
   if (!role) return null;
 
-  const canManage = roleAtLeast(role, "admin");
+  const canManage = access.canEdit("audience");
 
   const optedIn = contacts.filter((c) => c.optedIn).length;
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();

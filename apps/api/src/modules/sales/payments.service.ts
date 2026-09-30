@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from "@starpos-crm/db";
 import { PAYMENT_MODE_LABELS, formatInr, roleAtLeast } from "@starpos-crm/shared";
 import { PrismaService } from "../../prisma/prisma.service";
+import { visibleLeadsWhere, visibleViaLead } from "../../common/lead-visibility";
 import type { TenantRequestContext } from "../../common/request-context";
 import { parseDate } from "../field-sales/activities.service";
 import { CreatePaymentDto } from "./dto/sales.dto";
@@ -29,6 +30,7 @@ export class PaymentsService {
     return this.prisma.payment.findMany({
       where: {
         tenantId: ctx.tenantId,
+        ...visibleViaLead(ctx),
         ...(options.leadId ? { leadId: options.leadId } : {}),
         ...(options.quotationId ? { quotationId: options.quotationId } : {}),
         ...(collector ? { collectedByUserId: collector } : {}),
@@ -41,7 +43,10 @@ export class PaymentsService {
   }
 
   async create(ctx: TenantRequestContext, dto: CreatePaymentDto) {
-    const lead = await this.prisma.lead.findFirst({ where: { id: dto.leadId, tenantId: ctx.tenantId }, select: { id: true } });
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: dto.leadId, tenantId: ctx.tenantId, AND: [visibleLeadsWhere(ctx)] },
+      select: { id: true },
+    });
     if (!lead) throw new NotFoundException("Lead not found");
     if (dto.quotationId) {
       const quote = await this.prisma.quotation.findFirst({

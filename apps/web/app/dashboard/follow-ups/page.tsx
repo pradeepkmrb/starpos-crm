@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ACTIVITY_TYPE_LABELS, roleAtLeast, type TenantRole } from "@starpos-crm/shared";
-import { ApiError, type Activity, getAccessToken, listActivities, me, updateActivity } from "../../../lib/api";
+import { ACTIVITY_TYPE_LABELS } from "@starpos-crm/shared";
+import { ApiError, type Activity, getAccessToken, listActivities, updateActivity } from "../../../lib/api";
 import { addDays, formatWhen, localInputToIso, startOfDay } from "../../../lib/activities";
 import { StatusBadge } from "../leads/LeadActivities";
 import { ActivityIcon } from "../../../components/ActivityIcon";
 import { CheckIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 type Tab = "today" | "upcoming" | "overdue";
 const TABS: { key: Tab; label: string }[] = [
@@ -31,8 +32,8 @@ function windowFor(tab: Tab, now = new Date()): { from?: string; to?: string } {
  * attend, follow-ups to chase — split into today, later and overdue.
  */
 export default function FollowUpsPage() {
+  const access = useAccess();
   const router = useRouter();
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [tab, setTab] = useState<Tab>("today");
   const [scope, setScope] = useState<"me" | "everyone">("me");
   const [lists, setLists] = useState<Record<Tab, Activity[]> | null>(null);
@@ -41,7 +42,7 @@ export default function FollowUpsPage() {
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [newTime, setNewTime] = useState("");
 
-  const canEdit = role ? roleAtLeast(role, "agent") : false;
+  const canEdit = access.canEdit("follow_ups");
 
   const load = useCallback(async () => {
     const owner = scope === "me" ? "me" : undefined;
@@ -58,8 +59,7 @@ export default function FollowUpsPage() {
     }
     (async () => {
       try {
-        const [meRes] = await Promise.all([me(), load()]);
-        setRole(meRes.role);
+        await load();
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           router.push("/login");

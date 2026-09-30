@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { roleAtLeast, type TenantRole } from "@starpos-crm/shared";
+import { type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Channel,
@@ -22,6 +22,7 @@ import { useToast } from "../../../components/Toaster";
 import { EmptyState, PageHeader } from "../../../components/ui";
 import { DocumentIcon, MegaphoneIcon, PlugIcon, PlusIcon, RefreshIcon, SearchIcon } from "../../../components/icons";
 import Link from "next/link";
+import { useAccess } from "../../../components/AccessContext";
 
 const STATUS_BADGE: Record<MessageTemplate["status"], string> = {
   draft: "badge-neutral",
@@ -155,6 +156,7 @@ function TemplateBubble({
 }
 
 export default function TemplatesPage() {
+  const access = useAccess();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -261,7 +263,7 @@ export default function TemplatesPage() {
   if (loading) return <PageSkeleton />;
   if (!role) return null;
 
-  const canManage = roleAtLeast(role, "admin");
+  const canManage = access.canEdit("templates");
 
   const countOf = (key: StatusFilter) => (key === "all" ? templates.length : templates.filter((t) => t.status === key).length);
 

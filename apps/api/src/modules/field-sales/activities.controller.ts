@@ -5,12 +5,12 @@ import { ActivitiesService, parseDate } from "./activities.service";
 import { FieldSummaryService } from "./field-summary.service";
 import { CheckInDto, CheckOutDto, CreateActivityDto, UpdateActivityDto } from "./dto/activity.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("activities")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access({ view: ["leads", "follow_ups", "visits"], edit: ["leads", "follow_ups", "visits"] })
 export class ActivitiesController {
   constructor(private readonly activities: ActivitiesService) {}
 
@@ -44,39 +44,35 @@ export class ActivitiesController {
 
   /** Agent-level, like leads: logging calls and visits is the day job. */
   @Post()
-  @Roles("agent")
   create(@Req() req: Request, @Body() dto: CreateActivityDto) {
     return this.activities.create(req.tenantContext!, dto);
   }
 
   /** Start a visit at the rep's current location (see ActivitiesService.checkIn). */
   @Post("check-in")
-  @Roles("agent")
   checkIn(@Req() req: Request, @Body() dto: CheckInDto) {
     return this.activities.checkIn(req.tenantContext!, dto);
   }
 
   @Post(":id/check-out")
-  @Roles("agent")
   checkOut(@Req() req: Request, @Param("id") id: string, @Body() dto: CheckOutDto) {
     return this.activities.checkOut(req.tenantContext!, id, dto);
   }
 
   @Patch(":id")
-  @Roles("agent")
   update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateActivityDto) {
     return this.activities.update(req.tenantContext!, id, dto);
   }
 
   @Delete(":id")
-  @Roles("agent")
   remove(@Req() req: Request, @Param("id") id: string) {
     return this.activities.remove(req.tenantContext!, id);
   }
 }
 
 @Controller("field")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access({ view: ["leads", "follow_ups", "visits", "targets"] })
 export class FieldController {
   constructor(private readonly summaryService: FieldSummaryService) {}
 

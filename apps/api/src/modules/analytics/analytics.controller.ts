@@ -4,9 +4,11 @@ import { AnalyticsService } from "./analytics.service";
 import { AnalyticsQueryDto } from "./dto/analytics-query.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
 import "../../common/request-context";
+import { Access } from "../roles/access.decorator";
 
 @Controller("analytics")
 @UseGuards(JwtAuthGuard)
+@Access("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

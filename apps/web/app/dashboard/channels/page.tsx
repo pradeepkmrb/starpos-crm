@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNEL_LABELS, roleAtLeast, type ChannelType, type TenantRole } from "@starpos-crm/shared";
+import { CHANNEL_LABELS, type ChannelType, type TenantRole } from "@starpos-crm/shared";
 import {
   ApiError,
   type Channel,
@@ -23,6 +23,7 @@ import { EmailCard } from "./EmailCard";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { PageHeader } from "../../../components/ui";
 import { CameraIcon, ChatIcon, MailIcon, MessengerIcon, PlugIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 const CHANNEL_TILES: { type: ChannelType; title: string; blurb: string; icon: typeof ChatIcon; tint: string }[] = [
   { type: "whatsapp", title: "WhatsApp", blurb: "Broadcasts, chats and flows", icon: ChatIcon, tint: "bg-brand-50 text-brand-600" },
@@ -37,6 +38,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const META_WEBHOOK_URL = `${API_URL}/webhooks/meta`;
 
 export default function ChannelsPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<TenantRole | null>(null);
@@ -90,7 +92,7 @@ export default function ChannelsPage() {
   if (error) return <p className="text-red-600">{error}</p>;
   if (!role) return null;
 
-  const canManage = roleAtLeast(role, "admin");
+  const canManage = access.canEdit("connections");
   const connectedTypes = connections.filter((c) => c.status === "active").map((c) => c.type);
 
   const isConnected = (type: ChannelType) =>

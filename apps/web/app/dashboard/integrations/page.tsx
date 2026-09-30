@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  INTEGRATION_CATEGORY_LABELS,
-  roleAtLeast,
-  type IntegrationCategory,
-  type TenantRole,
-} from "@starpos-crm/shared";
+import { INTEGRATION_CATEGORY_LABELS, type IntegrationCategory } from "@starpos-crm/shared";
 import {
   ApiError,
   type Integration,
@@ -27,11 +22,12 @@ import { FacebookGlyph } from "./meta-lead-ads/ConnectMetaButton";
 import { PageSkeleton } from "../../../components/PageSkeleton";
 import { PageHeader } from "../../../components/ui";
 import { PlugIcon as PlugHeaderIcon } from "../../../components/icons";
+import { useAccess } from "../../../components/AccessContext";
 
 export default function IntegrationsPage() {
+  const access = useAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<TenantRole | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,7 +36,7 @@ export default function IntegrationsPage() {
   const [metaLeads, setMetaLeads] = useState<MetaLeadConnection | null>(null);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
 
-  const canManage = role ? roleAtLeast(role, "admin") : false;
+  const canManage = access.canEdit("integrations");
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -50,10 +46,9 @@ export default function IntegrationsPage() {
     (async () => {
       try {
         const [meRes, list] = await Promise.all([me(), listIntegrations()]);
-        setRole(meRes.role);
         setIntegrations(list);
         // Admin-only endpoint; everyone else just sees the card unconnected.
-        if (roleAtLeast(meRes.role, "admin")) {
+        if (meRes.permissions.integrations === "edit") {
           setMetaLeads((await getMetaLeadConnection().catch(() => ({ connection: null }))).connection);
         }
       } catch (err) {

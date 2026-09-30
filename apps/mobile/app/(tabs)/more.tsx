@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { Avatar } from "@/components/Photo";
 import { Card, ErrorText } from "@/components/ui";
+import { ClockCard } from "@/components/ClockCard";
 import { API_URL, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { choosePhoto, PhotoError } from "@/lib/photos";
 import { colors, radius, shadow, space } from "@/theme";
 
-const WEB_DASHBOARD = "https://digitel.touch4bill.com/dashboard";
+const WEB_DASHBOARD = "https://starcrm.in/dashboard";
 
 /** Profile & settings (mockup screen 16). */
 export default function MoreScreen() {
@@ -58,22 +59,29 @@ export default function MoreScreen() {
           </View>
         </Pressable>
         <Text style={styles.name}>{name}</Text>
-        <Text style={[styles.muted, { textTransform: "capitalize" }]}>
-          {me.role} · {me.tenant.name}
+        <Text style={styles.muted}>
+          {me.roleName} · {me.tenant.name}
         </Text>
         <Text style={[styles.muted, { marginTop: 2 }]}>{me.user.email}</Text>
       </Card>
       <ErrorText text={error} />
 
+      <ClockCard />
+
       <Card style={{ paddingVertical: 0 }}>
         <Row icon="camera-outline" label={me.user.avatarUrl ? "Change profile photo" : "Add profile photo"} onPress={() => void changePhoto()} />
-        <Row icon="desktop-outline" label="Open web dashboard" onPress={() => void Linking.openURL(WEB_DASHBOARD)} />
+        {me.webAccess && (
+          <Row icon="desktop-outline" label="Open web dashboard" onPress={() => void Linking.openURL(WEB_DASHBOARD)} />
+        )}
         <Row icon="log-out-outline" label="Log out" danger last onPress={() => void signOut()} />
       </Card>
 
-      <Text style={[styles.muted, { textAlign: "center" }]}>
-        StarPOS CRM {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
-      </Text>
+      <View style={{ alignItems: "center", gap: space.xs, marginTop: space.sm }}>
+        <Image source={require("../../assets/starpos-logo.webp")} style={styles.footerLogo} resizeMode="contain" />
+        <Text style={[styles.muted, { textAlign: "center" }]}>
+          StarPOS CRM {Constants.expoConfig?.version ?? ""} · {API_URL.replace(/^https?:\/\//, "")}
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -141,4 +149,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowLabel: { flex: 1, fontSize: 15, fontWeight: "500", color: colors.ink },
+  footerLogo: { width: 120, height: 40 },
 });

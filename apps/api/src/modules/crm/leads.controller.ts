@@ -4,12 +4,13 @@ import { LeadsService } from "./leads.service";
 import { CreateLeadDto } from "./dto/create-lead.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { JwtAuthGuard } from "../memberships/jwt-auth.guard";
-import { RolesGuard } from "../memberships/roles.guard";
-import { Roles } from "../memberships/roles.decorator";
 import "../../common/request-context";
+import { visibleLeadsWhere } from "../../common/lead-visibility";
+import { Access } from "../roles/access.decorator";
 
 @Controller("leads")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
+@Access({ view: ["leads", "follow_ups", "visits", "quotations", "payments", "targets"], edit: ["leads"] })
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 
@@ -29,7 +30,14 @@ export class LeadsController {
     // "me" for an API-key caller (no user) matches nobody rather than everybody.
     const ownerUserId =
       owner === "me" ? ctx.userId || "__nobody__" : owner === "unassigned" ? null : owner || undefined;
-    return this.leadsService.list(ctx.tenantId, { status, search, take, ownerUserId, hot: hot === "true" });
+    return this.leadsService.list(ctx.tenantId, {
+      status,
+      search,
+      take,
+      ownerUserId,
+      hot: hot === "true",
+      visibility: visibleLeadsWhere(ctx),
+    });
   }
 
   /**
@@ -54,35 +62,36 @@ export class LeadsController {
     const ctx = req.tenantContext!;
     const ownerUserId =
       owner === "me" ? ctx.userId || "__nobody__" : owner === "unassigned" ? null : owner || undefined;
-    return this.leadsService.nearby(ctx.tenantId, { latitude, longitude }, radiusMeters, { ownerUserId });
+    return this.leadsService.nearby(ctx.tenantId, { latitude, longitude }, radiusMeters, {
+      ownerUserId,
+      visibility: visibleLeadsWhere(ctx),
+    });
   }
 
   /** Declared before :id so "summary" isn't read as a lead id. */
   @Get("summary")
   summary(@Req() req: Request) {
-    return this.leadsService.summary(req.tenantContext!.tenantId);
+    return this.leadsService.summary(req.tenantContext!.tenantId, visibleLeadsWhere(req.tenantContext!));
   }
 
   @Get(":id")
   get(@Req() req: Request, @Param("id") id: string) {
-    return this.leadsService.get(req.tenantContext!.tenantId, id);
+    return this.leadsService.get(req.tenantContext!.tenantId, id, visibleLeadsWhere(req.tenantContext!));
   }
 
   /** Agent-level: capturing and working leads is the day job, not an admin task. */
   @Post()
-  @Roles("agent")
   create(@Req() req: Request, @Body() dto: CreateLeadDto) {
     return this.leadsService.create(req.tenantContext!.tenantId, dto, req.tenantContext!.userId);
   }
 
   @Patch(":id")
-  @Roles("agent")
   update(@Req() req: Request, @Param("id") id: string, @Body() dto: UpdateLeadDto) {
-    return this.leadsService.update(req.tenantContext!.tenantId, id, dto, req.tenantContext!.userId);
+    const ctx = req.tenantContext!;
+    return this.leadsService.update(ctx.tenantId, id, dto, ctx.userId, visibleLeadsWhere(ctx));
   }
 
   @Delete(":id")
-  @Roles("admin")
   remove(@Req() req: Request, @Param("id") id: string) {
     return this.leadsService.remove(req.tenantContext!.tenantId, id);
   }

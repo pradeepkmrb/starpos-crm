@@ -42,6 +42,8 @@ const TENANT_SCOPED_MODELS = new Set([
   "Product",
   "Subscription",
   "Invoice",
+  "Role",
+  "Attendance",
 ]);
 
 const WHERE_ACTIONS = new Set([
